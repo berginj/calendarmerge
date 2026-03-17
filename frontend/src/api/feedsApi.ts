@@ -60,3 +60,39 @@ export async function deleteFeed(feedId: string): Promise<void> {
     throw new Error(error.error || 'Failed to delete feed');
   }
 }
+
+// Settings API
+
+export interface AppSettings {
+  refreshSchedule: 'every-15-min' | 'hourly' | 'every-2-hours' | 'business-hours' | 'manual-only';
+  lastUpdated: string;
+}
+
+export async function getSettings(): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/settings`);
+
+  if (!res.ok) {
+    throw new Error('Failed to get settings');
+  }
+
+  const data = await res.json();
+  return data.settings;
+}
+
+export async function updateSettings(
+  settings: Partial<AppSettings>
+): Promise<AppSettings> {
+  const res = await fetch(`${API_BASE}/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.error || 'Failed to update settings');
+  }
+
+  const data = await res.json();
+  return data.settings;
+}

@@ -4,4 +4,6 @@ import "./functions/feedsList";
 import "./functions/feedUpdate";
 import "./functions/health";
 import "./functions/manualRefresh";
+import "./functions/settingsGet";
+import "./functions/settingsUpdate";
 import "./functions/timerRefresh";

@@ -47,6 +47,34 @@ body {
   color: var(--text-secondary);
 }
 
+.app-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.nav-button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.nav-button:hover {
+  color: var(--primary-color);
+}
+
+.nav-button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
+}
+
 .app-main {
   flex: 1;
   max-width: 1200px;
@@ -229,6 +257,127 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.settings-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-container h2 {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.settings-container h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.settings-section {
+  background: var(--card-bg);
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+  margin-bottom: 2rem;
+}
+
+.settings-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.schedule-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.schedule-option {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.schedule-option:hover {
+  border-color: var(--primary-color);
+  background: var(--bg-gradient-start);
+}
+
+.schedule-option.selected {
+  border-color: var(--primary-color);
+  background: rgba(15, 118, 110, 0.05);
+}
+
+.schedule-option input[type="radio"] {
+  margin-right: 1rem;
+  cursor: pointer;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+.option-content {
+  flex: 1;
+}
+
+.option-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.option-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.last-updated {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 1rem;
+  text-align: right;
+}
+
+.settings-info {
+  background: var(--card-bg);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+.settings-info h4 {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+}
+
+.settings-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.settings-info li {
+  padding: 0.5rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.settings-info li strong {
+  color: var(--text-primary);
+}
+
+.success-message {
+  background: #d1fae5;
+  color: #065f46;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .feed-list {
     grid-template-columns: 1fr;
@@ -240,5 +389,18 @@ button:disabled {
 
   .form-actions {
     flex-direction: column;
+  }
+
+  .settings-container {
+    padding: 0;
+  }
+
+  .schedule-option {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .schedule-option input[type="radio"] {
+    margin-right: 0;
   }
 }
