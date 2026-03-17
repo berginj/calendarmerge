@@ -30,6 +30,12 @@
 - `calendar.ics` is only replaced when all feeds succeed, or when there is no previous good calendar and at least one feed succeeds.
 - If some feeds fail and a prior `calendar.ics` already exists, the service keeps that last known good file and records the errors in `status.json`.
 
+**Duplicate Detection:**
+- Two-stage deduplication removes duplicate events
+- Stage 1: Identity-based (UID or summary+time+location)
+- Stage 2: Same-day deduplication (catches duplicates across sources with different times)
+- See [DUPLICATE_DETECTION.md](DUPLICATE_DETECTION.md) for details
+
 ## Config
 
 The app reads configuration from Azure Functions app settings or `local.settings.json`.
