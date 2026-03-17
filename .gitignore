@@ -4,3 +4,4 @@ dist/
 .azure/
 coverage/
 local.settings.json
+.claude/

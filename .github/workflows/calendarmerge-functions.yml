@@ -1,10 +1,14 @@
-name: Deploy Calendar Merge Functions
+name: Deploy Calendar Merge
 
 on:
   push:
     branches: ["main"]
     paths:
-      - "calendarmerge/**"
+      - "src/**"
+      - "frontend/**"
+      - "scripts/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/calendarmerge-functions.yml"
   workflow_dispatch:
 
@@ -15,9 +19,6 @@ permissions:
 jobs:
   test_and_deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: calendarmerge
     steps:
       - uses: actions/checkout@v4
 
@@ -25,17 +26,24 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: calendarmerge/package-lock.json
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Run backend tests
         run: npm test
 
-      - name: Build deployment package
+      - name: Build backend deployment package
         shell: pwsh
         run: ./scripts/azure/package-functions.ps1
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
       - name: Azure login
         uses: azure/login@v2
@@ -44,9 +52,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy Function App zip package
+      - name: Deploy Function App
         run: >
           az functionapp deployment source config-zip
           --resource-group "${{ vars.AZ_RESOURCE_GROUP }}"
           --name "${{ vars.AZ_FUNCTIONAPP_NAME }}"
           --src ".artifacts/calendarmerge-functions.zip"
+
+      - name: Deploy Frontend to Blob Storage
+        run: |
+          az storage blob upload-batch \
+            --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
+            --destination '$web/manage' \
+            --source "./frontend/build" \
+            --overwrite true \
+            --auth-mode login

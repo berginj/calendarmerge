@@ -127,6 +127,7 @@ $settings = @{
   FETCH_TIMEOUT_MS = $FetchTimeoutMs
   FETCH_RETRY_COUNT = $FetchRetryCount
   FETCH_RETRY_DELAY_MS = $FetchRetryDelayMs
+  ENABLE_TABLE_STORAGE = "false"
   WEBSITE_RUN_FROM_PACKAGE = "1"
 }
 
@@ -181,6 +182,22 @@ if (-not $existingRoleAssignment) {
     --output none | Out-Null
 }
 
+$existingTableRoleAssignment = Invoke-AzCli -IgnoreErrors role assignment list `
+  --assignee-object-id $principalId `
+  --scope $storageAccountId `
+  --role "Storage Table Data Contributor" `
+  --query "[0].id" `
+  --output tsv
+
+if (-not $existingTableRoleAssignment) {
+  Invoke-AzCli role assignment create `
+    --assignee-object-id $principalId `
+    --assignee-principal-type ServicePrincipal `
+    --scope $storageAccountId `
+    --role "Storage Table Data Contributor" `
+    --output none | Out-Null
+}
+
 $storageAccountKey = Invoke-AzCli storage account keys list `
   --resource-group $ResourceGroup `
   --account-name $StorageAccount `
@@ -206,6 +223,47 @@ Invoke-AzCli storage blob upload `
   --only-show-errors `
   --output none | Out-Null
 
+Write-Host "Building frontend..."
+Push-Location (Join-Path $projectRoot "frontend")
+try {
+  npm ci --silent 2>&1 | Out-Null
+  npm run build --silent 2>&1 | Out-Null
+} finally {
+  Pop-Location
+}
+
+Write-Host "Uploading frontend to blob storage..."
+$frontendBuildPath = Join-Path $projectRoot "frontend/build"
+if (Test-Path $frontendBuildPath) {
+  Get-ChildItem -Path $frontendBuildPath -Recurse -File | ForEach-Object {
+    $relativePath = $_.FullName.Substring($frontendBuildPath.Length + 1).Replace('\', '/')
+    $blobName = "manage/$relativePath"
+
+    $contentType = switch ($_.Extension) {
+      '.html' { 'text/html; charset=utf-8' }
+      '.css' { 'text/css; charset=utf-8' }
+      '.js' { 'application/javascript; charset=utf-8' }
+      '.json' { 'application/json; charset=utf-8' }
+      '.svg' { 'image/svg+xml' }
+      '.png' { 'image/png' }
+      '.jpg' { 'image/jpeg' }
+      '.ico' { 'image/x-icon' }
+      default { 'application/octet-stream' }
+    }
+
+    Invoke-AzCli storage blob upload `
+      --account-name $StorageAccount `
+      --account-key $storageAccountKey `
+      --container-name '$web' `
+      --name $blobName `
+      --file $_.FullName `
+      --overwrite true `
+      --content-type $contentType `
+      --only-show-errors `
+      --output none | Out-Null
+  }
+}
+
 $webEndpoint = Invoke-AzCli storage account show `
   --resource-group $ResourceGroup `
   --name $StorageAccount `
@@ -216,4 +274,5 @@ Write-Host "Provisioned resource group: $ResourceGroup"
 Write-Host "Function App: $FunctionAppName"
 Write-Host "Status endpoint: https://$FunctionAppName.azurewebsites.net/api/status"
 Write-Host "Static website endpoint: $webEndpoint"
+Write-Host "Feed management UI: $($webEndpoint.TrimEnd('/'))/manage/"
 Write-Host "Public ICS URL: $($webEndpoint.TrimEnd('/'))/$OutputBlobPath"

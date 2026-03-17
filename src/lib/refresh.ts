@@ -5,10 +5,35 @@ import { serializeCalendar } from "./ics";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
 import { buildStartingStatus } from "./status";
-import { RefreshResult, ServiceStatus } from "./types";
+import { TableStore } from "./tableStore";
+import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
 import { buildOutputPaths, errorMessage } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
+
+async function loadSourceFeeds(config: AppConfig, logger: Logger): Promise<SourceFeedConfig[]> {
+  const enableTableStorage = process.env.ENABLE_TABLE_STORAGE?.toLowerCase() === "true";
+
+  if (!enableTableStorage) {
+    return config.sourceFeeds;
+  }
+
+  try {
+    const tableStore = new TableStore(config.outputStorageAccount);
+    const feeds = await tableStore.listFeeds();
+
+    if (feeds.length === 0) {
+      logger.warn("table_storage_empty_fallback_to_json");
+      return config.sourceFeeds;
+    }
+
+    logger.info("feeds_loaded_from_table", { count: feeds.length });
+    return feeds;
+  } catch (error) {
+    logger.error("table_storage_load_failed_fallback_to_json", { error: errorMessage(error) });
+    return config.sourceFeeds;
+  }
+}
 
 export async function runRefresh(logger: Logger, reason: string): Promise<RefreshResult> {
   if (!activeRefresh) {
@@ -44,7 +69,8 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const store = new BlobStore(config);
   const attemptTimestamp = new Date().toISOString();
   const previousStatus = await safeReadStatus(store, logger, config.serviceName);
-  const sourceResults = await Promise.all(config.sourceFeeds.map((source) => fetchFeed(source, config, logger)));
+  const sourceFeeds = await loadSourceFeeds(config, logger);
+  const sourceResults = await Promise.all(sourceFeeds.map((source) => fetchFeed(source, config, logger)));
   const successfulResults = sourceResults.filter((result) => result.status.ok);
   const failedStatuses = sourceResults.filter((result) => !result.status.ok).map((result) => result.status);
   const candidateEvents = successfulResults.length > 0 ? mergeFeedEvents(successfulResults) : [];
@@ -61,7 +87,7 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
 
   logger.info("refresh_started", {
     reason,
-    feedCount: config.sourceFeeds.length,
+    feedCount: sourceFeeds.length,
   });
 
   if (shouldPublishCalendar) {
@@ -93,7 +119,7 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     healthy: state !== "failed",
     lastAttemptedRefresh: attemptTimestamp,
     lastSuccessfulRefresh,
-    sourceFeedCount: config.sourceFeeds.length,
+    sourceFeedCount: sourceFeeds.length,
     mergedEventCount,
     candidateMergedEventCount:
       state === "partial" || (state === "failed" && candidateEventCount > 0) ? candidateEventCount : undefined,

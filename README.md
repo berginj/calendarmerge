@@ -1,19 +1,25 @@
 # calendarmerge
 
-`calendarmerge` is a small Azure Functions v4 service that merges multiple source ICS feeds into one published ICS file in Azure Blob Storage.
+`calendarmerge` is an Azure Functions v4 service that merges multiple source ICS feeds into one published ICS file in Azure Blob Storage.
 
-It publishes:
+## Features
 
-- `calendar.ics`
-- `status.json`
+**Web UI for Feed Management:**
+- Add, edit, and delete calendar feed sources
+- React-based management interface
+- Feeds stored in Azure Table Storage
+- Accessible at `https://<storage>.z13.web.core.windows.net/manage/`
 
-It exposes:
+**Backend Services:**
+- Timer-triggered refresh job (every 15 minutes)
+- HTTP manual refresh endpoint
+- HTTP health/status endpoint
+- REST API for feed management (GET/POST/PUT/DELETE)
 
-- a timer-triggered refresh job
-- an HTTP manual refresh endpoint
-- an HTTP health/status endpoint
-
-No frontend app is included because this repo folder did not already contain one. The only static asset is a tiny `index.html` for blob static website discoverability.
+**Published Outputs:**
+- `calendar.ics` - Merged calendar feed
+- `status.json` - Service health and diagnostics
+- `manage/` - Feed management web UI
 
 ## Architecture
 
@@ -28,17 +34,23 @@ No frontend app is included because this repo folder did not already contain one
 
 The app reads configuration from Azure Functions app settings or `local.settings.json`.
 
+**Feed Management:**
+- Feeds can be managed via the web UI (stored in Azure Table Storage)
+- Or configured via `SOURCE_FEEDS_JSON` environment variable (legacy mode)
+- Set `ENABLE_TABLE_STORAGE=true` to load feeds from Table Storage
+
 Required:
 
-- `SOURCE_FEEDS_JSON`
 - `OUTPUT_STORAGE_ACCOUNT`
+- `SOURCE_FEEDS_JSON` (used as fallback when table storage is empty or disabled)
 
 Supported settings:
 
 | Setting | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `SOURCE_FEEDS_JSON` | Yes | none | JSON array of feed objects or URLs. |
+| `SOURCE_FEEDS_JSON` | Yes* | none | JSON array of feed objects or URLs. *Only required if `ENABLE_TABLE_STORAGE=false` |
 | `OUTPUT_STORAGE_ACCOUNT` | Yes | none | Azure Storage account used for published output. |
+| `ENABLE_TABLE_STORAGE` | No | `false` | Set to `true` to load feeds from Azure Table Storage. |
 | `OUTPUT_CONTAINER` | No | `$web` | Blob container for published files. |
 | `OUTPUT_BLOB_PATH` | No | `calendar.ics` | Public merged calendar path. |
 | `STATUS_BLOB_PATH` | No | `status.json` | Diagnostics path. |
@@ -64,6 +76,39 @@ Example `SOURCE_FEEDS_JSON`:
   }
 ]
 ```
+
+## Migrating to Feed Management UI
+
+To enable the web-based feed management UI:
+
+### 1. Migrate Existing Feeds to Table Storage
+
+```bash
+# Run migration script to copy feeds from SOURCE_FEEDS_JSON to Table Storage
+npx tsx scripts/migrate-feeds-to-table.ts
+```
+
+### 2. Enable Table Storage
+
+```powershell
+# Update Azure Function App settings
+az functionapp config appsettings set `
+  --resource-group $env:AZ_RESOURCE_GROUP `
+  --name $env:AZ_FUNCTIONAPP_NAME `
+  --settings ENABLE_TABLE_STORAGE=true
+```
+
+### 3. Access the UI
+
+Navigate to: `https://<storage-account>.z13.web.core.windows.net/manage/`
+
+**Features:**
+- Add new calendar feeds
+- Edit feed names and URLs
+- Delete feeds (soft delete)
+- Changes take effect on next refresh (automatic or manual)
+
+**Note:** `SOURCE_FEEDS_JSON` is kept as a fallback. If table storage is empty or fails to load, feeds from the environment variable will be used.
 
 ## Local Dev
 
@@ -150,24 +195,49 @@ That script:
 
 ## CI/CD
 
-This repo now includes a repo-root workflow at `../.github/workflows/calendarmerge-functions.yml` that:
+This repo includes a GitHub Actions workflow at `.github/workflows/calendarmerge-functions.yml` that automatically deploys on push to main:
 
-- installs dependencies
-- runs tests
-- builds the deployment zip
-- logs into Azure with GitHub OIDC
-- deploys the backend with `az functionapp deployment source config-zip`
+**Backend:**
+- Installs dependencies
+- Runs tests
+- Builds deployment package
+- Deploys to Azure Functions
 
-Configure these GitHub secrets:
+**Frontend:**
+- Builds React app
+- Deploys to Azure Blob Storage (`$web/manage/`)
+
+**Authentication:** Uses GitHub OIDC (no secrets stored in code)
+
+### Quick Setup
+
+Run the automated setup script:
+
+```powershell
+.\scripts\azure\setup-github-deployment.ps1 `
+  -SubscriptionId "your-subscription-id" `
+  -ResourceGroup "your-resource-group" `
+  -StorageAccount "your-storage-account" `
+  -FunctionAppName "your-function-app" `
+  -GitHubOrg "your-github-username" `
+  -GitHubRepo "your-repo-name"
+```
+
+Then add the output values as GitHub secrets and variables.
+
+**Detailed instructions:** See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md)
+
+### Required GitHub Secrets
 
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
 
-Configure these GitHub repository variables:
+### Required GitHub Variables
 
 - `AZ_RESOURCE_GROUP`
 - `AZ_FUNCTIONAPP_NAME`
+- `AZ_STORAGE_ACCOUNT`
 
 ## Public URLs
 
@@ -183,18 +253,26 @@ $web = az storage account show `
 
 Public output URLs:
 
-- `$($web.TrimEnd('/'))/calendar.ics`
-- `$($web.TrimEnd('/'))/status.json`
+- `$($web.TrimEnd('/'))/calendar.ics` - Merged calendar feed
+- `$($web.TrimEnd('/'))/status.json` - Service status
+- `$($web.TrimEnd('/'))/manage/` - Feed management UI
 
 Blob paths written by the app:
 
 - `$web/calendar.ics`
 - `$web/status.json`
+- `$web/manage/` - Frontend app
 
 Function endpoints:
 
-- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status`
-- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh`
+**Public:**
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status` - Health check
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - List feeds (GET)
+
+**Protected:**
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh` - Manual refresh (POST)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - Create feed (POST)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/{id}` - Update/Delete feed (PUT/DELETE)
 
 Manual refresh uses Function auth. Retrieve a key and invoke it like this:
 

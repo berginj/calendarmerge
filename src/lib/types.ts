@@ -100,3 +100,5 @@ export interface RefreshResult {
   calendarPublished: boolean;
   usedLastKnownGood: boolean;
 }
+
+export type { SourceFeedEntity } from "./tableStore";

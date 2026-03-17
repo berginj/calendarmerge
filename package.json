@@ -12,9 +12,13 @@
     "start": "npm run build && func start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "package:functions": "powershell -ExecutionPolicy Bypass -File scripts/azure/package-functions.ps1"
+    "package:functions": "powershell -ExecutionPolicy Bypass -File scripts/azure/package-functions.ps1",
+    "build:frontend": "npm run build --prefix frontend",
+    "install:frontend": "npm ci --prefix frontend",
+    "dev:frontend": "npm run dev --prefix frontend"
   },
   "dependencies": {
+    "@azure/data-tables": "^13.3.2",
     "@azure/functions": "^4.7.3",
     "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.31.0",
