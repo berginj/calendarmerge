@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>calendarmerge</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, #f7fafc 0%, #e2e8f0 100%);
+        color: #0f172a;
+      }
+
+      main {
+        width: min(32rem, calc(100vw - 2rem));
+        padding: 2rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
+      }
+
+      a {
+        color: #0f766e;
+      }
+
+      ul {
+        padding-left: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>calendarmerge</h1>
+      <p>This storage endpoint publishes the merged calendar feed and its latest status document.</p>
+      <ul>
+        <li><a href="./calendar.ics">calendar.ics</a></li>
+        <li><a href="./status.json">status.json</a></li>
+      </ul>
+    </main>
+  </body>
+</html>

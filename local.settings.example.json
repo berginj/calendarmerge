@@ -1,0 +1,16 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "SOURCE_FEEDS_JSON": "[{\"id\":\"school\",\"name\":\"School Calendar\",\"url\":\"https://example.com/calendar.ics\"}]",
+    "OUTPUT_STORAGE_ACCOUNT": "yourstorageaccount",
+    "OUTPUT_CONTAINER": "$web",
+    "OUTPUT_BLOB_PATH": "calendar.ics",
+    "STATUS_BLOB_PATH": "status.json",
+    "REFRESH_SCHEDULE": "0 */15 * * * *",
+    "FETCH_TIMEOUT_MS": "10000",
+    "FETCH_RETRY_COUNT": "2",
+    "FETCH_RETRY_DELAY_MS": "750"
+  }
+}
