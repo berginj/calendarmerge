@@ -213,37 +213,25 @@ This repo includes a GitHub Actions workflow at `.github/workflows/calendarmerge
 - Builds React app
 - Deploys to Azure Blob Storage (`$web/manage/`)
 
-**Authentication:** Uses GitHub OIDC (no secrets stored in code)
+**Authentication:** Uses Azure-managed deployment credentials (auto-configured)
 
-### Quick Setup
+### Setup
 
-Run the automated setup script:
+**If deploying from Azure Portal:**
+- Azure automatically creates deployment secrets when you connect to GitHub
+- Workflow uses existing Azure-generated credentials
+- No manual secret setup required! ✅
 
-```powershell
-.\scripts\azure\setup-github-deployment.ps1 `
-  -SubscriptionId "your-subscription-id" `
-  -ResourceGroup "your-resource-group" `
-  -StorageAccount "your-storage-account" `
-  -FunctionAppName "your-function-app" `
-  -GitHubOrg "your-github-username" `
-  -GitHubRepo "your-repo-name"
-```
-
-Then add the output values as GitHub secrets and variables.
-
-**Detailed instructions:** See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md)
-
-### Required GitHub Secrets
-
-- `AZURE_CLIENT_ID`
-- `AZURE_TENANT_ID`
-- `AZURE_SUBSCRIPTION_ID`
+**If using manual OIDC setup:**
+See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md) for detailed instructions
 
 ### Required GitHub Variables
 
-- `AZ_RESOURCE_GROUP`
-- `AZ_FUNCTIONAPP_NAME`
-- `AZ_STORAGE_ACCOUNT`
+- `AZ_RESOURCE_GROUP` - Your Azure resource group name
+- `AZ_FUNCTIONAPP_NAME` - Your function app name
+- `AZ_STORAGE_ACCOUNT` - Your storage account name
+
+**Note:** Secrets are auto-created by Azure or via setup script
 
 ## Public URLs
 
