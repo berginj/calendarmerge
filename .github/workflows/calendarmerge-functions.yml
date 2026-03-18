@@ -61,10 +61,9 @@ jobs:
 
       - name: Deploy Frontend to Blob Storage
         run: |
-          # Upload using logged-in identity (service principal has Blob Data Contributor)
           az storage blob upload-batch \
             --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
+            --account-key "${{ secrets.AZURE_STORAGE_KEY }}" \
             --destination '$web/manage' \
             --source "./frontend/build" \
-            --overwrite true \
-            --auth-mode login
+            --overwrite true
