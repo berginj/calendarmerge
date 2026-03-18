@@ -5,7 +5,7 @@
   "description": "Azure Functions ICS calendar aggregator that publishes merged output to Azure Blob Storage.",
   "main": "dist/src/index.js",
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

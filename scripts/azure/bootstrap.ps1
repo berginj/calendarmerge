@@ -99,7 +99,7 @@ if (-not $functionExists) {
     --os-type Windows `
     --functions-version 4 `
     --runtime node `
-    --runtime-version 20 `
+    --runtime-version 22 `
     --app-insights $AppInsightsName `
     --assign-identity "[system]" `
     --output none | Out-Null

@@ -120,7 +120,7 @@ Navigate to: `https://<storage-account>.z13.web.core.windows.net/manage/`
 
 Prerequisites:
 
-- Node.js 20+
+- Node.js 22+ (LTS)
 - npm
 - Azure Functions Core Tools v4
 - Azure CLI
