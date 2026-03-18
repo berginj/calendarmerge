@@ -59,11 +59,22 @@ jobs:
           --name "${{ vars.AZ_FUNCTIONAPP_NAME }}"
           --src ".artifacts/calendarmerge-functions.zip"
 
+      - name: Get Storage Account Key
+        id: storage-key
+        run: |
+          KEY=$(az storage account keys list \
+            --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
+            --resource-group "${{ vars.AZ_RESOURCE_GROUP }}" \
+            --query "[0].value" \
+            --output tsv)
+          echo "::add-mask::$KEY"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+
       - name: Deploy Frontend to Blob Storage
         run: |
           az storage blob upload-batch \
             --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
+            --account-key "${{ steps.storage-key.outputs.key }}" \
             --destination '$web/manage' \
             --source "./frontend/build" \
-            --overwrite true \
-            --auth-mode login
+            --overwrite true
