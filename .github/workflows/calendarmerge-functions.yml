@@ -61,18 +61,10 @@ jobs:
 
       - name: Deploy Frontend to Blob Storage
         run: |
-          # Get storage account ID for RBAC context
-          STORAGE_ID=$(az storage account show \
-            --name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
-            --resource-group "${{ vars.AZ_RESOURCE_GROUP }}" \
-            --query id \
-            --output tsv)
-
           # Upload using logged-in identity (service principal has Blob Data Contributor)
           az storage blob upload-batch \
             --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
             --destination '$web/manage' \
             --source "./frontend/build" \
             --overwrite true \
-            --auth-mode login \
-            --only-show-errors
+            --auth-mode login
