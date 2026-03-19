@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { TableStore } from "../lib/tableStore";
-import { errorMessage } from "../lib/util";
+import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -42,7 +42,8 @@ async function createFeedHandler(
     }
 
     const config = getConfig();
-    const store = new TableStore(config.outputStorageAccount);
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const store = new TableStore(connectionString);
 
     // Generate ID if not provided
     const feedId = body.id || TableStore.generateFeedId(body.url);

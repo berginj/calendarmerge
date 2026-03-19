@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { TableStore } from "../lib/tableStore";
+import { getStorageConnectionString } from "../lib/util";
 
 app.http("listFeeds", {
   methods: ["GET"],
@@ -19,7 +20,8 @@ async function listFeedsHandler(
 
   try {
     const config = getConfig();
-    const store = new TableStore(config.outputStorageAccount);
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const store = new TableStore(connectionString);
     const feeds = await store.listFeeds();
 
     logger.info("feeds_listed", { count: feeds.length });

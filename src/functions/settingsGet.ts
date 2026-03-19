@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { SettingsStore } from "../lib/settingsStore";
-import { errorMessage } from "../lib/util";
+import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("getSettings", {
   methods: ["GET"],
@@ -20,7 +20,8 @@ async function getSettingsHandler(
 
   try {
     const config = getConfig();
-    const store = new SettingsStore(config.outputStorageAccount);
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const store = new SettingsStore(connectionString);
     const settings = await store.getSettings();
 
     logger.info("settings_retrieved");

@@ -5,6 +5,7 @@ import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { runRefresh } from "../lib/refresh";
 import { SettingsStore } from "../lib/settingsStore";
+import { getStorageConnectionString } from "../lib/util";
 
 // Timer runs every 5 minutes, but actual refresh depends on user settings
 app.timer("scheduledRefresh", {
@@ -18,7 +19,8 @@ async function scheduledRefreshHandler(_timer: Timer, context: InvocationContext
 
   try {
     // Check settings to see if we should actually refresh
-    const settingsStore = new SettingsStore(config.outputStorageAccount);
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const settingsStore = new SettingsStore(connectionString);
     const blobStore = new BlobStore(config);
 
     // Get last refresh time from status.json

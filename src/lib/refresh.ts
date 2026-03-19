@@ -19,7 +19,10 @@ async function loadSourceFeeds(config: AppConfig, logger: Logger): Promise<Sourc
   }
 
   try {
-    const tableStore = new TableStore(config.outputStorageAccount);
+    const connectionString =
+      process.env.AZURE_STORAGE_CONNECTION_STRING ||
+      `DefaultEndpointsProtocol=https;AccountName=${config.outputStorageAccount};EndpointSuffix=core.windows.net`;
+    const tableStore = new TableStore(connectionString);
     const feeds = await tableStore.listFeeds();
 
     if (feeds.length === 0) {
@@ -51,6 +54,13 @@ export async function loadCurrentStatus(logger: Logger): Promise<ServiceStatus> 
   const config = getConfig();
   const store = new BlobStore(config);
   const fallback = buildStartingStatus(config);
+
+  // Ensure connection string is available for BlobStore
+  if (!process.env.AZURE_STORAGE_CONNECTION_STRING) {
+    logger.warn("azure_storage_connection_string_missing", {
+      message: "AZURE_STORAGE_CONNECTION_STRING not set, using managed identity",
+    });
+  }
 
   try {
     return (await store.readStatus()) ?? fallback;

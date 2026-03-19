@@ -50,3 +50,14 @@ export function buildOutputPaths(config: AppConfig): OutputPaths {
     blobStatusUrl: `${baseUrl}/${config.outputContainer}/${config.statusBlobPath}`,
   };
 }
+
+export function getStorageConnectionString(storageAccount: string): string {
+  // Prefer explicit connection string from environment
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (connectionString) {
+    return connectionString;
+  }
+
+  // Fallback: use just the storage account name (will use DefaultAzureCredential)
+  return storageAccount;
+}

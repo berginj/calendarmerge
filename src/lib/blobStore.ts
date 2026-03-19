@@ -7,10 +7,17 @@ export class BlobStore {
   private readonly serviceClient: BlobServiceClient;
 
   constructor(private readonly config: AppConfig) {
-    this.serviceClient = new BlobServiceClient(
-      `https://${config.outputStorageAccount}.blob.core.windows.net`,
-      new DefaultAzureCredential(),
-    );
+    // Use connection string from environment if available, otherwise use managed identity
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+    if (connectionString) {
+      this.serviceClient = BlobServiceClient.fromConnectionString(connectionString);
+    } else {
+      this.serviceClient = new BlobServiceClient(
+        `https://${config.outputStorageAccount}.blob.core.windows.net`,
+        new DefaultAzureCredential(),
+      );
+    }
   }
 
   async calendarExists(): Promise<boolean> {

@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { AppSettings, SettingsStore } from "../lib/settingsStore";
-import { errorMessage } from "../lib/util";
+import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("updateSettings", {
   methods: ["PUT"],
@@ -37,7 +37,8 @@ async function updateSettingsHandler(
     }
 
     const config = getConfig();
-    const store = new SettingsStore(config.outputStorageAccount);
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const store = new SettingsStore(connectionString);
     const settings = await store.updateSettings(body);
 
     logger.info("settings_updated", { refreshSchedule: settings.refreshSchedule });

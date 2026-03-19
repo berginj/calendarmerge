@@ -24,12 +24,18 @@ const DEFAULT_SETTINGS: AppSettings = {
 export class SettingsStore {
   private readonly tableClient: TableClient;
 
-  constructor(storageAccount: string, tableName: string = "AppSettings") {
-    this.tableClient = new TableClient(
-      `https://${storageAccount}.table.core.windows.net`,
-      tableName,
-      new DefaultAzureCredential(),
-    );
+  constructor(connectionStringOrAccount: string, tableName: string = "AppSettings") {
+    // If it looks like a connection string, use it directly
+    if (connectionStringOrAccount.includes("AccountName=")) {
+      this.tableClient = TableClient.fromConnectionString(connectionStringOrAccount, tableName);
+    } else {
+      // Legacy: storage account name with DefaultAzureCredential
+      this.tableClient = new TableClient(
+        `https://${connectionStringOrAccount}.table.core.windows.net`,
+        tableName,
+        new DefaultAzureCredential(),
+      );
+    }
   }
 
   async ensureTable(): Promise<void> {
