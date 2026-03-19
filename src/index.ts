@@ -1,9 +1,11 @@
+import "./functions/diagnostic";
 import "./functions/feedCreate";
 import "./functions/feedDelete";
 import "./functions/feedsList";
 import "./functions/feedUpdate";
 import "./functions/health";
 import "./functions/manualRefresh";
+import "./functions/ping";
 import "./functions/settingsGet";
 import "./functions/settingsUpdate";
 import "./functions/timerRefresh";
