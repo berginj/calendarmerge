@@ -1,0 +1,7 @@
+[
+  {
+    "name": "SOURCE_FEEDS_JSON",
+    "value": "[{\"id\":\"us-holidays\",\"name\":\"US Holidays\",\"url\":\"https://www.google.com/calendar/ical/en.usa%23holiday@group.v.calendar.google.com/public/basic.ics\"}]",
+    "slotSetting": false
+  }
+]

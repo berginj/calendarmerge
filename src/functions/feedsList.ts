@@ -20,11 +20,19 @@ async function listFeedsHandler(
 
   try {
     const config = getConfig();
-    const connectionString = getStorageConnectionString(config.outputStorageAccount);
-    const store = new TableStore(connectionString);
-    const feeds = await store.listFeeds();
+    const enableTableStorage = process.env.ENABLE_TABLE_STORAGE?.toLowerCase() === "true";
 
-    logger.info("feeds_listed", { count: feeds.length });
+    let feeds;
+    if (enableTableStorage) {
+      const connectionString = getStorageConnectionString(config.outputStorageAccount);
+      const store = new TableStore(connectionString);
+      feeds = await store.listFeeds();
+    } else {
+      // Return feeds from config when table storage is disabled
+      feeds = config.sourceFeeds;
+    }
+
+    logger.info("feeds_listed", { count: feeds.length, source: enableTableStorage ? "table" : "config" });
 
     return {
       status: 200,
