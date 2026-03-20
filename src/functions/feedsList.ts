@@ -19,16 +19,23 @@ async function listFeedsHandler(
   const logger = createLogger(context);
 
   try {
+    logger.info("feeds_list_requested");
+
     const config = getConfig();
+    logger.info("config_loaded", { feedCount: config.sourceFeeds.length });
+
     const enableTableStorage = process.env.ENABLE_TABLE_STORAGE?.toLowerCase() === "true";
+    logger.info("table_storage_check", { enabled: enableTableStorage });
 
     let feeds;
     if (enableTableStorage) {
+      logger.info("loading_from_table_storage");
       const connectionString = getStorageConnectionString(config.outputStorageAccount);
       const store = new TableStore(connectionString);
       feeds = await store.listFeeds();
+      logger.info("table_storage_loaded", { count: feeds.length });
     } else {
-      // Return feeds from config when table storage is disabled
+      logger.info("loading_from_config");
       feeds = config.sourceFeeds;
     }
 
@@ -39,11 +46,22 @@ async function listFeedsHandler(
       jsonBody: { feeds },
     };
   } catch (error) {
-    logger.error("feeds_list_failed", { error: String(error) });
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    logger.error("feeds_list_failed", {
+      error: errorMsg,
+      stack: errorStack,
+      type: error?.constructor?.name,
+    });
 
     return {
       status: 500,
-      jsonBody: { error: "Failed to list feeds" },
+      jsonBody: {
+        error: "Failed to list feeds",
+        details: errorMsg,
+        timestamp: new Date().toISOString(),
+      },
     };
   }
 }

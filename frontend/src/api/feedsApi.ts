@@ -3,12 +3,33 @@ import { SourceFeedConfig } from '../types';
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export async function listFeeds(): Promise<SourceFeedConfig[]> {
-  const res = await fetch(`${API_BASE}/feeds`);
-  if (!res.ok) {
-    throw new Error('Failed to fetch feeds');
+  try {
+    const res = await fetch(`${API_BASE}/feeds`);
+
+    if (!res.ok) {
+      // Try to get error details from response
+      const contentType = res.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const error = await res.json();
+        throw new Error(error.details || error.error || `API Error: ${res.status} ${res.statusText}`);
+      } else {
+        // Non-JSON response (HTML error page)
+        const text = await res.text();
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          throw new Error(`Server returned HTML error page (${res.status}). The backend API may not be deployed correctly. Check: ${API_BASE}/feeds`);
+        }
+        throw new Error(`API Error: ${res.status} ${res.statusText}`);
+      }
+    }
+
+    const data = await res.json();
+    return data.feeds;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to fetch feeds: ' + String(error));
   }
-  const data = await res.json();
-  return data.feeds;
 }
 
 export async function createFeed(feed: {
@@ -69,14 +90,27 @@ export interface AppSettings {
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  const res = await fetch(`${API_BASE}/settings`);
+  try {
+    const res = await fetch(`${API_BASE}/settings`);
 
-  if (!res.ok) {
-    throw new Error('Failed to get settings');
+    if (!res.ok) {
+      const contentType = res.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const error = await res.json();
+        throw new Error(error.details || error.error || `API Error: ${res.status}`);
+      } else {
+        throw new Error(`Settings API returned error (${res.status}). Backend may be initializing. Try refreshing in a moment.`);
+      }
+    }
+
+    const data = await res.json();
+    return data.settings;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to get settings: ' + String(error));
   }
-
-  const data = await res.json();
-  return data.settings;
 }
 
 export async function updateSettings(
