@@ -1,6 +1,6 @@
 import { SourceFeedConfig } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://calendarmerge-func-prod.azurewebsites.net/api';
 
 export async function listFeeds(): Promise<SourceFeedConfig[]> {
   try {
