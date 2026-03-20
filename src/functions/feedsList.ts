@@ -1,9 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { TableStore } from "../lib/tableStore";
-import { getStorageConnectionString } from "../lib/util";
 
 app.http("listFeeds", {
   methods: ["GET"],
@@ -21,6 +18,8 @@ async function listFeedsHandler(
   try {
     logger.info("feeds_list_requested");
 
+    // Use dynamic imports to avoid module loading issues
+    const { getConfig } = await import("../lib/config");
     const config = getConfig();
     logger.info("config_loaded", { feedCount: config.sourceFeeds.length });
 
@@ -30,6 +29,8 @@ async function listFeedsHandler(
     let feeds;
     if (enableTableStorage) {
       logger.info("loading_from_table_storage");
+      const { getStorageConnectionString } = await import("../lib/util");
+      const { TableStore } = await import("../lib/tableStore");
       const connectionString = getStorageConnectionString(config.outputStorageAccount);
       const store = new TableStore(connectionString);
       feeds = await store.listFeeds();
