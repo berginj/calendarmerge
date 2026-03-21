@@ -138,4 +138,19 @@ describe("Config", () => {
 
     expect(config.sourceFeeds[0].url).toBe("https://example.com/cal.ics");
   });
+
+  it("should keep tokenized provider URLs distinct when IDs are auto-generated", () => {
+    const env = {
+      SOURCE_FEEDS_JSON:
+        '["webcal://example.com/ical_feed?token=alpha","https://example.com/ical_feed?token=beta&1=1"]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.sourceFeeds).toHaveLength(2);
+    expect(config.sourceFeeds[0].url).toBe("https://example.com/ical_feed?token=alpha");
+    expect(config.sourceFeeds[1].url).toBe("https://example.com/ical_feed?token=beta&1=1");
+    expect(config.sourceFeeds[0].id).not.toBe(config.sourceFeeds[1].id);
+  });
 });

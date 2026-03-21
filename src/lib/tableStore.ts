@@ -2,7 +2,7 @@ import { TableClient } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
 
 import { SourceFeedConfig } from "./types";
-import { looksLikeConnectionString, slugifyId } from "./util";
+import { deriveFeedIdFromUrl, looksLikeConnectionString, slugifyId } from "./util";
 
 export interface SourceFeedEntity {
   partitionKey: string; // "default" now, userId later
@@ -125,9 +125,7 @@ export class TableStore {
    */
   static generateFeedId(input: string, fallbackIndex?: number): string {
     try {
-      const url = new URL(input);
-      const pathTail = url.pathname.split("/").filter(Boolean).pop();
-      return slugifyId(`${url.hostname}-${pathTail ?? fallbackIndex ?? 1}`);
+      return deriveFeedIdFromUrl(input, fallbackIndex);
     } catch {
       // If not a valid URL, just slugify the input
       return slugifyId(input);

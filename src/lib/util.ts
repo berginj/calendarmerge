@@ -63,6 +63,21 @@ export function normalizeFeedUrl(input: string): string {
   return parsed.toString();
 }
 
+export function deriveFeedIdFromUrl(input: string, fallbackIndex?: number): string {
+  const parsed = new URL(normalizeFeedUrl(input));
+  const pathSegments = parsed.pathname.split("/").filter(Boolean);
+  const pathTail = pathSegments[pathSegments.length - 1];
+  const baseId = slugifyId(`${parsed.hostname}-${pathTail ?? fallbackIndex ?? 1}`);
+  const needsDisambiguation =
+    !pathTail || pathSegments.length > 1 || Boolean(parsed.search) || Boolean(parsed.hash);
+
+  if (!needsDisambiguation) {
+    return baseId;
+  }
+
+  return slugifyId(`${baseId}-${sha256Hex(parsed.toString()).slice(0, 8)}`);
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

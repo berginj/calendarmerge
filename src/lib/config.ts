@@ -1,5 +1,6 @@
 import { AppConfig, SourceFeedConfig } from "./types";
 import {
+  deriveFeedIdFromUrl,
   errorMessage,
   isTableStorageEnabled,
   normalizeBlobPath,
@@ -179,10 +180,7 @@ function parseFeedUrl(rawUrl: string | undefined, index: number): string {
 }
 
 function deriveFeedId(url: string, index: number): string {
-  const parsedUrl = new URL(url);
-  const pathTail = parsedUrl.pathname.split("/").filter(Boolean).pop();
-
-  return slugifyId(`${parsedUrl.hostname}-${pathTail ?? index + 1}`);
+  return deriveFeedIdFromUrl(url, index + 1);
 }
 
 function required(value: string | undefined, name: string): string {

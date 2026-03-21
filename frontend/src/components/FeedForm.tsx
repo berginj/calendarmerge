@@ -19,21 +19,24 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
   const validateUrl = (urlValue: string): string | null => {
     const trimmed = normalizeFeedUrl(urlValue);
 
+    if (!trimmed) {
+      return 'Please enter a calendar feed URL.';
+    }
+
     // Check for Google Calendar web UI URLs (common mistake)
     if (trimmed.includes('calendar.google.com/calendar/u/') || trimmed.includes('?cid=')) {
       return 'This looks like a Google Calendar web URL. You need the ICS feed URL instead. Go to calendar settings → "Integrate calendar" → copy the "Secret address in iCal format"';
     }
 
-    // Check if it ends with .ics
-    if (!trimmed.endsWith('.ics')) {
-      return 'URL should end with .ics (calendar feed format)';
-    }
-
     // Basic URL validation
     try {
-      new URL(trimmed);
+      const parsed = new URL(trimmed);
+
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return 'Please enter a valid URL starting with https:// or webcal://';
+      }
     } catch {
-      return 'Please enter a valid URL starting with https://';
+      return 'Please enter a valid URL starting with https:// or webcal://';
     }
 
     return null;
@@ -98,7 +101,7 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
           </div>
         )}
         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-          Must be an ICS calendar feed URL (ends with .ics). webcal:// links are converted to https://.
+          Accepts direct calendar subscription URLs, including tokenized provider links and webcal:// links, which are converted to https://.
         </div>
       </div>
 
