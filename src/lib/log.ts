@@ -9,7 +9,7 @@ export interface Logger {
 }
 
 export function createLogger(context?: InvocationContext): Logger {
-  const sink = context?.log ?? console.log;
+  const sink = context ? context.log.bind(context) : console.log;
 
   function write(level: LogLevel, message: string, details?: Record<string, unknown>): void {
     const payload = JSON.stringify({
