@@ -1,4 +1,5 @@
 export type RefreshState = "starting" | "success" | "partial" | "failed";
+export type PublishedEventFilter = "all-events" | "games-only";
 
 export interface SourceFeedConfig {
   id: string;
@@ -83,10 +84,12 @@ export interface ServiceStatus {
   serviceName: string;
   state: RefreshState;
   healthy: boolean;
+  eventFilter: PublishedEventFilter;
   lastAttemptedRefresh?: string;
   lastSuccessfulRefresh?: string;
   sourceFeedCount: number;
   mergedEventCount: number;
+  unfilteredMergedEventCount?: number;
   candidateMergedEventCount?: number;
   calendarPublished: boolean;
   servedLastKnownGood: boolean;

@@ -155,6 +155,7 @@ export async function deleteFeed(feedId: string): Promise<void> {
 
 export interface AppSettings {
   refreshSchedule: 'every-15-min' | 'hourly' | 'every-2-hours' | 'business-hours' | 'manual-only';
+  eventFilter: 'all-events' | 'games-only';
   lastUpdated: string;
 }
 

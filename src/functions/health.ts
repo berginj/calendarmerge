@@ -19,10 +19,12 @@ async function healthHandler(_request: HttpRequest, context: InvocationContext):
     jsonBody: {
       serviceName: status.serviceName,
       state: status.state,
+      eventFilter: status.eventFilter,
       lastSuccessfulRefresh: status.lastSuccessfulRefresh,
       lastAttemptedRefresh: status.lastAttemptedRefresh,
       sourceFeedCount: status.sourceFeedCount,
       mergedEventCount: status.mergedEventCount,
+      unfilteredMergedEventCount: status.unfilteredMergedEventCount,
       candidateMergedEventCount: status.candidateMergedEventCount,
       output: status.output,
       errorSummary: status.errorSummary,

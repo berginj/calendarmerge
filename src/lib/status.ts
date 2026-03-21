@@ -6,6 +6,7 @@ export function buildStartingStatus(config: AppConfig): ServiceStatus {
     serviceName: config.serviceName,
     state: "starting",
     healthy: false,
+    eventFilter: "all-events",
     sourceFeedCount: config.sourceFeeds.length,
     mergedEventCount: 0,
     calendarPublished: false,

@@ -26,6 +26,8 @@ async function manualRefreshHandler(
         partialFailure: result.status.state === "partial",
         eventCount: result.status.mergedEventCount,
         candidateEventCount: result.candidateEventCount,
+        eventFilter: result.status.eventFilter,
+        unfilteredMergedEventCount: result.status.unfilteredMergedEventCount,
         sourceStatuses: result.status.sourceStatuses,
         output: result.status.output,
         servedLastKnownGood: result.usedLastKnownGood,

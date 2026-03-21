@@ -1,13 +1,15 @@
 import { BlobStore } from "./blobStore";
 import { getConfig } from "./config";
+import { applyEventFilter } from "./eventFilter";
 import { fetchFeed } from "./fetchFeeds";
 import { serializeCalendar } from "./ics";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
+import { DEFAULT_SETTINGS, SettingsStore } from "./settingsStore";
 import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
 import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
-import { buildOutputPaths, errorMessage } from "./util";
+import { buildOutputPaths, errorMessage, getStorageConnectionString } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
 
@@ -52,12 +54,15 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const store = new BlobStore(config);
   const attemptTimestamp = new Date().toISOString();
   const previousStatus = await safeReadStatus(store, logger, config.serviceName);
+  const settings = await safeLoadSettings(config, logger);
   const sourceFeeds = await loadSourceFeeds(config, logger);
   const sourceResults = await Promise.all(sourceFeeds.map((source) => fetchFeed(source, config, logger)));
   const successfulResults = sourceResults.filter((result) => result.status.ok);
   const failedStatuses = sourceResults.filter((result) => !result.status.ok).map((result) => result.status);
   const candidateEvents = successfulResults.length > 0 ? mergeFeedEvents(successfulResults) : [];
   const candidateEventCount = candidateEvents.length;
+  const publishedEvents = applyEventFilter(candidateEvents, settings.eventFilter);
+  const publishedEventCount = publishedEvents.length;
   const previousCalendarExists = await safeCalendarExists(store, logger);
   const canPublishPartial = failedStatuses.length > 0 && !previousCalendarExists;
   const shouldPublishCalendar = successfulResults.length > 0 && (failedStatuses.length === 0 || canPublishPartial);
@@ -71,14 +76,15 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   logger.info("refresh_started", {
     reason,
     feedCount: sourceFeeds.length,
+    eventFilter: settings.eventFilter,
   });
 
   if (shouldPublishCalendar) {
     try {
-      const calendarText = serializeCalendar(candidateEvents, config.serviceName);
+      const calendarText = serializeCalendar(publishedEvents, config.serviceName);
       await store.writeCalendar(calendarText);
       calendarPublished = true;
-      mergedEventCount = candidateEventCount;
+      mergedEventCount = publishedEventCount;
       lastSuccessfulRefresh = attemptTimestamp;
     } catch (error) {
       fatalPublishError = `Failed to write calendar.ics: ${errorMessage(error)}`;
@@ -100,10 +106,13 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     serviceName: config.serviceName,
     state,
     healthy: state !== "failed",
+    eventFilter: settings.eventFilter,
     lastAttemptedRefresh: attemptTimestamp,
     lastSuccessfulRefresh,
     sourceFeedCount: sourceFeeds.length,
     mergedEventCount,
+    unfilteredMergedEventCount:
+      settings.eventFilter === "games-only" ? candidateEventCount : undefined,
     candidateMergedEventCount:
       state === "partial" || (state === "failed" && candidateEventCount > 0) ? candidateEventCount : undefined,
     calendarPublished,
@@ -162,5 +171,19 @@ async function safeCalendarExists(store: BlobStore, logger: Logger): Promise<boo
     });
 
     return false;
+  }
+}
+
+async function safeLoadSettings(config: AppConfig, logger: Logger) {
+  try {
+    const settingsStore = new SettingsStore(getStorageConnectionString(config.outputStorageAccount));
+    return await settingsStore.getSettings();
+  } catch (error) {
+    logger.warn("settings_load_failed_defaulting", {
+      error: errorMessage(error),
+      eventFilter: DEFAULT_SETTINGS.eventFilter,
+    });
+
+    return DEFAULT_SETTINGS;
   }
 }

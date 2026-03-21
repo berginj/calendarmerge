@@ -13,6 +13,7 @@ app.http("updateSettings", {
 });
 
 const VALID_SCHEDULES = ["every-15-min", "hourly", "every-2-hours", "business-hours", "manual-only"];
+const VALID_EVENT_FILTERS = ["all-events", "games-only"];
 
 async function updateSettingsHandler(
   request: HttpRequest,
@@ -36,13 +37,28 @@ async function updateSettingsHandler(
       };
     }
 
+    if (body.eventFilter && !VALID_EVENT_FILTERS.includes(body.eventFilter)) {
+      logger.warn("settings_update_invalid_event_filter", { eventFilter: body.eventFilter });
+
+      return {
+        status: 400,
+        jsonBody: {
+          error: "Invalid event filter",
+          validOptions: VALID_EVENT_FILTERS,
+        },
+      };
+    }
+
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { SettingsStore } = await import("../lib/settingsStore");
     const store = new SettingsStore(connectionString);
     const settings = await store.updateSettings(body);
 
-    logger.info("settings_updated", { refreshSchedule: settings.refreshSchedule });
+    logger.info("settings_updated", {
+      refreshSchedule: settings.refreshSchedule,
+      eventFilter: settings.eventFilter,
+    });
 
     return {
       status: 200,
