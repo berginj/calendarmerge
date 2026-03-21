@@ -1,6 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
+import { loadSourceFeeds } from "../lib/sourceFeeds";
+import { errorMessage } from "../lib/util";
 
 app.http("listFeeds", {
   methods: ["GET"],
@@ -11,28 +14,29 @@ app.http("listFeeds", {
 
 async function listFeedsHandler(
   _request: HttpRequest,
-  _context: InvocationContext,
+  context: InvocationContext,
 ): Promise<HttpResponseInit> {
+  const logger = createLogger(context);
+
   try {
-    // Simplified version - just return config feeds for now
-    // TODO: Add table storage support later after basic functionality works
-    const { getConfig } = await import("../lib/config");
     const config = getConfig();
+    const feeds = await loadSourceFeeds(config, logger);
 
     return {
       status: 200,
       jsonBody: {
-        feeds: config.sourceFeeds,
-        count: config.sourceFeeds.length,
+        feeds,
+        count: feeds.length,
       },
     };
   } catch (error) {
+    logger.error("feeds_list_failed", { error: errorMessage(error) });
+
     return {
       status: 500,
       jsonBody: {
         error: "Failed to load feeds",
-        details: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+        details: errorMessage(error),
       },
     };
   }

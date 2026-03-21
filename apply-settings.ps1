@@ -22,7 +22,7 @@ try {
     Write-Host "✓ Settings applied!" -ForegroundColor Green
     Write-Host ""
     Write-Host "Wait 30 seconds for app restart, then test:" -ForegroundColor Yellow
-    Write-Host "https://calendarmerge-func-prod.azurewebsites.net/api/diagnostic" -ForegroundColor Cyan
+    Write-Host "https://calendarmerge-func-prod.azurewebsites.net/api/status" -ForegroundColor Cyan
 
 } finally {
     Remove-Item $tempFile -Force -ErrorAction SilentlyContinue

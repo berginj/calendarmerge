@@ -44,11 +44,12 @@ The app reads configuration from Azure Functions app settings or `local.settings
 - Feeds can be managed via the web UI (stored in Azure Table Storage)
 - Or configured via `SOURCE_FEEDS_JSON` environment variable (legacy mode)
 - Set `ENABLE_TABLE_STORAGE=true` to load feeds from Table Storage
+- Write actions in the UI require a Function key; the browser stores it locally after you enter it
 
 Required:
 
 - `OUTPUT_STORAGE_ACCOUNT`
-- `SOURCE_FEEDS_JSON` (used as fallback when table storage is empty or disabled)
+- `SOURCE_FEEDS_JSON` when `ENABLE_TABLE_STORAGE=false`, or as an optional fallback when table storage is enabled
 
 Supported settings:
 
@@ -56,6 +57,7 @@ Supported settings:
 | --- | --- | --- | --- |
 | `SOURCE_FEEDS_JSON` | Yes* | none | JSON array of feed objects or URLs. *Only required if `ENABLE_TABLE_STORAGE=false` |
 | `OUTPUT_STORAGE_ACCOUNT` | Yes | none | Azure Storage account used for published output. |
+| `OUTPUT_BASE_URL` | No | blob URL | Public base URL for published output. Set this to the static website endpoint for browser-friendly links. |
 | `ENABLE_TABLE_STORAGE` | No | `false` | Set to `true` to load feeds from Azure Table Storage. |
 | `OUTPUT_CONTAINER` | No | `$web` | Blob container for published files. |
 | `OUTPUT_BLOB_PATH` | No | `calendar.ics` | Public merged calendar path. |
@@ -115,6 +117,7 @@ Navigate to: `https://<storage-account>.z13.web.core.windows.net/manage/`
 - Changes take effect on next refresh (automatic or manual)
 
 **Note:** `SOURCE_FEEDS_JSON` is kept as a fallback. If table storage is empty or fails to load, feeds from the environment variable will be used.
+If you want a table-only deployment, leave `SOURCE_FEEDS_JSON` unset and populate the `SourceFeeds` table before the first refresh.
 
 ## Local Dev
 
@@ -132,6 +135,7 @@ Setup:
 Copy-Item local.settings.example.json local.settings.json
 npm ci
 npm run build
+npm run build --prefix frontend
 ```
 
 Run tests:
@@ -233,6 +237,8 @@ See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md) for detailed instructions
 
 **Note:** Secrets are auto-created by Azure or via setup script
 
+When using the management UI against protected write endpoints, retrieve a Function key and enter it into the UI before creating, updating, or deleting feeds.
+
 ## Public URLs
 
 Discover the static website base URL:
@@ -262,11 +268,14 @@ Function endpoints:
 **Public:**
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status` - Health check
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - List feeds (GET)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Read refresh settings (GET)
 
 **Protected:**
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh` - Manual refresh (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - Create feed (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/{id}` - Update/Delete feed (PUT/DELETE)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Update refresh settings (PUT)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/diagnostic` - Deployment diagnostics (GET)
 
 Manual refresh uses Function auth. Retrieve a key and invoke it like this:
 

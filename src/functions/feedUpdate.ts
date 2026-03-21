@@ -7,7 +7,7 @@ import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("updateFeed", {
   methods: ["PUT"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "feeds/{feedId}",
   handler: updateFeedHandler,
 });

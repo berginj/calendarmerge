@@ -7,7 +7,7 @@ import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("updateSettings", {
   methods: ["PUT"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "settings",
   handler: updateSettingsHandler,
 });

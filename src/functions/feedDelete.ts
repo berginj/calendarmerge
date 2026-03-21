@@ -7,7 +7,7 @@ import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("deleteFeed", {
   methods: ["DELETE"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "feeds/{feedId}",
   handler: deleteFeedHandler,
 });

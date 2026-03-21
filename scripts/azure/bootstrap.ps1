@@ -6,6 +6,7 @@ param(
   [string]$FunctionAppName = $env:AZ_FUNCTIONAPP_NAME,
   [string]$AppInsightsName = $env:AZ_APPINSIGHTS_NAME,
   [string]$SourceFeedsJson = $env:SOURCE_FEEDS_JSON,
+  [string]$EnableTableStorage = $(if ($env:ENABLE_TABLE_STORAGE) { $env:ENABLE_TABLE_STORAGE } else { 'false' }),
   [string]$OutputContainer = $(if ($env:OUTPUT_CONTAINER) { $env:OUTPUT_CONTAINER } else { '$web' }),
   [string]$OutputBlobPath = $(if ($env:OUTPUT_BLOB_PATH) { $env:OUTPUT_BLOB_PATH } else { 'calendar.ics' }),
   [string]$StatusBlobPath = $(if ($env:STATUS_BLOB_PATH) { $env:STATUS_BLOB_PATH } else { 'status.json' }),
@@ -65,7 +66,9 @@ Assert-Required $ResourceGroup "AZ_RESOURCE_GROUP"
 Assert-Required $StorageAccount "AZ_STORAGE_ACCOUNT"
 Assert-Required $FunctionAppName "AZ_FUNCTIONAPP_NAME"
 Assert-Required $AppInsightsName "AZ_APPINSIGHTS_NAME"
-Assert-Required $SourceFeedsJson "SOURCE_FEEDS_JSON"
+if ($EnableTableStorage -ne "true") {
+  Assert-Required $SourceFeedsJson "SOURCE_FEEDS_JSON"
+}
 
 if ($SubscriptionId) {
   Invoke-AzCli account set --subscription $SubscriptionId | Out-Null
@@ -118,7 +121,6 @@ if (-not $functionExists) {
 $settingsFile = [System.IO.Path]::GetTempFileName()
 $settings = @{
   SERVICE_NAME = "calendarmerge"
-  SOURCE_FEEDS_JSON = $SourceFeedsJson
   OUTPUT_STORAGE_ACCOUNT = $StorageAccount
   OUTPUT_CONTAINER = $OutputContainer
   OUTPUT_BLOB_PATH = $OutputBlobPath
@@ -127,8 +129,12 @@ $settings = @{
   FETCH_TIMEOUT_MS = $FetchTimeoutMs
   FETCH_RETRY_COUNT = $FetchRetryCount
   FETCH_RETRY_DELAY_MS = $FetchRetryDelayMs
-  ENABLE_TABLE_STORAGE = "false"
+  ENABLE_TABLE_STORAGE = $EnableTableStorage
   WEBSITE_RUN_FROM_PACKAGE = "1"
+}
+
+if (-not [string]::IsNullOrWhiteSpace($SourceFeedsJson)) {
+  $settings.SOURCE_FEEDS_JSON = $SourceFeedsJson
 }
 
 try {
@@ -269,6 +275,12 @@ $webEndpoint = Invoke-AzCli storage account show `
   --name $StorageAccount `
   --query "primaryEndpoints.web" `
   --output tsv
+
+Invoke-AzCli functionapp config appsettings set `
+  --resource-group $ResourceGroup `
+  --name $FunctionAppName `
+  --settings OUTPUT_BASE_URL=$($webEndpoint.TrimEnd('/')) `
+  --output none | Out-Null
 
 Write-Host "Provisioned resource group: $ResourceGroup"
 Write-Host "Function App: $FunctionAppName"

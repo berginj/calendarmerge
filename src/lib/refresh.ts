@@ -4,39 +4,12 @@ import { fetchFeed } from "./fetchFeeds";
 import { serializeCalendar } from "./ics";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
+import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
-import { TableStore } from "./tableStore";
 import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
 import { buildOutputPaths, errorMessage } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
-
-async function loadSourceFeeds(config: AppConfig, logger: Logger): Promise<SourceFeedConfig[]> {
-  const enableTableStorage = process.env.ENABLE_TABLE_STORAGE?.toLowerCase() === "true";
-
-  if (!enableTableStorage) {
-    return config.sourceFeeds;
-  }
-
-  try {
-    const connectionString =
-      process.env.AZURE_STORAGE_CONNECTION_STRING ||
-      `DefaultEndpointsProtocol=https;AccountName=${config.outputStorageAccount};EndpointSuffix=core.windows.net`;
-    const tableStore = new TableStore(connectionString);
-    const feeds = await tableStore.listFeeds();
-
-    if (feeds.length === 0) {
-      logger.warn("table_storage_empty_fallback_to_json");
-      return config.sourceFeeds;
-    }
-
-    logger.info("feeds_loaded_from_table", { count: feeds.length });
-    return feeds;
-  } catch (error) {
-    logger.error("table_storage_load_failed_fallback_to_json", { error: errorMessage(error) });
-    return config.sourceFeeds;
-  }
-}
 
 export async function runRefresh(logger: Logger, reason: string): Promise<RefreshResult> {
   if (!activeRefresh) {

@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 // Diagnostic endpoint to test config loading
 app.http("diagnostic", {
   methods: ["GET"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "diagnostic",
   handler: diagnosticHandler,
 });
@@ -12,7 +12,7 @@ async function diagnosticHandler(
   _request: HttpRequest,
   _context: InvocationContext,
 ): Promise<HttpResponseInit> {
-  const diagnostics: any = {
+  const diagnostics = {
     timestamp: new Date().toISOString(),
     nodeVersion: process.version,
     platform: process.platform,
@@ -22,7 +22,7 @@ async function diagnosticHandler(
 
   // Check environment variables
   diagnostics.env = {
-    SOURCE_FEEDS_JSON: process.env.SOURCE_FEEDS_JSON?.substring(0, 50) + "...",
+    hasSourceFeedsJson: Boolean(process.env.SOURCE_FEEDS_JSON),
     OUTPUT_STORAGE_ACCOUNT: process.env.OUTPUT_STORAGE_ACCOUNT,
     ENABLE_TABLE_STORAGE: process.env.ENABLE_TABLE_STORAGE,
     hasStorageConnectionString: Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING),
@@ -42,7 +42,6 @@ async function diagnosticHandler(
     diagnostics.configTest = {
       success: false,
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
     };
   }
 

@@ -2,7 +2,7 @@ import { TableClient } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
 
 import { SourceFeedConfig } from "./types";
-import { slugifyId } from "./util";
+import { looksLikeConnectionString, slugifyId } from "./util";
 
 export interface SourceFeedEntity {
   partitionKey: string; // "default" now, userId later
@@ -22,11 +22,9 @@ export class TableStore {
   constructor(connectionStringOrAccount: string, tableName: string = "SourceFeeds") {
     this.tableName = tableName;
 
-    // If it looks like a connection string, use it directly
-    if (connectionStringOrAccount.includes("AccountName=")) {
+    if (looksLikeConnectionString(connectionStringOrAccount)) {
       this.tableClient = TableClient.fromConnectionString(connectionStringOrAccount, tableName);
     } else {
-      // Legacy: storage account name with DefaultAzureCredential
       this.tableClient = new TableClient(
         `https://${connectionStringOrAccount}.table.core.windows.net`,
         tableName,

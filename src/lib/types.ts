@@ -10,6 +10,7 @@ export interface AppConfig {
   serviceName: string;
   sourceFeeds: SourceFeedConfig[];
   outputStorageAccount: string;
+  outputBaseUrl?: string;
   outputContainer: string;
   outputBlobPath: string;
   statusBlobPath: string;

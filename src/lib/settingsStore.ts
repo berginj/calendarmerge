@@ -1,5 +1,8 @@
 import { TableClient } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
+import { DateTime } from "luxon";
+
+import { looksLikeConnectionString } from "./util";
 
 export interface AppSettings {
   refreshSchedule: "every-15-min" | "hourly" | "every-2-hours" | "business-hours" | "manual-only";
@@ -25,11 +28,9 @@ export class SettingsStore {
   private readonly tableClient: TableClient;
 
   constructor(connectionStringOrAccount: string, tableName: string = "AppSettings") {
-    // If it looks like a connection string, use it directly
-    if (connectionStringOrAccount.includes("AccountName=")) {
+    if (looksLikeConnectionString(connectionStringOrAccount)) {
       this.tableClient = TableClient.fromConnectionString(connectionStringOrAccount, tableName);
     } else {
-      // Legacy: storage account name with DefaultAzureCredential
       this.tableClient = new TableClient(
         `https://${connectionStringOrAccount}.table.core.windows.net`,
         tableName,
@@ -63,9 +64,7 @@ export class SettingsStore {
       };
     } catch (error: unknown) {
       if (error && typeof error === "object" && "statusCode" in error && error.statusCode === 404) {
-        // Settings don't exist yet, create with defaults
-        await this.updateSettings(DEFAULT_SETTINGS);
-        return DEFAULT_SETTINGS;
+        return this.writeSettings(DEFAULT_SETTINGS);
       }
       throw error;
     }
@@ -81,15 +80,19 @@ export class SettingsStore {
       lastUpdated: new Date().toISOString(),
     };
 
+    return this.writeSettings(updated);
+  }
+
+  private async writeSettings(settings: AppSettings): Promise<AppSettings> {
     const entity: SettingsEntity = {
       partitionKey: SETTINGS_PARTITION_KEY,
       rowKey: SETTINGS_ROW_KEY,
-      refreshSchedule: updated.refreshSchedule,
-      lastUpdated: updated.lastUpdated,
+      refreshSchedule: settings.refreshSchedule,
+      lastUpdated: settings.lastUpdated,
     };
 
     await this.tableClient.upsertEntity(entity, "Merge");
-    return updated;
+    return settings;
   }
 
   /**
@@ -117,21 +120,17 @@ export class SettingsStore {
         return minutesSinceLastRefresh >= 60;
       case "every-2-hours":
         return minutesSinceLastRefresh >= 120;
-      case "business-hours":
-        // Check if we're in business hours (8 AM - 6 PM EST, Mon-Fri)
-        const hour = now.getUTCHours();
-        const day = now.getUTCDay();
+      case "business-hours": {
+        const easternNow = DateTime.fromJSDate(now).setZone("America/New_York");
+        const isBusinessDay = easternNow.weekday >= 1 && easternNow.weekday <= 5;
+        const isBusinessHours = easternNow.hour >= 8 && easternNow.hour < 18;
 
-        // EST is UTC-5, EDT is UTC-4. Using EST (worst case)
-        // 8 AM EST = 13:00 UTC, 6 PM EST = 23:00 UTC
-        const isBusinessHours = hour >= 13 && hour < 23 && day >= 1 && day <= 5;
-
-        if (!isBusinessHours) {
+        if (!isBusinessDay || !isBusinessHours) {
           return false;
         }
 
-        // During business hours, refresh hourly
         return minutesSinceLastRefresh >= 60;
+      }
       default:
         return true;
     }

@@ -7,7 +7,7 @@ import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "feeds",
   handler: createFeedHandler,
 });

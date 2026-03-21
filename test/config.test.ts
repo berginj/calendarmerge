@@ -104,4 +104,27 @@ describe("Config", () => {
 
     expect(() => loadConfig(env)).toThrow("duplicate feed id");
   });
+
+  it("should allow table-storage mode without SOURCE_FEEDS_JSON", () => {
+    const env = {
+      ENABLE_TABLE_STORAGE: "true",
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.sourceFeeds).toEqual([]);
+  });
+
+  it("should parse OUTPUT_BASE_URL when provided", () => {
+    const env = {
+      ENABLE_TABLE_STORAGE: "true",
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      OUTPUT_BASE_URL: "https://teststorage.z13.web.core.windows.net/",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.outputBaseUrl).toBe("https://teststorage.z13.web.core.windows.net");
+  });
 });

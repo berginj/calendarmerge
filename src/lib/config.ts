@@ -1,5 +1,5 @@
 import { AppConfig, SourceFeedConfig } from "./types";
-import { normalizeBlobPath, slugifyId } from "./util";
+import { isTableStorageEnabled, normalizeBlobPath, normalizeUrlBase, slugifyId } from "./util";
 
 export const DEFAULT_SERVICE_NAME = "calendarmerge";
 export const DEFAULT_OUTPUT_CONTAINER = "$web";
@@ -40,8 +40,10 @@ export function clearConfigCache(): void {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
-  const sourceFeeds = parseSourceFeeds(env.SOURCE_FEEDS_JSON);
+  const enableTableStorage = isTableStorageEnabled(env);
+  const sourceFeeds = parseSourceFeeds(env.SOURCE_FEEDS_JSON, !enableTableStorage);
   const outputStorageAccount = required(env.OUTPUT_STORAGE_ACCOUNT, "OUTPUT_STORAGE_ACCOUNT");
+  const outputBaseUrl = normalizeUrlBase(env.OUTPUT_BASE_URL);
   const outputContainer = (env.OUTPUT_CONTAINER ?? DEFAULT_OUTPUT_CONTAINER).trim();
   const outputBlobPath = normalizeBlobPath(env.OUTPUT_BLOB_PATH ?? DEFAULT_OUTPUT_BLOB_PATH);
   const statusBlobPath = normalizeBlobPath(env.STATUS_BLOB_PATH ?? DEFAULT_STATUS_BLOB_PATH);
@@ -69,6 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     serviceName: (env.SERVICE_NAME ?? DEFAULT_SERVICE_NAME).trim() || DEFAULT_SERVICE_NAME,
     sourceFeeds,
     outputStorageAccount,
+    outputBaseUrl,
     outputContainer,
     outputBlobPath,
     statusBlobPath,
@@ -79,9 +82,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   };
 }
 
-function parseSourceFeeds(raw: string | undefined): SourceFeedConfig[] {
+function parseSourceFeeds(raw: string | undefined, required: boolean): SourceFeedConfig[] {
   if (!raw || !raw.trim()) {
-    throw new Error("SOURCE_FEEDS_JSON must be set to a JSON array of ICS feed objects.");
+    if (required) {
+      throw new Error("SOURCE_FEEDS_JSON must be set to a JSON array of ICS feed objects.");
+    }
+
+    return [];
   }
 
   let parsed: unknown;
@@ -99,7 +106,7 @@ function parseSourceFeeds(raw: string | undefined): SourceFeedConfig[] {
     .map((entry, index) => normalizeSourceFeed(entry as RawSourceFeed, index))
     .filter((entry): entry is SourceFeedConfig => entry !== null);
 
-  if (feeds.length === 0) {
+  if (required && feeds.length === 0) {
     throw new Error("SOURCE_FEEDS_JSON must contain at least one enabled source feed.");
   }
 

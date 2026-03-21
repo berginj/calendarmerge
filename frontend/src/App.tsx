@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { SourceFeedConfig } from './types';
-import { listFeeds, createFeed, updateFeed, deleteFeed } from './api/feedsApi';
+import {
+  clearFunctionsKey,
+  createFeed,
+  deleteFeed,
+  hasBuildTimeFunctionsKey,
+  listFeeds,
+  loadSavedFunctionsKey,
+  saveFunctionsKey,
+  updateFeed,
+} from './api/feedsApi';
 import FeedList from './components/FeedList';
 import FeedForm from './components/FeedForm';
 import Settings from './components/Settings';
@@ -14,6 +23,11 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [adminKey, setAdminKey] = useState(() => loadSavedFunctionsKey());
+  const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
+
+  const buildTimeAdminKey = hasBuildTimeFunctionsKey();
+  const hasConfiguredAdminKey = buildTimeAdminKey || adminKey.trim().length > 0;
 
   const loadFeeds = async () => {
     try {
@@ -31,6 +45,19 @@ function App() {
   useEffect(() => {
     loadFeeds();
   }, []);
+
+  const handleSaveAdminKey = () => {
+    const trimmed = adminKey.trim();
+    saveFunctionsKey(trimmed);
+    setAdminKey(trimmed);
+    setAdminKeyMessage(trimmed ? 'Admin key saved in this browser.' : 'Admin key cleared.');
+  };
+
+  const handleClearAdminKey = () => {
+    clearFunctionsKey();
+    setAdminKey('');
+    setAdminKeyMessage('Admin key cleared.');
+  };
 
   const handleCreate = async (feed: { name: string; url: string }) => {
     try {
@@ -87,6 +114,36 @@ function App() {
             Settings
           </button>
         </nav>
+
+        <div className="admin-key-panel">
+          <label htmlFor="admin-key">Admin Function Key</label>
+          <div className="admin-key-controls">
+            <input
+              id="admin-key"
+              type="password"
+              value={adminKey}
+              onChange={(event) => setAdminKey(event.target.value)}
+              placeholder="Enter function key for write access"
+              autoComplete="off"
+            />
+            <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
+              Save Key
+            </button>
+            <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
+              Clear
+            </button>
+          </div>
+          <p className="admin-key-help">
+            Feed changes and settings updates require a Function key.
+            {hasConfiguredAdminKey
+              ? ' Write access is configured for this browser.'
+              : ' Read-only mode is active until a key is saved.'}
+          </p>
+          {buildTimeAdminKey && !adminKey && (
+            <p className="admin-key-help">A build-configured key is currently available.</p>
+          )}
+          {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
+        </div>
       </header>
 
       <main className="app-main">

@@ -1,12 +1,13 @@
 import { getConfig } from "../src/lib/config";
 import { TableStore } from "../src/lib/tableStore";
+import { getStorageConnectionString } from "../src/lib/util";
 
 async function migrate() {
   console.log("Starting feed migration to Azure Table Storage...\n");
 
   try {
     const config = getConfig();
-    const store = new TableStore(config.outputStorageAccount);
+    const store = new TableStore(getStorageConnectionString(config.outputStorageAccount));
 
     console.log(`Storage Account: ${config.outputStorageAccount}`);
     console.log(`Number of feeds to migrate: ${config.sourceFeeds.length}\n`);

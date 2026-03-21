@@ -1,31 +1,104 @@
 import { SourceFeedConfig } from '../types';
 
-// API base URL - configured via environment variable
-// Development: Uses Vite proxy to http://localhost:7071/api
-// Production: Set via VITE_API_BASE in .env.production
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const BUILD_TIME_FUNCTIONS_KEY = import.meta.env.VITE_FUNCTIONS_KEY?.trim();
+const FUNCTIONS_KEY_STORAGE_KEY = 'calendarmerge_functions_key';
+
+interface ApiErrorBody {
+  error?: string;
+  details?: string | string[];
+}
+
+function getStoredFunctionsKey(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  try {
+    return window.localStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim() || '';
+  } catch {
+    return '';
+  }
+}
+
+function getFunctionsKey(): string {
+  return getStoredFunctionsKey() || BUILD_TIME_FUNCTIONS_KEY || '';
+}
+
+export function loadSavedFunctionsKey(): string {
+  return getStoredFunctionsKey();
+}
+
+export function hasBuildTimeFunctionsKey(): boolean {
+  return Boolean(BUILD_TIME_FUNCTIONS_KEY);
+}
+
+export function saveFunctionsKey(value: string): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, trimmed);
+}
+
+export function clearFunctionsKey(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+}
+
+async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {
+  if ((response.status === 401 || response.status === 403) && requiresAdmin) {
+    return new Error('Admin function key is missing or invalid. Update it in the UI and try again.');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (contentType?.includes('application/json')) {
+    const error = (await response.json()) as ApiErrorBody;
+    const details = Array.isArray(error.details) ? error.details.join(', ') : error.details;
+    return new Error(details || error.error || `API Error: ${response.status} ${response.statusText}`);
+  }
+
+  const text = await response.text();
+  if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+    return new Error(
+      `Server returned HTML error page (${response.status}). The backend API may not be deployed correctly. Check: ${response.url}`,
+    );
+  }
+
+  return new Error(text || `API Error: ${response.status} ${response.statusText}`);
+}
+
+async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = false): Promise<T> {
+  const headers = new Headers(init?.headers);
+  const functionsKey = requiresAdmin ? getFunctionsKey() : '';
+  if (functionsKey) {
+    headers.set('x-functions-key', functionsKey);
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+  });
+
+  if (!response.ok) {
+    throw await parseApiError(response, requiresAdmin);
+  }
+
+  return (await response.json()) as T;
+}
 
 export async function listFeeds(): Promise<SourceFeedConfig[]> {
   try {
-    const res = await fetch(`${API_BASE}/feeds`);
-
-    if (!res.ok) {
-      // Try to get error details from response
-      const contentType = res.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const error = await res.json();
-        throw new Error(error.details || error.error || `API Error: ${res.status} ${res.statusText}`);
-      } else {
-        // Non-JSON response (HTML error page)
-        const text = await res.text();
-        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-          throw new Error(`Server returned HTML error page (${res.status}). The backend API may not be deployed correctly. Check: ${API_BASE}/feeds`);
-        }
-        throw new Error(`API Error: ${res.status} ${res.statusText}`);
-      }
-    }
-
-    const data = await res.json();
+    const data = await requestJson<{ feeds: SourceFeedConfig[] }>('/feeds');
     return data.feeds;
   } catch (error) {
     if (error instanceof Error) {
@@ -40,18 +113,16 @@ export async function createFeed(feed: {
   url: string;
   id?: string;
 }): Promise<SourceFeedConfig> {
-  const res = await fetch(`${API_BASE}/feeds`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(feed),
-  });
+  const data = await requestJson<{ feed: SourceFeedConfig }>(
+    '/feeds',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(feed),
+    },
+    true,
+  );
 
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to create feed');
-  }
-
-  const data = await res.json();
   return data.feed;
 }
 
@@ -59,33 +130,28 @@ export async function updateFeed(
   feedId: string,
   updates: { name?: string; url?: string; enabled?: boolean }
 ): Promise<SourceFeedConfig> {
-  const res = await fetch(`${API_BASE}/feeds/${feedId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
+  const data = await requestJson<{ feed: SourceFeedConfig }>(
+    `/feeds/${feedId}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    },
+    true,
+  );
 
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to update feed');
-  }
-
-  const data = await res.json();
   return data.feed;
 }
 
 export async function deleteFeed(feedId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/feeds/${feedId}`, {
-    method: 'DELETE',
-  });
-
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to delete feed');
-  }
+  await requestJson<Record<string, never>>(
+    `/feeds/${feedId}`,
+    {
+      method: 'DELETE',
+    },
+    true,
+  );
 }
-
-// Settings API
 
 export interface AppSettings {
   refreshSchedule: 'every-15-min' | 'hourly' | 'every-2-hours' | 'business-hours' | 'manual-only';
@@ -94,19 +160,7 @@ export interface AppSettings {
 
 export async function getSettings(): Promise<AppSettings> {
   try {
-    const res = await fetch(`${API_BASE}/settings`);
-
-    if (!res.ok) {
-      const contentType = res.headers.get('content-type');
-      if (contentType?.includes('application/json')) {
-        const error = await res.json();
-        throw new Error(error.details || error.error || `API Error: ${res.status}`);
-      } else {
-        throw new Error(`Settings API returned error (${res.status}). Backend may be initializing. Try refreshing in a moment.`);
-      }
-    }
-
-    const data = await res.json();
+    const data = await requestJson<{ settings: AppSettings }>('/settings');
     return data.settings;
   } catch (error) {
     if (error instanceof Error) {
@@ -119,17 +173,15 @@ export async function getSettings(): Promise<AppSettings> {
 export async function updateSettings(
   settings: Partial<AppSettings>
 ): Promise<AppSettings> {
-  const res = await fetch(`${API_BASE}/settings`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(settings),
-  });
+  const data = await requestJson<{ settings: AppSettings }>(
+    '/settings',
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    },
+    true,
+  );
 
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || 'Failed to update settings');
-  }
-
-  const data = await res.json();
   return data.settings;
 }
