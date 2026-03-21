@@ -127,4 +127,15 @@ describe("Config", () => {
 
     expect(config.outputBaseUrl).toBe("https://teststorage.z13.web.core.windows.net");
   });
+
+  it("should normalize webcal feed URLs from config", () => {
+    const env = {
+      SOURCE_FEEDS_JSON: '[{"id":"test","name":"Test","url":"webcal://example.com/cal.ics"}]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.sourceFeeds[0].url).toBe("https://example.com/cal.ics");
+  });
 });

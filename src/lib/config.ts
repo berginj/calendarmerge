@@ -1,5 +1,12 @@
 import { AppConfig, SourceFeedConfig } from "./types";
-import { isTableStorageEnabled, normalizeBlobPath, normalizeUrlBase, slugifyId } from "./util";
+import {
+  errorMessage,
+  isTableStorageEnabled,
+  normalizeBlobPath,
+  normalizeFeedUrl,
+  normalizeUrlBase,
+  slugifyId,
+} from "./util";
 
 export const DEFAULT_SERVICE_NAME = "calendarmerge";
 export const DEFAULT_OUTPUT_CONTAINER = "$web";
@@ -159,18 +166,16 @@ function parseFeedUrl(rawUrl: string | undefined, index: number): string {
     throw new Error(`SOURCE_FEEDS_JSON entry ${index + 1} is missing a url.`);
   }
 
-  let parsedUrl: URL;
   try {
-    parsedUrl = new URL(candidate);
-  } catch {
+    return normalizeFeedUrl(candidate);
+  } catch (error) {
+    const message = errorMessage(error);
+    if (message.startsWith("Feed URL must use")) {
+      throw new Error(`SOURCE_FEEDS_JSON entry ${index + 1} must use http, https, or webcal: ${candidate}`);
+    }
+
     throw new Error(`SOURCE_FEEDS_JSON entry ${index + 1} has an invalid url: ${candidate}`);
   }
-
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error(`SOURCE_FEEDS_JSON entry ${index + 1} must use http or https: ${candidate}`);
-  }
-
-  return parsedUrl.toString();
 }
 
 function deriveFeedId(url: string, index: number): string {

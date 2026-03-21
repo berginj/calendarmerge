@@ -1,7 +1,7 @@
 import { AppConfig, FeedRunResult, SourceFeedConfig } from "./types";
 import { parseIcsCalendar } from "./ics";
 import { Logger } from "./log";
-import { errorMessage, sleep } from "./util";
+import { errorMessage, normalizeFeedUrl, sleep } from "./util";
 
 class HttpStatusError extends Error {
   constructor(
@@ -83,7 +83,7 @@ async function fetchFeedText(url: string, timeoutMs: number): Promise<string> {
   const timeout = setTimeout(() => controller.abort(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(normalizeFeedUrl(url), {
       signal: controller.signal,
       headers: {
         Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1",

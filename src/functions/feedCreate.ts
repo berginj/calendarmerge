@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, getStorageConnectionString } from "../lib/util";
+import { errorMessage, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -44,9 +44,10 @@ async function createFeedHandler(
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);
+    const normalizedUrl = normalizeFeedUrl(body.url);
 
     // Generate ID if not provided
-    const feedId = body.id || TableStore.generateFeedId(body.url);
+    const feedId = body.id || TableStore.generateFeedId(normalizedUrl);
 
     // Check for duplicate ID
     const existing = await store.getFeed(feedId);
@@ -68,7 +69,7 @@ async function createFeedHandler(
       rowKey: feedId,
       id: feedId,
       name: body.name.trim(),
-      url: body.url.trim(),
+      url: normalizedUrl,
       enabled: true,
     });
 
@@ -115,12 +116,9 @@ function validateFeedInput(input: unknown): { valid: boolean; errors: string[] }
     errors.push("Feed URL is required and must be a non-empty string");
   } else {
     try {
-      const url = new URL(body.url);
-      if (!["http:", "https:"].includes(url.protocol)) {
-        errors.push("Feed URL must use http or https protocol");
-      }
-    } catch {
-      errors.push("Feed URL is not a valid URL");
+      normalizeFeedUrl(body.url);
+    } catch (error) {
+      errors.push(errorMessage(error));
     }
   }
 

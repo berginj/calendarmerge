@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, getStorageConnectionString } from "../lib/util";
+import { errorMessage, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -67,7 +67,7 @@ async function updateFeedHandler(
     // Build updates object
     const updates: Partial<UpdateFeedRequest> = {};
     if (body.name !== undefined) updates.name = body.name.trim();
-    if (body.url !== undefined) updates.url = body.url.trim();
+    if (body.url !== undefined) updates.url = normalizeFeedUrl(body.url);
     if (body.enabled !== undefined) updates.enabled = body.enabled;
 
     // Update feed
@@ -124,12 +124,9 @@ function validateUpdateInput(input: unknown): { valid: boolean; errors: string[]
       errors.push("Feed URL must be a non-empty string if provided");
     } else {
       try {
-        const url = new URL(body.url);
-        if (!["http:", "https:"].includes(url.protocol)) {
-          errors.push("Feed URL must use http or https protocol");
-        }
-      } catch {
-        errors.push("Feed URL is not a valid URL");
+        normalizeFeedUrl(body.url);
+      } catch (error) {
+        errors.push(errorMessage(error));
       }
     }
   }

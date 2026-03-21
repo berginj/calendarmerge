@@ -6,6 +6,10 @@ interface FeedFormProps {
   initialValues?: { name: string; url: string };
 }
 
+function normalizeFeedUrl(urlValue: string): string {
+  return urlValue.trim().replace(/^webcals?:\/\//i, 'https://');
+}
+
 function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
   const [name, setName] = useState(initialValues?.name || '');
   const [url, setUrl] = useState(initialValues?.url || '');
@@ -13,12 +17,7 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
   const [urlError, setUrlError] = useState<string | null>(null);
 
   const validateUrl = (urlValue: string): string | null => {
-    const trimmed = urlValue.trim();
-
-    // Check for webcal:// and suggest https://
-    if (trimmed.startsWith('webcal://')) {
-      return 'Replace "webcal://" with "https://" in the URL';
-    }
+    const trimmed = normalizeFeedUrl(urlValue);
 
     // Check for Google Calendar web UI URLs (common mistake)
     if (trimmed.includes('calendar.google.com/calendar/u/') || trimmed.includes('?cid=')) {
@@ -61,7 +60,7 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
 
     setSubmitting(true);
     try {
-      await onSubmit({ name: name.trim(), url: url.trim() });
+      await onSubmit({ name: name.trim(), url: normalizeFeedUrl(url) });
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +98,7 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
           </div>
         )}
         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
-          Must be an ICS calendar feed URL (ends with .ics)
+          Must be an ICS calendar feed URL (ends with .ics). webcal:// links are converted to https://.
         </div>
       </div>
 

@@ -41,6 +41,28 @@ export function normalizeUrlBase(input: string | undefined): string | undefined 
   return parsed.toString().replace(/\/+$/, "");
 }
 
+export function normalizeFeedUrl(input: string): string {
+  const value = input.trim();
+  if (!value) {
+    throw new Error("Feed URL is required.");
+  }
+
+  const candidate = value.replace(/^webcals?:\/\//i, "https://");
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new Error(`Feed URL is not a valid URL: ${value}`);
+  }
+
+  if (!["http:", "https:"].includes(parsed.protocol)) {
+    throw new Error(`Feed URL must use http, https, or webcal: ${value}`);
+  }
+
+  return parsed.toString();
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
