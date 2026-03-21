@@ -218,6 +218,18 @@ Invoke-AzCli storage blob service-properties update `
   --404-document index.html `
   --output none | Out-Null
 
+Invoke-AzCli storage table create `
+  --account-name $StorageAccount `
+  --account-key $storageAccountKey `
+  --name SourceFeeds `
+  --output none | Out-Null
+
+Invoke-AzCli storage table create `
+  --account-name $StorageAccount `
+  --account-key $storageAccountKey `
+  --name AppSettings `
+  --output none | Out-Null
+
 Invoke-AzCli storage blob upload `
   --account-name $StorageAccount `
   --account-key $storageAccountKey `

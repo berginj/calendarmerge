@@ -45,8 +45,6 @@ export class TableStore {
   }
 
   async listFeeds(partitionKey: string = "default"): Promise<SourceFeedConfig[]> {
-    await this.ensureTable();
-
     const filter = `PartitionKey eq '${partitionKey}' and enabled eq true`;
     const entities: SourceFeedConfig[] = [];
 
@@ -64,8 +62,6 @@ export class TableStore {
   }
 
   async getFeed(feedId: string, partitionKey: string = "default"): Promise<SourceFeedEntity | null> {
-    await this.ensureTable();
-
     try {
       const entity = await this.tableClient.getEntity<SourceFeedEntity>(partitionKey, feedId);
       return entity as SourceFeedEntity;
@@ -81,8 +77,6 @@ export class TableStore {
   async createFeed(
     feed: Omit<SourceFeedEntity, "createdAt" | "updatedAt">,
   ): Promise<SourceFeedEntity> {
-    await this.ensureTable();
-
     const now = new Date().toISOString();
     const entity: SourceFeedEntity = {
       ...feed,
@@ -99,8 +93,6 @@ export class TableStore {
     updates: Partial<Omit<SourceFeedEntity, "partitionKey" | "rowKey" | "createdAt" | "updatedAt">>,
     partitionKey: string = "default",
   ): Promise<SourceFeedEntity> {
-    await this.ensureTable();
-
     // Get existing entity
     const existing = await this.getFeed(feedId, partitionKey);
     if (!existing) {
@@ -125,7 +117,6 @@ export class TableStore {
   }
 
   async hardDeleteFeed(feedId: string, partitionKey: string = "default"): Promise<void> {
-    await this.ensureTable();
     await this.tableClient.deleteEntity(partitionKey, feedId);
   }
 

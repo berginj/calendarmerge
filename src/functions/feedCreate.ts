@@ -2,7 +2,6 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { TableStore } from "../lib/tableStore";
 import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("createFeed", {
@@ -43,6 +42,7 @@ async function createFeedHandler(
 
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);
 
     // Generate ID if not provided

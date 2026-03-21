@@ -11,9 +11,8 @@ export async function loadSourceFeeds(
     return config.sourceFeeds;
   }
 
-  const tableStore = new TableStore(getStorageConnectionString(config.outputStorageAccount));
-
   try {
+    const tableStore = new TableStore(getStorageConnectionString(config.outputStorageAccount));
     const feeds = await tableStore.listFeeds();
 
     if (feeds.length > 0) {

@@ -2,7 +2,6 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { loadSourceFeeds } from "../lib/sourceFeeds";
 import { errorMessage } from "../lib/util";
 
 app.http("listFeeds", {
@@ -20,6 +19,7 @@ async function listFeedsHandler(
 
   try {
     const config = getConfig();
+    const { loadSourceFeeds } = await import("../lib/sourceFeeds");
     const feeds = await loadSourceFeeds(config, logger);
 
     return {

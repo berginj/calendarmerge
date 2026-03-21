@@ -50,8 +50,6 @@ export class SettingsStore {
   }
 
   async getSettings(): Promise<AppSettings> {
-    await this.ensureTable();
-
     try {
       const entity = await this.tableClient.getEntity<SettingsEntity>(
         SETTINGS_PARTITION_KEY,
@@ -71,8 +69,6 @@ export class SettingsStore {
   }
 
   async updateSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
-    await this.ensureTable();
-
     const current = await this.getSettings().catch(() => DEFAULT_SETTINGS);
     const updated: AppSettings = {
       ...current,

@@ -18,6 +18,7 @@ async function diagnosticHandler(
     platform: process.platform,
     env: {},
     configTest: {},
+    storageTests: {},
   };
 
   // Check environment variables
@@ -31,15 +32,33 @@ async function diagnosticHandler(
   // Test config loading
   try {
     const { getConfig } = await import("../lib/config");
+    const { loadSourceFeeds } = await import("../lib/sourceFeeds");
+    const { SettingsStore } = await import("../lib/settingsStore");
+    const { getStorageConnectionString } = await import("../lib/util");
     const config = getConfig();
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const settingsStore = new SettingsStore(connectionString);
+    const settings = await settingsStore.getSettings();
+    const feeds = await loadSourceFeeds(config);
+
     diagnostics.configTest = {
       success: true,
       serviceName: config.serviceName,
       feedCount: config.sourceFeeds.length,
       outputStorageAccount: config.outputStorageAccount,
     };
+    diagnostics.storageTests = {
+      success: true,
+      resolvedFeedCount: feeds.length,
+      refreshSchedule: settings.refreshSchedule,
+      outputBaseUrl: config.outputBaseUrl ?? null,
+    };
   } catch (error) {
     diagnostics.configTest = {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+    diagnostics.storageTests = {
       success: false,
       error: error instanceof Error ? error.message : String(error),
     };

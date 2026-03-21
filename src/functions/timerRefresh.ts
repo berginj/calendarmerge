@@ -3,8 +3,6 @@ import { app, InvocationContext, Timer } from "@azure/functions";
 import { BlobStore } from "../lib/blobStore";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { runRefresh } from "../lib/refresh";
-import { SettingsStore } from "../lib/settingsStore";
 import { getStorageConnectionString } from "../lib/util";
 
 // Timer runs every 5 minutes, but actual refresh depends on user settings
@@ -20,6 +18,7 @@ async function scheduledRefreshHandler(_timer: Timer, context: InvocationContext
   try {
     // Check settings to see if we should actually refresh
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const { SettingsStore } = await import("../lib/settingsStore");
     const settingsStore = new SettingsStore(connectionString);
     const blobStore = new BlobStore(config);
 
@@ -45,12 +44,14 @@ async function scheduledRefreshHandler(_timer: Timer, context: InvocationContext
     }
 
     logger.info("timer_triggered_refresh");
+    const { runRefresh } = await import("../lib/refresh");
     await runRefresh(logger, "timer");
   } catch (error) {
     logger.error("timer_settings_check_failed", {
       error: error instanceof Error ? error.message : String(error),
     });
     // If settings check fails, run refresh anyway (fail-safe)
+    const { runRefresh } = await import("../lib/refresh");
     await runRefresh(logger, "timer");
   }
 }

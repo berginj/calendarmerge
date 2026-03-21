@@ -2,7 +2,6 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { TableStore } from "../lib/tableStore";
 import { errorMessage, getStorageConnectionString } from "../lib/util";
 
 app.http("updateFeed", {
@@ -51,6 +50,7 @@ async function updateFeedHandler(
 
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);
 
     // Check if feed exists

@@ -2,8 +2,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { AppSettings, SettingsStore } from "../lib/settingsStore";
 import { errorMessage, getStorageConnectionString } from "../lib/util";
+import type { AppSettings } from "../lib/settingsStore";
 
 app.http("updateSettings", {
   methods: ["PUT"],
@@ -38,6 +38,7 @@ async function updateSettingsHandler(
 
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const { SettingsStore } = await import("../lib/settingsStore");
     const store = new SettingsStore(connectionString);
     const settings = await store.updateSettings(body);
 
