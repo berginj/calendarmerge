@@ -5,11 +5,10 @@ import { fetchFeed } from "./fetchFeeds";
 import { serializeCalendar } from "./ics";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
-import { DEFAULT_SETTINGS, SettingsStore } from "./settingsStore";
 import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
 import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
-import { buildOutputPaths, errorMessage, getStorageConnectionString } from "./util";
+import { buildOutputPaths, errorMessage } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
 
@@ -54,68 +53,85 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const store = new BlobStore(config);
   const attemptTimestamp = new Date().toISOString();
   const previousStatus = await safeReadStatus(store, logger, config.serviceName);
-  const settings = await safeLoadSettings(config, logger);
   const sourceFeeds = await loadSourceFeeds(config, logger);
   const sourceResults = await Promise.all(sourceFeeds.map((source) => fetchFeed(source, config, logger)));
   const successfulResults = sourceResults.filter((result) => result.status.ok);
   const failedStatuses = sourceResults.filter((result) => !result.status.ok).map((result) => result.status);
   const candidateEvents = successfulResults.length > 0 ? mergeFeedEvents(successfulResults) : [];
   const candidateEventCount = candidateEvents.length;
-  const publishedEvents = applyEventFilter(candidateEvents, settings.eventFilter);
-  const publishedEventCount = publishedEvents.length;
+  const gamesOnlyEvents = applyEventFilter(candidateEvents, "games-only");
+  const gamesOnlyEventCount = gamesOnlyEvents.length;
   const previousCalendarExists = await safeCalendarExists(store, logger);
   const canPublishPartial = failedStatuses.length > 0 && !previousCalendarExists;
   const shouldPublishCalendar = successfulResults.length > 0 && (failedStatuses.length === 0 || canPublishPartial);
   let calendarPublished = false;
+  let gamesOnlyCalendarPublished = false;
   let usedLastKnownGood = false;
   let mergedEventCount = previousStatus?.mergedEventCount ?? 0;
+  let gamesOnlyMergedEventCount = previousStatus?.gamesOnlyMergedEventCount ?? 0;
   let lastSuccessfulRefresh = previousStatus?.lastSuccessfulRefresh;
   const errorSummary = failedStatuses.map((status) => `${status.id}: ${status.error ?? "Unknown feed failure."}`);
-  let fatalPublishError: string | undefined;
+  const publishErrors: string[] = [];
 
   logger.info("refresh_started", {
     reason,
     feedCount: sourceFeeds.length,
-    eventFilter: settings.eventFilter,
   });
 
   if (shouldPublishCalendar) {
     try {
-      const calendarText = serializeCalendar(publishedEvents, config.serviceName);
+      const calendarText = serializeCalendar(candidateEvents, config.serviceName);
       await store.writeCalendar(calendarText);
       calendarPublished = true;
-      mergedEventCount = publishedEventCount;
-      lastSuccessfulRefresh = attemptTimestamp;
+      mergedEventCount = candidateEventCount;
     } catch (error) {
-      fatalPublishError = `Failed to write calendar.ics: ${errorMessage(error)}`;
-      logger.error("calendar_write_failed", { error: fatalPublishError });
+      const message = `Failed to write ${config.outputBlobPath}: ${errorMessage(error)}`;
+      publishErrors.push(message);
+      logger.error("calendar_write_failed", { error: message, blobPath: config.outputBlobPath });
       usedLastKnownGood = previousCalendarExists;
-      errorSummary.push(fatalPublishError);
+    }
+
+    try {
+      const gamesCalendarText = serializeCalendar(gamesOnlyEvents, config.serviceName);
+      await store.writeCalendar(gamesCalendarText, config.gamesOutputBlobPath);
+      gamesOnlyCalendarPublished = true;
+      gamesOnlyMergedEventCount = gamesOnlyEventCount;
+    } catch (error) {
+      const message = `Failed to write ${config.gamesOutputBlobPath}: ${errorMessage(error)}`;
+      publishErrors.push(message);
+      logger.error("games_calendar_write_failed", { error: message, blobPath: config.gamesOutputBlobPath });
+      usedLastKnownGood = previousCalendarExists;
+    }
+
+    if (calendarPublished && gamesOnlyCalendarPublished) {
+      lastSuccessfulRefresh = attemptTimestamp;
     }
   } else if (successfulResults.length > 0) {
     usedLastKnownGood = previousCalendarExists;
   }
 
+  errorSummary.push(...publishErrors);
+  const hasAnyPublishedOutput = calendarPublished || gamesOnlyCalendarPublished;
+
   const state =
-    successfulResults.length === 0 || fatalPublishError
+    successfulResults.length === 0 || (publishErrors.length > 0 && !hasAnyPublishedOutput)
       ? "failed"
-      : failedStatuses.length > 0
+      : failedStatuses.length > 0 || publishErrors.length > 0
         ? "partial"
         : "success";
   const status: ServiceStatus = {
     serviceName: config.serviceName,
     state,
     healthy: state !== "failed",
-    eventFilter: settings.eventFilter,
     lastAttemptedRefresh: attemptTimestamp,
     lastSuccessfulRefresh,
     sourceFeedCount: sourceFeeds.length,
     mergedEventCount,
-    unfilteredMergedEventCount:
-      settings.eventFilter === "games-only" ? candidateEventCount : undefined,
+    gamesOnlyMergedEventCount,
     candidateMergedEventCount:
       state === "partial" || (state === "failed" && candidateEventCount > 0) ? candidateEventCount : undefined,
     calendarPublished,
+    gamesOnlyCalendarPublished,
     servedLastKnownGood: usedLastKnownGood,
     sourceStatuses: sourceResults.map((result) => result.status),
     output: buildOutputPaths(config),
@@ -135,8 +151,10 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     reason,
     state,
     mergedEventCount: status.mergedEventCount,
+    gamesOnlyMergedEventCount: status.gamesOnlyMergedEventCount,
     candidateEventCount,
     calendarPublished,
+    gamesOnlyCalendarPublished,
     usedLastKnownGood,
     failures: failedStatuses.length,
   });
@@ -171,19 +189,5 @@ async function safeCalendarExists(store: BlobStore, logger: Logger): Promise<boo
     });
 
     return false;
-  }
-}
-
-async function safeLoadSettings(config: AppConfig, logger: Logger) {
-  try {
-    const settingsStore = new SettingsStore(getStorageConnectionString(config.outputStorageAccount));
-    return await settingsStore.getSettings();
-  } catch (error) {
-    logger.warn("settings_load_failed_defaulting", {
-      error: errorMessage(error),
-      eventFilter: DEFAULT_SETTINGS.eventFilter,
-    });
-
-    return DEFAULT_SETTINGS;
   }
 }

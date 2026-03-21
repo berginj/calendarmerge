@@ -98,7 +98,7 @@ async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = 
 
 export async function listFeeds(): Promise<SourceFeedConfig[]> {
   try {
-    const data = await requestJson<{ feeds: SourceFeedConfig[] }>('/feeds');
+    const data = await requestJson<{ feeds: SourceFeedConfig[] }>('/feeds', undefined, true);
     return data.feeds;
   } catch (error) {
     if (error instanceof Error) {
@@ -155,7 +155,6 @@ export async function deleteFeed(feedId: string): Promise<void> {
 
 export interface AppSettings {
   refreshSchedule: 'every-15-min' | 'hourly' | 'every-2-hours' | 'business-hours' | 'manual-only';
-  eventFilter: 'all-events' | 'games-only';
   lastUpdated: string;
 }
 

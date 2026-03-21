@@ -20,8 +20,8 @@ export class BlobStore {
     }
   }
 
-  async calendarExists(): Promise<boolean> {
-    return this.getBlobClient(this.config.outputBlobPath).exists();
+  async calendarExists(blobPath: string = this.config.outputBlobPath): Promise<boolean> {
+    return this.getBlobClient(blobPath).exists();
   }
 
   async readStatus(): Promise<ServiceStatus | null> {
@@ -35,9 +35,9 @@ export class BlobStore {
     return JSON.parse(body) as ServiceStatus;
   }
 
-  async writeCalendar(calendarText: string): Promise<void> {
+  async writeCalendar(calendarText: string, blobPath: string = this.config.outputBlobPath): Promise<void> {
     await this.ensureContainer();
-    await this.getBlobClient(this.config.outputBlobPath).uploadData(Buffer.from(calendarText, "utf8"), {
+    await this.getBlobClient(blobPath).uploadData(Buffer.from(calendarText, "utf8"), {
       blobHTTPHeaders: {
         blobContentType: "text/calendar; charset=utf-8",
       },

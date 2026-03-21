@@ -12,6 +12,7 @@ import {
 export const DEFAULT_SERVICE_NAME = "calendarmerge";
 export const DEFAULT_OUTPUT_CONTAINER = "$web";
 export const DEFAULT_OUTPUT_BLOB_PATH = "calendar.ics";
+export const DEFAULT_GAMES_OUTPUT_BLOB_PATH = "calendar-games.ics";
 export const DEFAULT_STATUS_BLOB_PATH = "status.json";
 export const DEFAULT_REFRESH_SCHEDULE = "0 */15 * * * *";
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
@@ -54,6 +55,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
   const outputBaseUrl = normalizeUrlBase(env.OUTPUT_BASE_URL);
   const outputContainer = (env.OUTPUT_CONTAINER ?? DEFAULT_OUTPUT_CONTAINER).trim();
   const outputBlobPath = normalizeBlobPath(env.OUTPUT_BLOB_PATH ?? DEFAULT_OUTPUT_BLOB_PATH);
+  const gamesOutputBlobPath = normalizeBlobPath(
+    env.OUTPUT_GAMES_BLOB_PATH ?? DEFAULT_GAMES_OUTPUT_BLOB_PATH,
+  );
   const statusBlobPath = normalizeBlobPath(env.STATUS_BLOB_PATH ?? DEFAULT_STATUS_BLOB_PATH);
   const refreshSchedule = (env.REFRESH_SCHEDULE ?? DEFAULT_REFRESH_SCHEDULE).trim();
   const fetchTimeoutMs = parsePositiveInteger(
@@ -82,6 +86,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     outputBaseUrl,
     outputContainer,
     outputBlobPath,
+    gamesOutputBlobPath,
     statusBlobPath,
     refreshSchedule,
     fetchTimeoutMs,

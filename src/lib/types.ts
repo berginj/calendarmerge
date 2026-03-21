@@ -14,6 +14,7 @@ export interface AppConfig {
   outputBaseUrl?: string;
   outputContainer: string;
   outputBlobPath: string;
+  gamesOutputBlobPath: string;
   statusBlobPath: string;
   refreshSchedule: string;
   fetchTimeoutMs: number;
@@ -55,7 +56,7 @@ export interface ParsedEvent {
 export interface FeedStatus {
   id: string;
   name: string;
-  url: string;
+  url?: string;
   ok: boolean;
   attemptedAt: string;
   durationMs: number;
@@ -74,9 +75,11 @@ export interface OutputPaths {
   storageAccount: string;
   container: string;
   calendarBlobPath: string;
+  gamesCalendarBlobPath: string;
   statusBlobPath: string;
   blobBaseUrl: string;
   blobCalendarUrl: string;
+  blobGamesCalendarUrl: string;
   blobStatusUrl: string;
 }
 
@@ -84,14 +87,14 @@ export interface ServiceStatus {
   serviceName: string;
   state: RefreshState;
   healthy: boolean;
-  eventFilter: PublishedEventFilter;
   lastAttemptedRefresh?: string;
   lastSuccessfulRefresh?: string;
   sourceFeedCount: number;
   mergedEventCount: number;
-  unfilteredMergedEventCount?: number;
+  gamesOnlyMergedEventCount: number;
   candidateMergedEventCount?: number;
   calendarPublished: boolean;
+  gamesOnlyCalendarPublished: boolean;
   servedLastKnownGood: boolean;
   sourceStatuses: FeedStatus[];
   output: OutputPaths;

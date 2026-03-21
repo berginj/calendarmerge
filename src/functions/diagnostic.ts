@@ -51,8 +51,8 @@ async function diagnosticHandler(
       success: true,
       resolvedFeedCount: feeds.length,
       refreshSchedule: settings.refreshSchedule,
-      eventFilter: settings.eventFilter,
       outputBaseUrl: config.outputBaseUrl ?? null,
+      gamesOutputBlobPath: config.gamesOutputBlobPath,
     };
   } catch (error) {
     diagnostics.configTest = {

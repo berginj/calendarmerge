@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOutputPaths, looksLikeConnectionString, normalizeFeedUrl } from "../src/lib/util";
+import { buildOutputPaths, looksLikeConnectionString, normalizeFeedUrl, redactFeedUrl } from "../src/lib/util";
 
 describe("util", () => {
   it("should recognize UseDevelopmentStorage as a connection string", () => {
@@ -19,6 +19,7 @@ describe("util", () => {
       outputBaseUrl: "https://calendarmergeprod.z13.web.core.windows.net",
       outputContainer: "$web",
       outputBlobPath: "calendar.ics",
+      gamesOutputBlobPath: "calendar-games.ics",
       statusBlobPath: "status.json",
       refreshSchedule: "0 */15 * * * *",
       fetchTimeoutMs: 10_000,
@@ -28,6 +29,7 @@ describe("util", () => {
 
     expect(output.blobBaseUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net");
     expect(output.blobCalendarUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/calendar.ics");
+    expect(output.blobGamesCalendarUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/calendar-games.ics");
     expect(output.blobStatusUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/status.json");
   });
 
@@ -38,6 +40,12 @@ describe("util", () => {
   it("should reject unsupported feed URL protocols", () => {
     expect(() => normalizeFeedUrl("ftp://example.com/calendar.ics")).toThrow(
       "Feed URL must use http, https, or webcal",
+    );
+  });
+
+  it("should redact feed URL query strings", () => {
+    expect(redactFeedUrl("https://example.com/ical_feed?token=secret&user=abc")).toBe(
+      "https://example.com/ical_feed",
     );
   });
 });

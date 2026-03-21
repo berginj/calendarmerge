@@ -26,6 +26,7 @@ describe("Config", () => {
 
     expect(config.outputContainer).toBe("$web");
     expect(config.outputBlobPath).toBe("calendar.ics");
+    expect(config.gamesOutputBlobPath).toBe("calendar-games.ics");
     expect(config.statusBlobPath).toBe("status.json");
     expect(config.refreshSchedule).toBe("0 */15 * * * *");
     expect(config.fetchTimeoutMs).toBe(10000);

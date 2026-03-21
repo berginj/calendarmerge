@@ -27,7 +27,8 @@ function App() {
   const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
 
   const buildTimeAdminKey = hasBuildTimeFunctionsKey();
-  const hasConfiguredAdminKey = buildTimeAdminKey || adminKey.trim().length > 0;
+  const savedAdminKey = loadSavedFunctionsKey();
+  const hasConfiguredAdminKey = buildTimeAdminKey || savedAdminKey.trim().length > 0;
 
   const loadFeeds = async () => {
     try {
@@ -43,20 +44,37 @@ function App() {
   };
 
   useEffect(() => {
-    loadFeeds();
-  }, []);
+    if (!hasConfiguredAdminKey) {
+      setFeeds([]);
+      setLoading(false);
+      return;
+    }
+
+    void loadFeeds();
+  }, [hasConfiguredAdminKey]);
 
   const handleSaveAdminKey = () => {
     const trimmed = adminKey.trim();
     saveFunctionsKey(trimmed);
     setAdminKey(trimmed);
     setAdminKeyMessage(trimmed ? 'Admin key saved in this browser.' : 'Admin key cleared.');
+    if (trimmed || buildTimeAdminKey) {
+      void loadFeeds();
+    }
   };
 
   const handleClearAdminKey = () => {
     clearFunctionsKey();
     setAdminKey('');
     setAdminKeyMessage('Admin key cleared.');
+    if (!buildTimeAdminKey) {
+      setFeeds([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    void loadFeeds();
   };
 
   const handleCreate = async (feed: { name: string; url: string }) => {
@@ -134,10 +152,10 @@ function App() {
             </button>
           </div>
           <p className="admin-key-help">
-            Feed changes and settings updates require a Function key.
+            Feed URLs, feed changes, and settings updates require a Function key.
             {hasConfiguredAdminKey
-              ? ' Write access is configured for this browser.'
-              : ' Read-only mode is active until a key is saved.'}
+              ? ' Admin access is configured for this browser.'
+              : ' Enter a key to load and manage feed URLs.'}
           </p>
           {buildTimeAdminKey && !adminKey && (
             <p className="admin-key-help">A build-configured key is currently available.</p>
@@ -160,19 +178,25 @@ function App() {
               <button
                 className="btn-primary"
                 onClick={() => setShowForm(!showForm)}
+                disabled={!hasConfiguredAdminKey}
               >
                 {showForm ? 'Cancel' : 'Add New Feed'}
               </button>
             </div>
 
-            {showForm && (
+            {showForm && hasConfiguredAdminKey && (
               <FeedForm
                 onSubmit={handleCreate}
                 onCancel={() => setShowForm(false)}
               />
             )}
 
-            {loading ? (
+            {!hasConfiguredAdminKey ? (
+              <div className="empty-state">
+                <p>A Function key is required to load feed URLs.</p>
+                <p>Save the admin key above, then the current feeds will appear here.</p>
+              </div>
+            ) : loading ? (
               <div className="loading">Loading feeds...</div>
             ) : (
               <FeedList

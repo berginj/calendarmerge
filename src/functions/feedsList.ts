@@ -6,7 +6,7 @@ import { errorMessage } from "../lib/util";
 
 app.http("listFeeds", {
   methods: ["GET"],
-  authLevel: "anonymous",
+  authLevel: "function",
   route: "feeds",
   handler: listFeedsHandler,
 });

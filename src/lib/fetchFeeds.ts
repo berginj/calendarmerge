@@ -1,7 +1,7 @@
 import { AppConfig, FeedRunResult, SourceFeedConfig } from "./types";
 import { parseIcsCalendar } from "./ics";
 import { Logger } from "./log";
-import { errorMessage, normalizeFeedUrl, sleep } from "./util";
+import { errorMessage, normalizeFeedUrl, redactFeedUrl, sleep } from "./util";
 
 class HttpStatusError extends Error {
   constructor(
@@ -25,7 +25,7 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
 
       logger.info("feed_fetch_succeeded", {
         sourceId: source.id,
-        sourceUrl: source.url,
+        sourceUrl: redactFeedUrl(source.url),
         attempt: attempt + 1,
         eventCount: events.length,
       });
@@ -35,7 +35,7 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
         status: {
           id: source.id,
           name: source.name,
-          url: source.url,
+          url: redactFeedUrl(source.url),
           ok: true,
           attemptedAt,
           durationMs: Date.now() - startedAt,
@@ -49,7 +49,7 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
 
       logger.warn("feed_fetch_failed_attempt", {
         sourceId: source.id,
-        sourceUrl: source.url,
+        sourceUrl: redactFeedUrl(source.url),
         attempt: attempt + 1,
         error: lastError,
         httpStatus,
@@ -66,7 +66,7 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
     status: {
       id: source.id,
       name: source.name,
-      url: source.url,
+      url: redactFeedUrl(source.url),
       ok: false,
       attemptedAt,
       durationMs: Date.now() - startedAt,

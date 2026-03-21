@@ -99,11 +99,22 @@ export function buildOutputPaths(config: AppConfig): OutputPaths {
     storageAccount: config.outputStorageAccount,
     container: config.outputContainer,
     calendarBlobPath: config.outputBlobPath,
+    gamesCalendarBlobPath: config.gamesOutputBlobPath,
     statusBlobPath: config.statusBlobPath,
     blobBaseUrl: baseUrl,
     blobCalendarUrl: joinUrlPath(baseUrl, config.outputBlobPath),
+    blobGamesCalendarUrl: joinUrlPath(baseUrl, config.gamesOutputBlobPath),
     blobStatusUrl: joinUrlPath(baseUrl, config.statusBlobPath),
   };
+}
+
+export function redactFeedUrl(input: string): string {
+  try {
+    const parsed = new URL(normalizeFeedUrl(input));
+    return `${parsed.origin}${parsed.pathname || "/"}`;
+  } catch {
+    return "[redacted]";
+  }
 }
 
 export function getStorageConnectionString(storageAccount: string): string {

@@ -2,12 +2,10 @@ import { TableClient } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
 import { DateTime } from "luxon";
 
-import { PublishedEventFilter } from "./types";
 import { looksLikeConnectionString } from "./util";
 
 export interface AppSettings {
   refreshSchedule: "every-15-min" | "hourly" | "every-2-hours" | "business-hours" | "manual-only";
-  eventFilter: PublishedEventFilter;
   lastUpdated: string;
 }
 
@@ -15,7 +13,6 @@ interface SettingsEntity {
   partitionKey: string;
   rowKey: string;
   refreshSchedule: string;
-  eventFilter?: string;
   lastUpdated: string;
 }
 
@@ -24,7 +21,6 @@ const SETTINGS_ROW_KEY = "default";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   refreshSchedule: "every-15-min",
-  eventFilter: "all-events",
   lastUpdated: new Date().toISOString(),
 };
 
@@ -62,7 +58,6 @@ export class SettingsStore {
 
       return {
         refreshSchedule: normalizeRefreshSchedule(entity.refreshSchedule),
-        eventFilter: normalizeEventFilter(entity.eventFilter),
         lastUpdated: entity.lastUpdated,
       };
     } catch (error: unknown) {
@@ -89,7 +84,6 @@ export class SettingsStore {
       partitionKey: SETTINGS_PARTITION_KEY,
       rowKey: SETTINGS_ROW_KEY,
       refreshSchedule: settings.refreshSchedule,
-      eventFilter: settings.eventFilter,
       lastUpdated: settings.lastUpdated,
     };
 
@@ -149,15 +143,5 @@ function normalizeRefreshSchedule(value: string | undefined): AppSettings["refre
       return value;
     default:
       return DEFAULT_SETTINGS.refreshSchedule;
-  }
-}
-
-function normalizeEventFilter(value: string | undefined): PublishedEventFilter {
-  switch (value) {
-    case "games-only":
-    case "all-events":
-      return value;
-    default:
-      return DEFAULT_SETTINGS.eventFilter;
   }
 }

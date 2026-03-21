@@ -25,15 +25,14 @@ function Settings() {
     }
   };
 
-  const saveSettings = async (updates: Partial<AppSettings>) => {
+  const handleScheduleChange = async (schedule: AppSettings['refreshSchedule']) => {
     if (!settings) return;
-
     try {
       setSaving(true);
       setError(null);
       setSuccessMessage(null);
 
-      const updated = await updateSettings(updates);
+      const updated = await updateSettings({ refreshSchedule: schedule });
       setSettings(updated);
       setSuccessMessage('Settings saved successfully!');
 
@@ -44,14 +43,6 @@ function Settings() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleScheduleChange = async (schedule: AppSettings['refreshSchedule']) => {
-    await saveSettings({ refreshSchedule: schedule });
-  };
-
-  const handleEventFilterChange = async (eventFilter: AppSettings['eventFilter']) => {
-    await saveSettings({ eventFilter });
   };
 
   const scheduleOptions: Array<{
@@ -83,23 +74,6 @@ function Settings() {
       value: 'manual-only',
       label: 'Manual Only',
       description: 'Automatic updates disabled - refresh manually',
-    },
-  ];
-
-  const eventFilterOptions: Array<{
-    value: AppSettings['eventFilter'];
-    label: string;
-    description: string;
-  }> = [
-    {
-      value: 'all-events',
-      label: 'All Events',
-      description: 'Publish every merged calendar item, including games, practices, and team events.',
-    },
-    {
-      value: 'games-only',
-      label: 'Games Only',
-      description: 'Publish only game-like events such as games, matches, scrimmages, and tournaments.',
     },
   ];
 
@@ -174,37 +148,8 @@ function Settings() {
         )}
       </div>
 
-      <div className="settings-section">
-        <h3>Published Events</h3>
-        <p className="settings-description">
-          Choose whether the merged calendar publishes every event or only game-like events.
-        </p>
-
-        <div className="schedule-options">
-          {eventFilterOptions.map((option) => (
-            <label
-              key={option.value}
-              className={`schedule-option ${settings.eventFilter === option.value ? 'selected' : ''}`}
-            >
-              <input
-                type="radio"
-                name="eventFilter"
-                value={option.value}
-                checked={settings.eventFilter === option.value}
-                onChange={() => handleEventFilterChange(option.value)}
-                disabled={saving}
-              />
-              <div className="option-content">
-                <div className="option-label">{option.label}</div>
-                <div className="option-description">{option.description}</div>
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-
       <div className="settings-info">
-        <h4>About Settings</h4>
+        <h4>About Refresh Schedules</h4>
         <ul>
           <li>
             <strong>Every 15 Minutes (Recommended):</strong> Best for frequently changing
@@ -225,10 +170,6 @@ function Settings() {
           <li>
             <strong>Manual Only:</strong> Automatic updates are disabled. You'll need to trigger
             refreshes manually from the API.
-          </li>
-          <li>
-            <strong>Games Only:</strong> Uses provider metadata and common sports keywords like
-            Game, Match, Scrimmage, <code>vs</code>, and <code>@</code> to keep game-like events.
           </li>
         </ul>
       </div>
