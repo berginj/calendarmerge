@@ -139,6 +139,21 @@ body {
   color: var(--text-secondary);
 }
 
+.troubleshooting-note {
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.troubleshooting-note a {
+  color: var(--primary-color);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.troubleshooting-note a:hover {
+  text-decoration: underline;
+}
+
 .link-list {
   display: flex;
   flex-direction: column;
@@ -453,6 +468,22 @@ button:disabled {
 .settings-info h4 {
   color: var(--text-primary);
   margin-bottom: 0.75rem;
+}
+
+.settings-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.settings-links a {
+  color: var(--primary-color);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.settings-links a:hover {
+  text-decoration: underline;
 }
 
 .settings-info ul {

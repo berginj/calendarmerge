@@ -7,6 +7,10 @@ function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const apiBase = new URL('/api', window.location.origin);
+  const publicBase = new URL('../', window.location.href);
+  const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
+  const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
 
   useEffect(() => {
     loadSettings();
@@ -146,6 +150,23 @@ function Settings() {
             Last updated: {new Date(settings.lastUpdated).toLocaleString()}
           </p>
         )}
+      </div>
+
+      <div className="settings-section">
+        <h3>Endpoint Reference</h3>
+        <p className="settings-description">
+          Use the Function App URLs with the <code>/api/</code> prefix. The public viewer and
+          published artifacts live on the storage static site, not on the Function App host.
+        </p>
+        <div className="settings-links">
+          <a href={apiBaseDisplay} target="_blank" rel="noreferrer">{apiBaseDisplay}</a>
+          <a href={new URL('status', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('status', apiBase).toString()}</a>
+          <a href={new URL('settings', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('settings', apiBase).toString()}</a>
+          <a href={new URL('feeds-simple', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('feeds-simple', apiBase).toString()}</a>
+          <a href={publicBaseDisplay} target="_blank" rel="noreferrer">{publicBaseDisplay}</a>
+          <a href={new URL('index.html', publicBase).toString()} target="_blank" rel="noreferrer">{new URL('index.html', publicBase).toString()}</a>
+          <a href={new URL('status.json', publicBase).toString()} target="_blank" rel="noreferrer">{new URL('status.json', publicBase).toString()}</a>
+        </div>
       </div>
 
       <div className="settings-info">

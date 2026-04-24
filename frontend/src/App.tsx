@@ -60,6 +60,9 @@ function App() {
     { label: 'Feeds API', href: withCode(new URL('feeds', apiBase)) },
     { label: 'Diagnostic API', href: withCode(new URL('diagnostic', apiBase)) },
   ];
+  const manageBase = window.location.href;
+  const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
+  const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
 
   const loadFeeds = async () => {
     try {
@@ -200,6 +203,15 @@ function App() {
             <p>
               Open the public artifacts and API endpoints directly while debugging refresh,
               rendering, or feed issues.
+            </p>
+            <p className="troubleshooting-note">
+              Manage UI base: <a href={manageBase} target="_blank" rel="noreferrer">{manageBase}</a>
+            </p>
+            <p className="troubleshooting-note">
+              Function API base: <a href={apiBaseDisplay} target="_blank" rel="noreferrer">{apiBaseDisplay}</a>
+            </p>
+            <p className="troubleshooting-note">
+              Public site base: <a href={publicBaseDisplay} target="_blank" rel="noreferrer">{publicBaseDisplay}</a>
             </p>
           </div>
 
