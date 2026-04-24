@@ -27,6 +27,8 @@ interface ScheduleXEvent {
   location?: string;
   description?: string;
   calendarId: string;
+  sourceId: string;
+  sourceName: string;
 }
 
 export interface PublicCalendarArtifacts {
@@ -82,14 +84,19 @@ function buildScheduleXDocument(
 }
 
 function toScheduleXEvent(event: ParsedEvent): ScheduleXEvent {
+  const start = toScheduleXTime(event.start.iso, event.start.kind);
+  const requestedEnd = toScheduleXTime(event.end?.iso ?? event.start.iso, event.end?.kind ?? event.start.kind);
+
   return {
     id: event.mergedUid,
     title: event.summary || event.sourceName,
-    start: toScheduleXTime(event.start.iso, event.start.kind),
-    end: toScheduleXTime(event.end?.iso ?? event.start.iso, event.end?.kind ?? event.start.kind),
+    start,
+    end: normalizeScheduleXEnd(start, requestedEnd),
     location: event.location || undefined,
     description: buildScheduleXDescription(event),
-    calendarId: event.sourceId,
+    calendarId: toScheduleXCalendarId(event.sourceId),
+    sourceId: event.sourceId,
+    sourceName: event.sourceName,
   };
 }
 
@@ -104,4 +111,27 @@ function toScheduleXTime(iso: string, kind: "date" | "date-time"): string {
   }
 
   return iso.slice(0, 16).replace("T", " ");
+}
+
+function toScheduleXCalendarId(sourceId: string): string {
+  const normalized = sourceId.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+  return normalized || "calendar";
+}
+
+function normalizeScheduleXEnd(start: string, end: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(start) && /^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return end < start ? start : end;
+  }
+
+  const startDate = new Date(start.replace(" ", "T") + "Z");
+  const endDate = new Date(end.replace(" ", "T") + "Z");
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return end;
+  }
+
+  if (endDate > startDate) {
+    return end;
+  }
+
+  return new Date(startDate.getTime() + 60_000).toISOString().slice(0, 16).replace("T", " ");
 }

@@ -385,7 +385,8 @@
           return;
         }
 
-        currentEvents = dataset.events.slice();
+        const normalized = normalizeDatasetEvents(dataset.events);
+        currentEvents = normalized.events;
         calendarRoot.innerHTML = "";
         details.innerHTML = `
           <h3>${mode === "full" ? "Full calendar loaded" : "Games calendar loaded"}</h3>
@@ -411,6 +412,110 @@
         });
 
         calendar.render(calendarRoot);
+
+        if (normalized.skippedCount > 0) {
+          setStatus(
+            `Rendered ${normalized.events.length} events. Skipped ${normalized.skippedCount} invalid event${
+              normalized.skippedCount === 1 ? "" : "s"
+            }.`,
+          );
+        }
+      }
+
+      function normalizeDatasetEvents(events) {
+        const normalized = [];
+        let skippedCount = 0;
+
+        for (const rawEvent of Array.isArray(events) ? events : []) {
+          const event = normalizeEvent(rawEvent);
+          if (!event) {
+            skippedCount += 1;
+            continue;
+          }
+
+          normalized.push(event);
+        }
+
+        return { events: normalized, skippedCount };
+      }
+
+      function normalizeEvent(rawEvent) {
+        if (!rawEvent || typeof rawEvent !== "object") {
+          return null;
+        }
+
+        const start = typeof rawEvent.start === "string" ? rawEvent.start.trim() : "";
+        const rawEnd = typeof rawEvent.end === "string" ? rawEvent.end.trim() : start;
+        const id = rawEvent.id == null ? "" : String(rawEvent.id).trim();
+        if (!id || !isSupportedScheduleXTime(start)) {
+          return null;
+        }
+
+        const end = normalizeEventEnd(start, rawEnd);
+        if (!end) {
+          return null;
+        }
+
+        const sourceId =
+          typeof rawEvent.sourceId === "string" && rawEvent.sourceId.trim()
+            ? rawEvent.sourceId.trim()
+            : typeof rawEvent.calendarId === "string" && rawEvent.calendarId.trim()
+              ? rawEvent.calendarId.trim()
+              : "calendar";
+
+        return {
+          ...rawEvent,
+          id,
+          title:
+            typeof rawEvent.title === "string" && rawEvent.title.trim()
+              ? rawEvent.title.trim()
+              : "Untitled event",
+          start,
+          end,
+          calendarId: sanitizeCalendarId(rawEvent.calendarId || sourceId),
+          sourceId,
+          sourceName:
+            typeof rawEvent.sourceName === "string" && rawEvent.sourceName.trim()
+              ? rawEvent.sourceName.trim()
+              : sourceId,
+        };
+      }
+
+      function isSupportedScheduleXTime(value) {
+        return /^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value);
+      }
+
+      function normalizeEventEnd(start, end) {
+        if (!isSupportedScheduleXTime(end)) {
+          end = start;
+        }
+
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(start);
+        if (isDateOnly) {
+          return end < start ? start : end;
+        }
+
+        const startDate = new Date(start.replace(" ", "T") + "Z");
+        const endDate = new Date(end.replace(" ", "T") + "Z");
+        if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+          return null;
+        }
+
+        if (endDate > startDate) {
+          return end;
+        }
+
+        return new Date(startDate.getTime() + 60_000).toISOString().slice(0, 16).replace("T", " ");
+      }
+
+      function sanitizeCalendarId(value) {
+        const normalized = String(value || "calendar")
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+
+        return normalized || "calendar";
       }
 
       function buildCalendars(events) {
@@ -446,7 +551,7 @@
         const rows = [
           detailRow("Time", formatRange(event.start, event.end)),
           detailRow("Location", event.location || "No public location provided"),
-          detailRow("Source", event.calendarId || "Unknown"),
+          detailRow("Source", event.sourceName || event.sourceId || event.calendarId || "Unknown"),
         ];
 
         if (event.description) {
