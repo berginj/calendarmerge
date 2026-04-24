@@ -17,6 +17,11 @@ import './App.css';
 
 type View = 'feeds' | 'settings';
 
+interface LinkItem {
+  label: string;
+  href: string;
+}
+
 function App() {
   const [currentView, setCurrentView] = useState<View>('feeds');
   const [feeds, setFeeds] = useState<SourceFeedConfig[]>([]);
@@ -29,6 +34,32 @@ function App() {
   const buildTimeAdminKey = hasBuildTimeFunctionsKey();
   const savedAdminKey = loadSavedFunctionsKey();
   const hasConfiguredAdminKey = buildTimeAdminKey || savedAdminKey.trim().length > 0;
+  const functionsKey = adminKey.trim() || savedAdminKey.trim();
+  const apiBase = new URL(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
+  const publicBase = new URL('../', window.location.href);
+  const withCode = (url: URL) => {
+    if (functionsKey) {
+      url.searchParams.set('code', functionsKey);
+    }
+
+    return url.toString();
+  };
+  const publicLinks: LinkItem[] = [
+    { label: 'Schedule-X Viewer', href: new URL('index.html', publicBase).toString() },
+    { label: 'Status JSON', href: new URL('status.json', publicBase).toString() },
+    { label: 'Schedule-X Full JSON', href: new URL('schedule-x-full.json', publicBase).toString() },
+    { label: 'Schedule-X Games JSON', href: new URL('schedule-x-games.json', publicBase).toString() },
+    { label: 'Merged Calendar ICS', href: new URL('calendar.ics', publicBase).toString() },
+    { label: 'Games Calendar ICS', href: new URL('calendar-games.ics', publicBase).toString() },
+  ];
+  const apiLinks: LinkItem[] = [
+    { label: 'Ping', href: new URL('ping', apiBase).toString() },
+    { label: 'Status API', href: new URL('status', apiBase).toString() },
+    { label: 'Settings API', href: new URL('settings', apiBase).toString() },
+    { label: 'Feeds Simple', href: new URL('feeds-simple', apiBase).toString() },
+    { label: 'Feeds API', href: withCode(new URL('feeds', apiBase)) },
+    { label: 'Diagnostic API', href: withCode(new URL('diagnostic', apiBase)) },
+  ];
 
   const loadFeeds = async () => {
     try {
@@ -161,6 +192,45 @@ function App() {
             <p className="admin-key-help">A build-configured key is currently available.</p>
           )}
           {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
+        </div>
+
+        <div className="troubleshooting-panel">
+          <div className="troubleshooting-section">
+            <h2>Troubleshooting Links</h2>
+            <p>
+              Open the public artifacts and API endpoints directly while debugging refresh,
+              rendering, or feed issues.
+            </p>
+          </div>
+
+          <div className="troubleshooting-grid">
+            <section className="troubleshooting-section">
+              <h3>Public Outputs</h3>
+              <div className="link-list">
+                {publicLinks.map((link) => (
+                  <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </section>
+
+            <section className="troubleshooting-section">
+              <h3>API Endpoints</h3>
+              <div className="link-list">
+                {apiLinks.map((link) => (
+                  <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+              {!functionsKey && (
+                <p className="admin-key-help">
+                  Save a Function key above to make the protected API links usable.
+                </p>
+              )}
+            </section>
+          </div>
         </div>
       </header>
 

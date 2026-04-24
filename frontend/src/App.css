@@ -104,6 +104,58 @@ body {
   color: var(--primary-color);
 }
 
+.troubleshooting-panel {
+  max-width: 64rem;
+  margin: 1rem auto 0;
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+  text-align: left;
+}
+
+.troubleshooting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.troubleshooting-section h2,
+.troubleshooting-section h3 {
+  color: var(--text-primary);
+}
+
+.troubleshooting-section h2 {
+  margin-bottom: 0.4rem;
+}
+
+.troubleshooting-section h3 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.troubleshooting-section p {
+  color: var(--text-secondary);
+}
+
+.link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.link-list a {
+  display: inline-block;
+  color: var(--primary-color);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.link-list a:hover {
+  text-decoration: underline;
+}
+
 .nav-button {
   background: none;
   border: none;
@@ -447,6 +499,10 @@ button:disabled {
 
   .admin-key-controls {
     flex-direction: column;
+  }
+
+  .troubleshooting-grid {
+    grid-template-columns: 1fr;
   }
 
   .schedule-option {
