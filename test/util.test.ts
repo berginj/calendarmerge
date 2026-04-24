@@ -20,6 +20,8 @@ describe("util", () => {
       outputContainer: "$web",
       outputBlobPath: "calendar.ics",
       gamesOutputBlobPath: "calendar-games.ics",
+      scheduleXFullBlobPath: "schedule-x-full.json",
+      scheduleXGamesBlobPath: "schedule-x-games.json",
       statusBlobPath: "status.json",
       refreshSchedule: "0 */15 * * * *",
       fetchTimeoutMs: 10_000,
@@ -30,6 +32,8 @@ describe("util", () => {
     expect(output.blobBaseUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net");
     expect(output.blobCalendarUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/calendar.ics");
     expect(output.blobGamesCalendarUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/calendar-games.ics");
+    expect(output.blobScheduleXFullUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/schedule-x-full.json");
+    expect(output.blobScheduleXGamesUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/schedule-x-games.json");
     expect(output.blobStatusUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net/status.json");
   });
 

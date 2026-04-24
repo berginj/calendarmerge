@@ -38,6 +38,37 @@ try {
     --src $zipPath `
     --build-remote false `
     --output none
+
+  $storageAccount = & az functionapp config appsettings list `
+    --resource-group $ResourceGroup `
+    --name $FunctionAppName `
+    --query "[?name=='OUTPUT_STORAGE_ACCOUNT'].value | [0]" `
+    --output tsv
+
+  if ([string]::IsNullOrWhiteSpace($storageAccount)) {
+    throw "Unable to resolve OUTPUT_STORAGE_ACCOUNT from Function App settings."
+  }
+
+  $storageKey = & az storage account keys list `
+    --resource-group $ResourceGroup `
+    --account-name $storageAccount `
+    --query "[0].value" `
+    --output tsv
+
+  if ([string]::IsNullOrWhiteSpace($storageKey)) {
+    throw "Unable to resolve a storage account key for $storageAccount."
+  }
+
+  & az storage blob upload `
+    --account-name $storageAccount `
+    --account-key $storageKey `
+    --container-name '$web' `
+    --name index.html `
+    --file (Join-Path $projectRoot "public/index.html") `
+    --overwrite true `
+    --content-type "text/html; charset=utf-8" `
+    --only-show-errors `
+    --output none
 } finally {
   Pop-Location
 }

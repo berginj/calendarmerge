@@ -1,10 +1,9 @@
 import { BlobStore } from "./blobStore";
 import { getConfig } from "./config";
-import { applyEventFilter } from "./eventFilter";
 import { fetchFeed } from "./fetchFeeds";
-import { serializeCalendar } from "./ics";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
+import { buildPublicCalendarArtifacts } from "./publicCalendars";
 import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
 import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
@@ -59,8 +58,6 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const failedStatuses = sourceResults.filter((result) => !result.status.ok).map((result) => result.status);
   const candidateEvents = successfulResults.length > 0 ? mergeFeedEvents(successfulResults) : [];
   const candidateEventCount = candidateEvents.length;
-  const gamesOnlyEvents = applyEventFilter(candidateEvents, "games-only");
-  const gamesOnlyEventCount = gamesOnlyEvents.length;
   const previousCalendarExists = await safeCalendarExists(store, logger);
   const canPublishPartial = failedStatuses.length > 0 && !previousCalendarExists;
   const shouldPublishCalendar = successfulResults.length > 0 && (failedStatuses.length === 0 || canPublishPartial);
@@ -79,11 +76,14 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   });
 
   if (shouldPublishCalendar) {
+    const generatedAt = new Date();
+    const publicArtifacts = buildPublicCalendarArtifacts(candidateEvents, config.serviceName, generatedAt);
+
     try {
-      const calendarText = serializeCalendar(candidateEvents, config.serviceName);
-      await store.writeCalendar(calendarText);
+      await store.writeCalendar(publicArtifacts.fullCalendarText);
+      await store.writePublicJsonBlob(config.scheduleXFullBlobPath, publicArtifacts.fullScheduleX);
       calendarPublished = true;
-      mergedEventCount = candidateEventCount;
+      mergedEventCount = publicArtifacts.publicEvents.length;
     } catch (error) {
       const message = `Failed to write ${config.outputBlobPath}: ${errorMessage(error)}`;
       publishErrors.push(message);
@@ -92,10 +92,10 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     }
 
     try {
-      const gamesCalendarText = serializeCalendar(gamesOnlyEvents, config.serviceName);
-      await store.writeCalendar(gamesCalendarText, config.gamesOutputBlobPath);
+      await store.writeCalendar(publicArtifacts.gamesCalendarText, config.gamesOutputBlobPath);
+      await store.writePublicJsonBlob(config.scheduleXGamesBlobPath, publicArtifacts.gamesScheduleX);
       gamesOnlyCalendarPublished = true;
-      gamesOnlyMergedEventCount = gamesOnlyEventCount;
+      gamesOnlyMergedEventCount = publicArtifacts.publicGamesEvents.length;
     } catch (error) {
       const message = `Failed to write ${config.gamesOutputBlobPath}: ${errorMessage(error)}`;
       publishErrors.push(message);

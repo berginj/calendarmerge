@@ -9,6 +9,9 @@ param(
   [string]$EnableTableStorage = $(if ($env:ENABLE_TABLE_STORAGE) { $env:ENABLE_TABLE_STORAGE } else { 'false' }),
   [string]$OutputContainer = $(if ($env:OUTPUT_CONTAINER) { $env:OUTPUT_CONTAINER } else { '$web' }),
   [string]$OutputBlobPath = $(if ($env:OUTPUT_BLOB_PATH) { $env:OUTPUT_BLOB_PATH } else { 'calendar.ics' }),
+  [string]$GamesOutputBlobPath = $(if ($env:OUTPUT_GAMES_BLOB_PATH) { $env:OUTPUT_GAMES_BLOB_PATH } else { 'calendar-games.ics' }),
+  [string]$ScheduleXFullBlobPath = $(if ($env:SCHEDULE_X_FULL_BLOB_PATH) { $env:SCHEDULE_X_FULL_BLOB_PATH } else { 'schedule-x-full.json' }),
+  [string]$ScheduleXGamesBlobPath = $(if ($env:SCHEDULE_X_GAMES_BLOB_PATH) { $env:SCHEDULE_X_GAMES_BLOB_PATH } else { 'schedule-x-games.json' }),
   [string]$StatusBlobPath = $(if ($env:STATUS_BLOB_PATH) { $env:STATUS_BLOB_PATH } else { 'status.json' }),
   [string]$RefreshSchedule = $(if ($env:REFRESH_SCHEDULE) { $env:REFRESH_SCHEDULE } else { '0 */15 * * * *' }),
   [string]$FetchTimeoutMs = $(if ($env:FETCH_TIMEOUT_MS) { $env:FETCH_TIMEOUT_MS } else { '10000' }),
@@ -124,6 +127,9 @@ $settings = @{
   OUTPUT_STORAGE_ACCOUNT = $StorageAccount
   OUTPUT_CONTAINER = $OutputContainer
   OUTPUT_BLOB_PATH = $OutputBlobPath
+  OUTPUT_GAMES_BLOB_PATH = $GamesOutputBlobPath
+  SCHEDULE_X_FULL_BLOB_PATH = $ScheduleXFullBlobPath
+  SCHEDULE_X_GAMES_BLOB_PATH = $ScheduleXGamesBlobPath
   STATUS_BLOB_PATH = $StatusBlobPath
   REFRESH_SCHEDULE = $RefreshSchedule
   FETCH_TIMEOUT_MS = $FetchTimeoutMs
@@ -300,3 +306,6 @@ Write-Host "Status endpoint: https://$FunctionAppName.azurewebsites.net/api/stat
 Write-Host "Static website endpoint: $webEndpoint"
 Write-Host "Feed management UI: $($webEndpoint.TrimEnd('/'))/manage/"
 Write-Host "Public ICS URL: $($webEndpoint.TrimEnd('/'))/$OutputBlobPath"
+Write-Host "Games ICS URL: $($webEndpoint.TrimEnd('/'))/$GamesOutputBlobPath"
+Write-Host "Schedule-X full feed URL: $($webEndpoint.TrimEnd('/'))/$ScheduleXFullBlobPath"
+Write-Host "Schedule-X games feed URL: $($webEndpoint.TrimEnd('/'))/$ScheduleXGamesBlobPath"

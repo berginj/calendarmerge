@@ -44,6 +44,18 @@ export class BlobStore {
     });
   }
 
+  async writePublicJsonBlob(blobPath: string, value: unknown): Promise<void> {
+    await this.ensureContainer();
+    await this.getBlobClient(blobPath).uploadData(
+      Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8"),
+      {
+        blobHTTPHeaders: {
+          blobContentType: "application/json; charset=utf-8",
+        },
+      },
+    );
+  }
+
   async writeStatus(status: ServiceStatus): Promise<void> {
     await this.ensureContainer();
     await this.getBlobClient(this.config.statusBlobPath).uploadData(

@@ -15,6 +15,8 @@ export interface AppConfig {
   outputContainer: string;
   outputBlobPath: string;
   gamesOutputBlobPath: string;
+  scheduleXFullBlobPath: string;
+  scheduleXGamesBlobPath: string;
   statusBlobPath: string;
   refreshSchedule: string;
   fetchTimeoutMs: number;
@@ -76,10 +78,14 @@ export interface OutputPaths {
   container: string;
   calendarBlobPath: string;
   gamesCalendarBlobPath: string;
+  scheduleXFullBlobPath: string;
+  scheduleXGamesBlobPath: string;
   statusBlobPath: string;
   blobBaseUrl: string;
   blobCalendarUrl: string;
   blobGamesCalendarUrl: string;
+  blobScheduleXFullUrl: string;
+  blobScheduleXGamesUrl: string;
   blobStatusUrl: string;
 }
 

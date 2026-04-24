@@ -100,10 +100,14 @@ export function buildOutputPaths(config: AppConfig): OutputPaths {
     container: config.outputContainer,
     calendarBlobPath: config.outputBlobPath,
     gamesCalendarBlobPath: config.gamesOutputBlobPath,
+    scheduleXFullBlobPath: config.scheduleXFullBlobPath,
+    scheduleXGamesBlobPath: config.scheduleXGamesBlobPath,
     statusBlobPath: config.statusBlobPath,
     blobBaseUrl: baseUrl,
     blobCalendarUrl: joinUrlPath(baseUrl, config.outputBlobPath),
     blobGamesCalendarUrl: joinUrlPath(baseUrl, config.gamesOutputBlobPath),
+    blobScheduleXFullUrl: joinUrlPath(baseUrl, config.scheduleXFullBlobPath),
+    blobScheduleXGamesUrl: joinUrlPath(baseUrl, config.scheduleXGamesBlobPath),
     blobStatusUrl: joinUrlPath(baseUrl, config.statusBlobPath),
   };
 }

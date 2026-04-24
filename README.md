@@ -2,6 +2,8 @@
 
 `calendarmerge` is an Azure Functions v4 service that merges multiple source ICS feeds into one published ICS file in Azure Blob Storage.
 
+After each successful merge, it also publishes a read-only Schedule-X calendar viewer backed by JSON feeds for both the full calendar and the games-only view. Published events retain full location details but strip attendee and direct contact fields from the public outputs.
+
 ## Features
 
 **Web UI for Feed Management:**
@@ -18,7 +20,11 @@
 
 **Published Outputs:**
 - `calendar.ics` - Merged calendar feed
+- `calendar-games.ics` - Games-only merged calendar feed
+- `schedule-x-full.json` - Read-only Schedule-X event payload for the full calendar
+- `schedule-x-games.json` - Read-only Schedule-X event payload for the games-only calendar
 - `status.json` - Service health and diagnostics
+- `index.html` - Public read-only Schedule-X viewer
 - `manage/` - Feed management web UI
 
 ## Architecture
@@ -27,8 +33,10 @@
 - Merge logic is implemented as pure TypeScript library code under `src/lib/`.
 - Azure Blob Storage stores the public outputs in `$web/`.
 - `status.json` is written on every run.
+- `calendar.ics`, `calendar-games.ics`, `schedule-x-full.json`, and `schedule-x-games.json` are published together from the merged event set.
+- Public calendar artifacts are sanitized before publishing so attendees, organizers, contacts, and direct contact notes are not exposed.
 - `calendar.ics` is only replaced when all feeds succeed, or when there is no previous good calendar and at least one feed succeeds.
-- If some feeds fail and a prior `calendar.ics` already exists, the service keeps that last known good file and records the errors in `status.json`.
+- If some feeds fail and a prior published calendar already exists, the service keeps the last known good public artifacts and records the errors in `status.json`.
 
 **Duplicate Detection:**
 - Two-stage deduplication removes duplicate events
@@ -61,6 +69,9 @@ Supported settings:
 | `ENABLE_TABLE_STORAGE` | No | `false` | Set to `true` to load feeds from Azure Table Storage. |
 | `OUTPUT_CONTAINER` | No | `$web` | Blob container for published files. |
 | `OUTPUT_BLOB_PATH` | No | `calendar.ics` | Public merged calendar path. |
+| `OUTPUT_GAMES_BLOB_PATH` | No | `calendar-games.ics` | Public merged games-only calendar path. |
+| `SCHEDULE_X_FULL_BLOB_PATH` | No | `schedule-x-full.json` | Public Schedule-X data for the full calendar. |
+| `SCHEDULE_X_GAMES_BLOB_PATH` | No | `schedule-x-games.json` | Public Schedule-X data for the games-only calendar. |
 | `STATUS_BLOB_PATH` | No | `status.json` | Diagnostics path. |
 | `REFRESH_SCHEDULE` | No | `0 */15 * * * *` | Azure Functions NCRONTAB schedule. |
 | `FETCH_TIMEOUT_MS` | No | `10000` | Per-request timeout. |
@@ -254,13 +265,21 @@ $web = az storage account show `
 Public output URLs:
 
 - `$($web.TrimEnd('/'))/calendar.ics` - Merged calendar feed
+- `$($web.TrimEnd('/'))/calendar-games.ics` - Games-only merged calendar feed
+- `$($web.TrimEnd('/'))/schedule-x-full.json` - Schedule-X data for the full calendar
+- `$($web.TrimEnd('/'))/schedule-x-games.json` - Schedule-X data for the games-only calendar
 - `$($web.TrimEnd('/'))/status.json` - Service status
+- `$($web.TrimEnd('/'))/` - Read-only Schedule-X viewer
 - `$($web.TrimEnd('/'))/manage/` - Feed management UI
 
 Blob paths written by the app:
 
 - `$web/calendar.ics`
+- `$web/calendar-games.ics`
+- `$web/schedule-x-full.json`
+- `$web/schedule-x-games.json`
 - `$web/status.json`
+- `$web/index.html`
 - `$web/manage/` - Frontend app
 
 Function endpoints:
@@ -300,6 +319,8 @@ The unit tests cover:
 - all-day event preservation
 - cancelled event precedence
 - malformed ICS input rejection
+- public artifact sanitization for attendee and organizer fields
+- Schedule-X games-only data generation
 
 ## Rollback And Troubleshooting
 
