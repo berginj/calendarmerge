@@ -22,6 +22,11 @@ interface LinkItem {
   href: string;
 }
 
+function toDirectoryUrl(path: string, origin: string): URL {
+  const normalizedPath = path.endsWith('/') ? path : `${path}/`;
+  return new URL(normalizedPath, origin);
+}
+
 function App() {
   const [currentView, setCurrentView] = useState<View>('feeds');
   const [feeds, setFeeds] = useState<SourceFeedConfig[]>([]);
@@ -35,7 +40,7 @@ function App() {
   const savedAdminKey = loadSavedFunctionsKey();
   const hasConfiguredAdminKey = buildTimeAdminKey || savedAdminKey.trim().length > 0;
   const functionsKey = adminKey.trim() || savedAdminKey.trim();
-  const apiBase = new URL(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
+  const apiBase = toDirectoryUrl(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
   const publicBase = new URL('../', window.location.href);
   const withCode = (url: URL) => {
     if (functionsKey) {

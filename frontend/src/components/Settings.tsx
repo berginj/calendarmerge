@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { AppSettings, getSettings, updateSettings } from '../api/feedsApi';
 
+function toDirectoryUrl(path: string, origin: string): URL {
+  const normalizedPath = path.endsWith('/') ? path : `${path}/`;
+  return new URL(normalizedPath, origin);
+}
+
 function Settings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const apiBase = new URL('/api', window.location.origin);
+  const apiBase = toDirectoryUrl('/api', window.location.origin);
   const publicBase = new URL('../', window.location.href);
   const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
   const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
