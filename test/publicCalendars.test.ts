@@ -72,4 +72,27 @@ END:VCALENDAR`,
     expect(artifacts.gamesScheduleX.events).toHaveLength(1);
     expect(artifacts.gamesScheduleX.events[0]?.title).toBe("Game vs Tigers");
   });
+
+  it("normalizes schedule-x ids and guarantees timed events end after they start", () => {
+    const [event] = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:practice-1
+DTSTART:20260512T170000Z
+SUMMARY:Practice
+LOCATION:North Field
+END:VEVENT
+END:VCALENDAR`,
+      source("Team Alpha / Varsity", "Team Alpha"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts([event!], "calendarmerge");
+    const scheduleXEvent = artifacts.fullScheduleX.events[0];
+
+    expect(scheduleXEvent?.calendarId).toBe("team-alpha-varsity");
+    expect(scheduleXEvent?.sourceId).toBe("Team Alpha / Varsity");
+    expect(scheduleXEvent?.sourceName).toBe("Team Alpha");
+    expect(scheduleXEvent?.start).toBe("2026-05-12 17:00");
+    expect(scheduleXEvent?.end).toBe("2026-05-12 17:01");
+  });
 });
