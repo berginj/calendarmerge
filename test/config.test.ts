@@ -30,7 +30,7 @@ describe("Config", () => {
     expect(config.scheduleXFullBlobPath).toBe("schedule-x-full.json");
     expect(config.scheduleXGamesBlobPath).toBe("schedule-x-games.json");
     expect(config.statusBlobPath).toBe("status.json");
-    expect(config.refreshSchedule).toBe("0 */15 * * * *");
+    expect(config.refreshSchedule).toBe("0 */30 * * * *"); // Updated to 30 min based on platform research
     expect(config.fetchTimeoutMs).toBe(10000);
     expect(config.fetchRetryCount).toBe(2);
     expect(config.fetchRetryDelayMs).toBe(750);

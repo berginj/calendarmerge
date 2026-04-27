@@ -38,6 +38,7 @@ export interface PublicCalendarArtifacts {
   gamesScheduleX: ScheduleXEventDocument;
   publicEvents: ParsedEvent[];
   publicGamesEvents: ParsedEvent[];
+  cancelledEventsFiltered: number;
 }
 
 export function buildPublicCalendarArtifacts(
@@ -45,7 +46,11 @@ export function buildPublicCalendarArtifacts(
   serviceName: string,
   generatedAt = new Date(),
 ): PublicCalendarArtifacts {
-  const publicEvents = events.map(toPublicEvent);
+  // Filter out cancelled events entirely (per requirements)
+  const cancelledCount = events.filter((e) => e.cancelled).length;
+  const activeEvents = events.filter((e) => !e.cancelled);
+
+  const publicEvents = activeEvents.map(toPublicEvent);
   const publicGamesEvents = applyEventFilter(publicEvents, "games-only");
   const generatedAtIso = generatedAt.toISOString();
 
@@ -56,6 +61,7 @@ export function buildPublicCalendarArtifacts(
     gamesScheduleX: buildScheduleXDocument(publicGamesEvents, serviceName, "games", generatedAtIso),
     publicEvents,
     publicGamesEvents,
+    cancelledEventsFiltered: cancelledCount,
   };
 }
 

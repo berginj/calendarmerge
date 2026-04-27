@@ -16,7 +16,9 @@ export const DEFAULT_GAMES_OUTPUT_BLOB_PATH = "calendar-games.ics";
 export const DEFAULT_SCHEDULE_X_FULL_BLOB_PATH = "schedule-x-full.json";
 export const DEFAULT_SCHEDULE_X_GAMES_BLOB_PATH = "schedule-x-games.json";
 export const DEFAULT_STATUS_BLOB_PATH = "status.json";
-export const DEFAULT_REFRESH_SCHEDULE = "0 */15 * * * *";
+// Updated from 15 to 30 minutes based on platform research (see PLATFORM_INTEGRATION_NOTES.md)
+// Most sports platforms (GameChanger, TeamSnap, etc.) refresh around 30-60 minutes
+export const DEFAULT_REFRESH_SCHEDULE = "0 */30 * * * *";
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export const DEFAULT_FETCH_RETRY_COUNT = 2;
 export const DEFAULT_FETCH_RETRY_DELAY_MS = 750;

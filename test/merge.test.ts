@@ -47,8 +47,8 @@ function createMockFeedResult(events: ParsedEvent[]): FeedRunResult {
   };
 }
 
-describe("mergeFeedEvents - Day-based Deduplication", () => {
-  it("should remove duplicate events with same summary on same day", () => {
+describe("mergeFeedEvents - Duplicate Detection", () => {
+  it("should NOT remove duplicate events with same summary on same day, but flag them", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       summary: "Team Meeting",
@@ -74,13 +74,21 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([event1, event2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0].summary).toBe("Team Meeting");
+    // Both events should be kept
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].summary).toBe("Team Meeting");
+    expect(result.events[1].summary).toBe("Team Meeting");
+
+    // Should be flagged as potential duplicate
+    expect(result.potentialDuplicates).toHaveLength(1);
+    expect(result.potentialDuplicates[0].summary).toBe("Team Meeting");
+    expect(result.potentialDuplicates[0].date).toBe("2024-01-01");
+    expect(result.potentialDuplicates[0].instances).toHaveLength(2);
   });
 
-  it("should keep events with same summary on different days", () => {
+  it("should keep events with same summary on different days without flagging as duplicates", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       summary: "Daily Standup",
@@ -106,12 +114,14 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([event1, event2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(2);
+    expect(result.events).toHaveLength(2);
+    // Should NOT be flagged as duplicates (different days)
+    expect(result.potentialDuplicates).toHaveLength(0);
   });
 
-  it("should be case-insensitive when matching summaries", () => {
+  it("should be case-insensitive when detecting potential duplicates", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       summary: "Team Meeting",
@@ -137,12 +147,16 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([event1, event2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Flagged as potential duplicate (case-insensitive)
+    expect(result.potentialDuplicates).toHaveLength(1);
+    expect(result.potentialDuplicates[0].instances).toHaveLength(2);
   });
 
-  it("should prefer non-cancelled events over cancelled ones", () => {
+  it("should keep both cancelled and active events, but flag as potential duplicates", () => {
     const cancelledEvent = createMockEvent({
       identityKey: "key1",
       summary: "Team Meeting",
@@ -170,13 +184,18 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([cancelledEvent, activeEvent])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0].cancelled).toBe(false);
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Verify we have both events
+    expect(result.events.some((e) => e.cancelled)).toBe(true);
+    expect(result.events.some((e) => !e.cancelled)).toBe(true);
+    // Flagged as potential duplicate
+    expect(result.potentialDuplicates).toHaveLength(1);
   });
 
-  it("should prefer events with location over events without", () => {
+  it("should keep both events with and without location, flag as potential duplicates", () => {
     const eventWithoutLocation = createMockEvent({
       identityKey: "key1",
       summary: "Team Meeting",
@@ -204,13 +223,16 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([eventWithoutLocation, eventWithLocation])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0].location).toBe("Conference Room A");
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Flagged as potential duplicate
+    expect(result.potentialDuplicates).toHaveLength(1);
+    expect(result.potentialDuplicates[0].instances).toHaveLength(2);
   });
 
-  it("should prefer events with higher sequence numbers", () => {
+  it("should keep both events with different sequence numbers, flag as potential duplicates", () => {
     const olderEvent = createMockEvent({
       identityKey: "key1",
       summary: "Team Meeting",
@@ -238,13 +260,15 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([olderEvent, newerEvent])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0].sequence).toBe(3);
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Flagged as potential duplicate
+    expect(result.potentialDuplicates).toHaveLength(1);
   });
 
-  it("should handle all-day events correctly", () => {
+  it("should handle all-day events correctly and flag duplicates", () => {
     const allDayEvent1 = createMockEvent({
       identityKey: "key1",
       summary: "Holiday",
@@ -284,13 +308,17 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([allDayEvent1, allDayEvent2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
-    expect(merged[0].summary).toBe("Holiday");
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0].summary).toBe("Holiday");
+    // Flagged as high-confidence duplicate (same time = 0 minutes apart)
+    expect(result.potentialDuplicates).toHaveLength(1);
+    expect(result.potentialDuplicates[0].confidence).toBe("high");
   });
 
-  it("should handle events from multiple sources", () => {
+  it("should handle events from multiple sources and flag cross-source duplicates", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       sourceId: "source1",
@@ -323,12 +351,18 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
       createMockFeedResult([event1]),
       createMockFeedResult([event2]),
     ];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Flagged as high-confidence duplicate (same time, different sources)
+    expect(result.potentialDuplicates).toHaveLength(1);
+    expect(result.potentialDuplicates[0].confidence).toBe("high");
+    expect(result.potentialDuplicates[0].instances[0].feedId).toBe("source1");
+    expect(result.potentialDuplicates[0].instances[1].feedId).toBe("source2");
   });
 
-  it("should preserve events with different summaries on same day", () => {
+  it("should preserve events with different summaries on same day without flagging", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       summary: "Morning Meeting",
@@ -354,14 +388,16 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([event1, event2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(2);
-    expect(merged.map((e) => e.summary)).toContain("Morning Meeting");
-    expect(merged.map((e) => e.summary)).toContain("Afternoon Meeting");
+    expect(result.events).toHaveLength(2);
+    expect(result.events.map((e) => e.summary)).toContain("Morning Meeting");
+    expect(result.events.map((e) => e.summary)).toContain("Afternoon Meeting");
+    // Should NOT be flagged as duplicates (different summaries)
+    expect(result.potentialDuplicates).toHaveLength(0);
   });
 
-  it("should trim whitespace when comparing summaries", () => {
+  it("should trim whitespace when detecting potential duplicates", () => {
     const event1 = createMockEvent({
       identityKey: "key1",
       summary: "  Team Meeting  ",
@@ -387,8 +423,11 @@ describe("mergeFeedEvents - Day-based Deduplication", () => {
     });
 
     const results = [createMockFeedResult([event1, event2])];
-    const merged = mergeFeedEvents(results);
+    const result = mergeFeedEvents(results);
 
-    expect(merged).toHaveLength(1);
+    // Both events kept
+    expect(result.events).toHaveLength(2);
+    // Flagged as potential duplicate (whitespace trimmed)
+    expect(result.potentialDuplicates).toHaveLength(1);
   });
 });

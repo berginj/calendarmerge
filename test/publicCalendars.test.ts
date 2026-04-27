@@ -95,4 +95,50 @@ END:VCALENDAR`,
     expect(scheduleXEvent?.start).toBe("2026-05-12 17:00");
     expect(scheduleXEvent?.end).toBe("2026-05-12 17:01");
   });
+
+  it("filters out cancelled events entirely and tracks the count", () => {
+    const events = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:game-1
+DTSTART:20260512T170000Z
+DTEND:20260512T180000Z
+SUMMARY:Game vs Tigers
+LOCATION:Field 4
+END:VEVENT
+BEGIN:VEVENT
+UID:game-2
+DTSTART:20260513T170000Z
+DTEND:20260513T180000Z
+SUMMARY:Game vs Lions
+LOCATION:Field 5
+STATUS:CANCELLED
+END:VEVENT
+BEGIN:VEVENT
+UID:game-3
+DTSTART:20260514T170000Z
+DTEND:20260514T180000Z
+SUMMARY:Game vs Bears
+LOCATION:Field 4
+END:VEVENT
+END:VCALENDAR`,
+      source("athletics", "Athletics"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts(events, "calendarmerge");
+
+    // Only 2 active events should be in output (cancelled event filtered)
+    expect(artifacts.publicEvents).toHaveLength(2);
+    expect(artifacts.fullScheduleX.events).toHaveLength(2);
+    expect(artifacts.publicEvents.some((e) => e.summary === "Game vs Lions")).toBe(false);
+    expect(artifacts.publicEvents.every((e) => !e.cancelled)).toBe(true);
+
+    // Should track count of filtered cancelled events
+    expect(artifacts.cancelledEventsFiltered).toBe(1);
+
+    // Verify the ICS output doesn't contain the cancelled event
+    expect(artifacts.fullCalendarText).toContain("Game vs Tigers");
+    expect(artifacts.fullCalendarText).toContain("Game vs Bears");
+    expect(artifacts.fullCalendarText).not.toContain("Game vs Lions");
+  });
 });

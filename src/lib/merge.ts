@@ -1,7 +1,14 @@
-import { FeedRunResult, ParsedEvent } from "./types";
+import { FeedRunResult, MergeResult, ParsedEvent, PotentialDuplicate, PotentialDuplicateInstance } from "./types";
 
-export function mergeFeedEvents(results: FeedRunResult[]): ParsedEvent[] {
-  // First pass: deduplicate by identity key (UID or summary+time+location)
+/**
+ * Merges events from multiple feed results with identity-based deduplication.
+ * Also detects potential duplicates (same summary + date) but keeps all events.
+ *
+ * Identity-based deduplication: Events with same identityKey are deduplicated (same UID or same summary+time+location).
+ * Duplicate detection: Events with same normalized summary on same date are flagged but NOT removed.
+ */
+export function mergeFeedEvents(results: FeedRunResult[]): MergeResult {
+  // Identity-based deduplication: Only one event per identityKey
   const deduped = new Map<string, ParsedEvent>();
 
   for (const result of results) {
@@ -13,77 +20,105 @@ export function mergeFeedEvents(results: FeedRunResult[]): ParsedEvent[] {
     }
   }
 
-  // Second pass: deduplicate by same day + summary (cross-source duplicates)
-  const dayDeduped = dedupeSameDayEvents(Array.from(deduped.values()));
+  const events = Array.from(deduped.values()).sort(compareEventOrder);
 
-  return dayDeduped.sort(compareEventOrder);
+  // Detect potential duplicates (same summary + date) but keep all events
+  const potentialDuplicates = detectPotentialDuplicates(events);
+
+  return {
+    events,
+    potentialDuplicates,
+  };
 }
 
 /**
- * Removes duplicate events that have the same summary and occur on the same day.
- * This catches duplicates across different sources that might have slightly different times.
+ * Detects events that might be duplicates based on summary and date.
+ * Does NOT remove events - just flags them for review.
+ *
+ * Confidence levels:
+ * - High: Same summary, same date, same time (within 15 minutes)
+ * - Medium: Same summary, same date, different times (>15 minutes apart)
+ * - Low: Similar summary, same date
  */
-function dedupeSameDayEvents(events: ParsedEvent[]): ParsedEvent[] {
-  const dayMap = new Map<string, ParsedEvent>();
+function detectPotentialDuplicates(events: ParsedEvent[]): PotentialDuplicate[] {
+  // Group events by normalized summary + date
+  const dayGroups = new Map<string, ParsedEvent[]>();
 
   for (const event of events) {
-    // Create a key based on normalized summary and the date (without time)
     const normalizedSummary = event.summary.trim().toLowerCase();
     const eventDate = getEventDate(event.start.iso);
     const dayKey = `${eventDate}|${normalizedSummary}`;
 
-    const existing = dayMap.get(dayKey);
-    if (!existing || compareSameDayPriority(event, existing) > 0) {
-      dayMap.set(dayKey, event);
-    }
+    const group = dayGroups.get(dayKey) || [];
+    group.push(event);
+    dayGroups.set(dayKey, group);
   }
 
-  return Array.from(dayMap.values());
+  // Find groups with multiple events (potential duplicates)
+  const duplicates: PotentialDuplicate[] = [];
+
+  for (const [dayKey, group] of dayGroups) {
+    if (group.length < 2) {
+      continue; // Not a duplicate if only one event
+    }
+
+    const [date, ...summaryParts] = dayKey.split("|");
+    const normalizedSummary = summaryParts.join("|");
+
+    // Determine confidence level
+    const confidence = calculateDuplicateConfidence(group);
+
+    const instances: PotentialDuplicateInstance[] = group.map((event) => ({
+      feedId: event.sourceId,
+      feedName: event.sourceName,
+      time: event.start.iso,
+      location: event.location || "",
+      uid: event.mergedUid,
+    }));
+
+    duplicates.push({
+      summary: group[0].summary, // Use original summary from first event
+      date: date,
+      instances,
+      confidence,
+    });
+  }
+
+  return duplicates;
+}
+
+/**
+ * Calculate confidence level for potential duplicates
+ */
+function calculateDuplicateConfidence(events: ParsedEvent[]): "high" | "medium" | "low" {
+  // If all events have same or very similar times (within 15 minutes), high confidence
+  const times = events.map((e) => e.start.sortValue);
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+  const timeDiffMinutes = (maxTime - minTime) / (1000 * 60);
+
+  if (timeDiffMinutes <= 15) {
+    return "high"; // Same time = likely true duplicate
+  }
+
+  if (timeDiffMinutes <= 120) {
+    return "medium"; // Within 2 hours = possibly same event, possibly different
+  }
+
+  return "low"; // Different times = possibly different events with same name
 }
 
 /**
  * Extracts the date portion (YYYY-MM-DD) from an ISO timestamp
  */
 function getEventDate(isoTimestamp: string): string {
-  // Extract date portion (YYYY-MM-DD) from ISO string
   return isoTimestamp.split("T")[0];
 }
 
 /**
- * Determines priority for same-day events with same summary.
- * Prefers: non-cancelled > has location > has more properties > earlier start time
+ * Determines priority for identity-based deduplication.
+ * Higher sequence number wins, then more recent update, then non-cancelled, then more detailed.
  */
-function compareSameDayPriority(left: ParsedEvent, right: ParsedEvent): number {
-  // Prefer non-cancelled events
-  if (left.cancelled !== right.cancelled) {
-    return left.cancelled ? -1 : 1;
-  }
-
-  // Prefer events with location information
-  const leftHasLocation = Boolean(left.location.trim());
-  const rightHasLocation = Boolean(right.location.trim());
-  if (leftHasLocation !== rightHasLocation) {
-    return leftHasLocation ? 1 : -1;
-  }
-
-  // Prefer events with more properties (more detailed)
-  if (left.properties.length !== right.properties.length) {
-    return left.properties.length - right.properties.length;
-  }
-
-  // Prefer events with higher sequence number (more recent update)
-  if (left.sequence !== right.sequence) {
-    return left.sequence - right.sequence;
-  }
-
-  // Prefer earlier start time (likely the canonical time)
-  if (left.start.sortValue !== right.start.sortValue) {
-    return right.start.sortValue - left.start.sortValue;
-  }
-
-  return 0;
-}
-
 function comparePriority(left: ParsedEvent, right: ParsedEvent): number {
   if (left.sequence !== right.sequence) {
     return left.sequence - right.sequence;
@@ -100,6 +135,9 @@ function comparePriority(left: ParsedEvent, right: ParsedEvent): number {
   return left.properties.length - right.properties.length;
 }
 
+/**
+ * Sorts events chronologically by start time, then by other properties for consistency.
+ */
 function compareEventOrder(left: ParsedEvent, right: ParsedEvent): number {
   if (left.start.sortValue !== right.start.sortValue) {
     return left.start.sortValue - right.start.sortValue;
