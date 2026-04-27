@@ -326,22 +326,98 @@ Invoke-WebRequest `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh?code=$refreshKey"
 ```
 
-## Testing Notes
+## Testing
 
-The unit tests cover:
+**Test Coverage: 80 tests across 8 test files**
 
-- duplicate raw UIDs across feeds
-- deterministic fallback dedupe when UID is missing
-- all-day event preservation
-- cancelled event precedence
-- malformed ICS input rejection
-- public artifact sanitization for attendee and organizer fields
-- Schedule-X games-only data generation
+The test suite covers:
+
+**Unit Tests:**
+- Identity-based deduplication (UID or summary+time+location)
+- Potential duplicate detection with confidence levels
+- Cancelled event filtering (status field, keywords, LeagueApps markers)
+- All-day event preservation
+- Public artifact sanitization (ATTENDEE, ORGANIZER stripped)
+- Schedule-X JSON generation (full and games-only)
+- Event filtering (games vs practices)
+- Configuration validation
+- Utility functions
+
+**Integration Tests:**
+- Partial failure scenarios (some feeds succeed, some fail)
+- Complete failure scenarios (all feeds fail)
+- Feed change detection (0 events, significant drops, increases)
+- Operational state calculations (healthy/degraded/failed)
+- Calendar age tracking
+- Reschedule detection (time and location changes)
+- Cancellation detection (multiple signals)
+- LeagueApps reschedule marker handling
+
+Run tests:
+```powershell
+npm test            # Run all tests
+npm run test:watch  # Watch mode for development
+```
+
+## Monitoring & Operations
+
+**Service Health:**
+- Three-tier operational model: Healthy 🟢, Degraded 🟡, Failed 🔴
+- Detailed degradation reasons for troubleshooting
+- Per-calendar freshness tracking (full and games independently)
+- Feed health monitoring with consecutive failure counts
+
+**Change Detection:**
+- Reschedule alerts (time/location changes within 7-day window)
+- Feed event count monitoring (0-event alerts, significant drops/increases)
+- Potential duplicate flagging with confidence levels
+- LeagueApps reschedule marker handling
+
+**API Tracking:**
+- Request ID on all API calls for tracing
+- Refresh ID on all refresh operations
+- Structured logging with categories (refresh, feed, publish, api, etc.)
+
+**Monitoring Endpoints:**
+- `GET /api/status` - Service health and diagnostics
+- `GET https://{storage}.z13.web.core.windows.net/status.json` - Public status
+- See [MONITORING_GUIDE.md](MONITORING_GUIDE.md) for complete monitoring setup
+- See [STATE_MACHINE.md](STATE_MACHINE.md) for state transitions
+
+## Deployment
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for complete deployment instructions.
+
+**Quick Deploy:**
+```powershell
+# Deploy backend
+powershell -ExecutionPolicy Bypass -File .\scripts\azure\deploy-functions.ps1
+
+# Deploy frontend
+npm run build --prefix frontend
+az storage blob upload-batch `
+  --account-name $env:AZ_STORAGE_ACCOUNT `
+  --destination '$web/manage' `
+  --source frontend/build `
+  --auth-mode login `
+  --overwrite
+```
 
 ## Rollback And Troubleshooting
 
-- Partial feed failures do not overwrite an existing `calendar.ics`; check `status.json` for per-feed errors.
-- Full failures write `status.json` and keep the existing `calendar.ics` untouched.
-- If publishing fails because the Function App cannot write blobs, confirm the managed identity still has `Storage Blob Data Contributor` on the storage account.
-- If local runs fail on storage bindings, set `AzureWebJobsStorage` in `local.settings.json` to Azurite or a real storage connection string.
-- To roll back code, redeploy a previous commit with `scripts/azure/deploy-functions.ps1` and trigger a manual refresh after the deployment completes.
+**Operational Issues:**
+- Partial feed failures do not overwrite an existing `calendar.ics`; check `status.json` for per-feed errors
+- Full failures write `status.json` and keep the existing `calendar.ics` untouched
+- Check `operationalState` and `degradationReasons` in status.json for specific issues
+- Review `feedChangeAlerts` for feed event count changes
+- Check `rescheduledEvents` for detected time/location changes
+- Review `potentialDuplicates` for flagged duplicate events
+
+**Permission Issues:**
+- If publishing fails, confirm the managed identity still has `Storage Blob Data Contributor` on the storage account
+- If local runs fail on storage bindings, set `AzureWebJobsStorage` in `local.settings.json` to Azurite or a real storage connection string
+
+**Rollback:**
+- To roll back code, redeploy a previous commit with `scripts/azure/deploy-functions.ps1`
+- Trigger a manual refresh after the deployment completes
+- See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed rollback procedures

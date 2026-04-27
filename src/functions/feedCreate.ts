@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -21,7 +21,8 @@ async function createFeedHandler(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
-  const logger = createLogger(context);
+  const requestId = generateId();
+  const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
 
   try {
     const body = (await request.json()) as CreateFeedRequest;
@@ -29,11 +30,12 @@ async function createFeedHandler(
     // Validate input
     const validation = validateFeedInput(body);
     if (!validation.valid) {
-      logger.warn("feed_create_validation_failed", { errors: validation.errors });
+      logger.warn("feed_create_validation_failed", { requestId, errors: validation.errors });
 
       return {
         status: 400,
         jsonBody: {
+          requestId,
           error: "Validation failed",
           details: validation.errors,
         },
@@ -52,11 +54,12 @@ async function createFeedHandler(
     // Check for duplicate ID
     const existing = await store.getFeed(feedId);
     if (existing) {
-      logger.warn("feed_create_duplicate_id", { feedId });
+      logger.warn("feed_create_duplicate_id", { requestId, feedId });
 
       return {
         status: 409,
         jsonBody: {
+          requestId,
           error: "Feed ID already exists",
           feedId,
         },
@@ -73,25 +76,30 @@ async function createFeedHandler(
       enabled: true,
     });
 
-    logger.info("feed_created", { feedId, name: body.name });
+    logger.info("feed_created", { requestId, feedId, name: body.name });
 
     return {
       status: 201,
       jsonBody: {
+        requestId,
         feed: {
           id: entity.id,
           name: entity.name,
           url: entity.url,
+          enabled: entity.enabled,
         },
         message: "Feed created successfully",
       },
     };
   } catch (error) {
-    logger.error("feed_create_failed", { error: errorMessage(error) });
+    logger.error("feed_create_failed", { requestId, error: errorMessage(error) });
 
     return {
       status: 500,
-      jsonBody: { error: "Failed to create feed" },
+      jsonBody: {
+        requestId,
+        error: "Failed to create feed",
+      },
     };
   }
 }
