@@ -1,4 +1,5 @@
 import { applyEventFilter } from "./eventFilter";
+import { isCancelledEvent, isLeagueAppsRescheduleMarker } from "./eventSnapshot";
 import { ParsedEvent } from "./types";
 import { serializeCalendar } from "./ics";
 
@@ -46,9 +47,9 @@ export function buildPublicCalendarArtifacts(
   serviceName: string,
   generatedAt = new Date(),
 ): PublicCalendarArtifacts {
-  // Filter out cancelled events entirely (per requirements)
-  const cancelledCount = events.filter((e) => e.cancelled).length;
-  const activeEvents = events.filter((e) => !e.cancelled);
+  // Filter out cancelled events and LeagueApps reschedule markers
+  const cancelledCount = events.filter((e) => isCancelledEvent(e) || isLeagueAppsRescheduleMarker(e)).length;
+  const activeEvents = events.filter((e) => !isCancelledEvent(e) && !isLeagueAppsRescheduleMarker(e));
 
   const publicEvents = activeEvents.map(toPublicEvent);
   const publicGamesEvents = applyEventFilter(publicEvents, "games-only");

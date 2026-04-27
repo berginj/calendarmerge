@@ -116,26 +116,59 @@ npx tsx scripts/migrate-feeds-to-table.ts
 ## Important Patterns
 
 ### Duplicate Detection
-The merge logic in `merge.ts` implements two-stage deduplication:
+The merge logic in `merge.ts` implements identity-based deduplication and potential duplicate flagging:
 
-1. **Identity-based**: Uses SHA256 hash of UID (or fallback: summary+time+location)
-2. **Same-day**: Deduplicates events with same normalized summary on same date
-
-Priority order when choosing between duplicates:
-1. Non-cancelled over cancelled
-2. Has location over no location
-3. More properties (richer data)
-4. Higher sequence number (more recent update)
-5. Earlier start time
+1. **Identity-based deduplication**: Uses SHA256 hash of UID (or fallback: summary+time+location)
+   - Removes true duplicates with same identityKey
+   - Priority: higher sequence > later update > non-cancelled > more detailed
+2. **Potential duplicate flagging**: Detects events with same summary + date but KEEPS all events
+   - Assigns confidence: high (<15 min apart), medium (15min-2hrs), low (>2hrs)
+   - Results included in `status.json` under `potentialDuplicates`
+   - Does NOT suppress events (changed in 2026-04-27)
 
 See [DUPLICATE_DETECTION.md](DUPLICATE_DETECTION.md) for complete details.
 
-### Failure Handling
-The refresh workflow implements partial failure recovery:
-- If some feeds fail and a previous calendar exists → keeps last known good, logs errors in `status.json`
-- If all feeds fail → keeps last known good, marks service as "failed"
+### Cancelled Event Filtering
+Events are filtered out entirely (never exported) if:
+- `cancelled: true` status field
+- Summary contains "cancelled" or "canceled"
+- Description contains cancellation keywords
+- LeagueApps reschedule markers ("RESCHEDULED" in summary)
+
+Filtered count tracked in `status.json` under `cancelledEventsFiltered`.
+
+### Reschedule Detection
+Events in the future 7-day window are tracked for changes:
+- Time changes detected (start or end time modified)
+- Location changes detected
+- Results in `status.json` under `rescheduledEvents`
+- Event snapshots stored in `status.json` for next comparison
+- See `src/lib/eventSnapshot.ts` for implementation
+
+### Operational State & Failure Handling
+The refresh workflow implements a three-tier health model:
+
+**States:**
+- 🟢 **Healthy**: All feeds succeed, all calendars published
+- 🟡 **Degraded**: Operational with issues (some feeds failed, partial publish, stale data, 0-event feeds, reschedules detected)
+- 🔴 **Failed**: Not operational (all feeds failed, no calendars published, status write failed)
+
+**Partial Failure Recovery:**
+- If some feeds fail and a previous calendar exists → keeps last known good, logs errors, marks degraded
+- If all feeds fail → keeps last known good, marks failed
 - If no previous calendar exists and at least one feed succeeds → publishes partial calendar
-- `status.json` is always written, even on complete failure
+- `status.json` is always written, even on complete failure (if write fails, service is marked failed)
+
+**Degradation Reasons:**
+Specific explanations in `degradationReasons` array:
+- "N feed(s) failed: FeedName1, FeedName2"
+- "Serving last-known-good data (stale calendar)"
+- "Games calendar failed to publish"
+- "N feed(s) returned 0 events: FeedName"
+- "FeedName: events to zero (X → 0)"
+- "N event(s) rescheduled (time or location changed)"
+
+See [STATE_MACHINE.md](STATE_MACHINE.md) for complete state transitions.
 
 ### Public Calendar Sanitization
 Before publishing, events are sanitized in `publicCalendars.ts`:
@@ -166,6 +199,49 @@ The ICS parser in `ics.ts`:
 - `FETCH_RETRY_COUNT` - Retries after initial attempt (default: 2)
 
 Configuration is loaded in `config.ts` from environment variables or `local.settings.json`.
+
+## Feed Management
+
+### Enable/Disable Feeds
+Feeds can be disabled without deletion:
+- Set `enabled: false` in Table Storage or config
+- Disabled feeds are filtered out during `loadSourceFeeds()`
+- Disabled count logged in refresh logs
+
+### Feed Validation
+When a feed URL is updated via API:
+- Feed is fetched and validated before saving
+- Validation checks: HTTP status, ICS parsing, event count
+- Returns: event count, date range, sample events, detected platform
+- Update rejected if validation fails
+- Automatic refresh triggered if URL changes or feed is enabled
+
+### Platform Detection
+Feed URLs are analyzed to detect source platform:
+- GameChanger, TeamSnap, SportsEngine, LeagueApps, TeamLinkt, SportsConnect, ArbiterSports
+- Detected platform shown in validation results
+- See [PLATFORM_INTEGRATION_NOTES.md](PLATFORM_INTEGRATION_NOTES.md) for platform details
+
+### Feed Change Alerts
+Feed event count changes are tracked and reported:
+- **events-to-zero**: Feed went from N events to 0 (warning)
+- **zero-to-events**: Feed recovered from 0 to N events (info)
+- **significant-drop**: Event count dropped >50% (warning)
+- **significant-increase**: Event count increased >2x (info)
+
+Alerts appear in `status.json` under `feedChangeAlerts`.
+
+### Recommended Polling Intervals
+Based on platform research (see PLATFORM_INTEGRATION_NOTES.md):
+- GameChanger: 30 minutes
+- TeamSnap: 60 minutes
+- SportsEngine: 30 minutes
+- LeagueApps: 120 minutes (reschedules create separate events)
+- TeamLinkt: 60 minutes
+- SportsConnect: 60 minutes
+- ArbiterSports: 60 minutes
+
+Default: 30 minutes (safe for most platforms)
 
 ## Testing
 

@@ -2,7 +2,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { validateFeed } from "../lib/feedValidation";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -70,10 +71,62 @@ async function updateFeedHandler(
     if (body.url !== undefined) updates.url = normalizeFeedUrl(body.url);
     if (body.enabled !== undefined) updates.enabled = body.enabled;
 
+    // Validate feed URL if it's being changed
+    let validationResult;
+    if (body.url !== undefined && body.url !== existing.url) {
+      const requestId = generateId();
+      const apiLogger = logger.withContext(undefined, requestId).setCategory("api");
+
+      apiLogger.info("validating_feed_url_change", { feedId, oldUrl: existing.url, newUrl: updates.url });
+
+      const tempFeedConfig = {
+        id: feedId,
+        name: body.name ?? existing.name,
+        url: updates.url!,
+      };
+
+      validationResult = await validateFeed(tempFeedConfig, config, apiLogger);
+
+      if (!validationResult.valid) {
+        logger.warn("feed_validation_failed", { feedId, error: validationResult.error });
+
+        return {
+          status: 400,
+          jsonBody: {
+            error: "Feed validation failed",
+            details: validationResult.error,
+            httpStatus: validationResult.httpStatus,
+          },
+        };
+      }
+
+      // Log validation success with details
+      apiLogger.info("feed_validation_succeeded", {
+        feedId,
+        eventCount: validationResult.eventCount,
+        detectedPlatform: validationResult.detectedPlatform,
+        warnings: validationResult.warnings,
+      });
+    }
+
     // Update feed
     const updated = await store.updateFeed(feedId, updates);
 
     logger.info("feed_updated", { feedId, updates: Object.keys(updates) });
+
+    // Trigger automatic refresh if URL was changed or feed was enabled
+    const shouldTriggerRefresh = (body.url !== undefined && body.url !== existing.url) ||
+                                  (body.enabled === true && existing.enabled === false);
+
+    if (shouldTriggerRefresh) {
+      logger.info("triggering_refresh_after_feed_update", { feedId, reason: body.url !== existing.url ? "url_changed" : "feed_enabled" });
+
+      // Import and trigger refresh asynchronously (don't wait for it)
+      const { runRefresh } = await import("../lib/refresh");
+      runRefresh(logger, `feed_update:${feedId}`).catch((error) => {
+        logger.error("post_update_refresh_failed", { feedId, error: errorMessage(error) });
+      });
+    }
 
     return {
       status: 200,
@@ -82,8 +135,16 @@ async function updateFeedHandler(
           id: updated.id,
           name: updated.name,
           url: updated.url,
+          enabled: updated.enabled,
         },
         message: "Feed updated successfully",
+        validated: validationResult !== undefined,
+        validationDetails: validationResult ? {
+          eventCount: validationResult.eventCount,
+          detectedPlatform: validationResult.detectedPlatform,
+          warnings: validationResult.warnings,
+        } : undefined,
+        refreshTriggered: shouldTriggerRefresh,
       },
     };
   } catch (error) {

@@ -141,4 +141,77 @@ END:VCALENDAR`,
     expect(artifacts.fullCalendarText).toContain("Game vs Bears");
     expect(artifacts.fullCalendarText).not.toContain("Game vs Lions");
   });
+
+  it("filters out events with 'cancelled' in summary", () => {
+    const events = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:game-1
+DTSTART:20260512T170000Z
+DTEND:20260512T180000Z
+SUMMARY:Game vs Tigers
+LOCATION:Field 4
+END:VEVENT
+BEGIN:VEVENT
+UID:game-2
+DTSTART:20260513T170000Z
+DTEND:20260513T180000Z
+SUMMARY:Game vs Lions - CANCELLED
+LOCATION:Field 5
+END:VEVENT
+BEGIN:VEVENT
+UID:game-3
+DTSTART:20260514T170000Z
+DTEND:20260514T180000Z
+SUMMARY:Cancelled: Game vs Bears
+LOCATION:Field 4
+END:VEVENT
+END:VCALENDAR`,
+      source("athletics", "Athletics"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts(events, "calendarmerge");
+
+    // Only 1 active event (cancelled in summary should be filtered)
+    expect(artifacts.publicEvents).toHaveLength(1);
+    expect(artifacts.publicEvents[0].summary).toBe("Game vs Tigers");
+    expect(artifacts.cancelledEventsFiltered).toBe(2);
+  });
+
+  it("filters out LeagueApps reschedule markers", () => {
+    const events = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:game-1
+DTSTART:20260512T170000Z
+DTEND:20260512T180000Z
+SUMMARY:Game vs Tigers
+LOCATION:Field 4
+END:VEVENT
+BEGIN:VEVENT
+UID:game-2-old
+DTSTART:20260513T170000Z
+DTEND:20260513T180000Z
+SUMMARY:Game vs Lions - RESCHEDULED
+LOCATION:Field 5
+END:VEVENT
+BEGIN:VEVENT
+UID:game-2-new
+DTSTART:20260514T180000Z
+DTEND:20260514T190000Z
+SUMMARY:Game vs Lions
+LOCATION:Field 6
+END:VEVENT
+END:VCALENDAR`,
+      source("leagueapps", "LeagueApps"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts(events, "calendarmerge");
+
+    // Old rescheduled event should be filtered, new one kept
+    expect(artifacts.publicEvents).toHaveLength(2);
+    expect(artifacts.publicEvents.some((e) => e.summary.includes("RESCHEDULED"))).toBe(false);
+    expect(artifacts.publicEvents.some((e) => e.summary === "Game vs Lions")).toBe(true);
+    expect(artifacts.cancelledEventsFiltered).toBe(1);
+  });
 });

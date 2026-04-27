@@ -8,24 +8,33 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 
 **Web UI for Feed Management:**
 - Add, edit, and delete calendar feed sources
+- Enable/disable feeds without deletion
+- Feed validation on URL changes
 - React-based management interface
 - Feeds stored in Azure Table Storage
 - Accessible at `https://<storage>.z13.web.core.windows.net/manage/`
 
 **Backend Services:**
-- Timer-triggered refresh job (every 15 minutes)
+- Timer-triggered refresh job (every 30 minutes by default)
 - HTTP manual refresh endpoint
 - HTTP health/status endpoint
 - REST API for feed management (GET/POST/PUT/DELETE)
+- Automatic refresh triggers on feed URL changes
 
 **Published Outputs:**
-- `calendar.ics` - Merged calendar feed
+- `calendar.ics` - Merged calendar feed (cancelled events filtered)
 - `calendar-games.ics` - Games-only merged calendar feed
 - `schedule-x-full.json` - Read-only Schedule-X event payload for the full calendar
 - `schedule-x-games.json` - Read-only Schedule-X event payload for the games-only calendar
-- `status.json` - Service health and diagnostics
+- `status.json` - Service health, diagnostics, and change detection
 - `index.html` - Public read-only Schedule-X viewer
 - `manage/` - Feed management web UI
+
+**Change Detection:**
+- Reschedule detection (time/location changes within 7-day window)
+- Feed event count monitoring (alerts for 0-event conditions)
+- Potential duplicate flagging (same summary + date)
+- LeagueApps reschedule marker handling
 
 ## Architecture
 
@@ -39,10 +48,17 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 - If some feeds fail and a prior published calendar already exists, the service keeps the last known good public artifacts and records the errors in `status.json`.
 
 **Duplicate Detection:**
-- Two-stage deduplication removes duplicate events
-- Stage 1: Identity-based (UID or summary+time+location)
-- Stage 2: Same-day deduplication (catches duplicates across sources with different times)
+- Identity-based deduplication removes true duplicates (same UID or identical details)
+- Potential duplicate flagging identifies likely duplicates but keeps all events
+- Confidence levels (high/medium/low) based on time proximity
 - See [DUPLICATE_DETECTION.md](DUPLICATE_DETECTION.md) for details
+
+**Operational Monitoring:**
+- Three-tier health model: Healthy 🟢 / Degraded 🟡 / Failed 🔴
+- Per-calendar timestamp tracking (full and games calendars independently)
+- Degradation reasons for troubleshooting
+- Feed health tracking with consecutive failure counts
+- See [STATE_MACHINE.md](STATE_MACHINE.md) for state transitions
 
 ## Config
 
@@ -73,7 +89,7 @@ Supported settings:
 | `SCHEDULE_X_FULL_BLOB_PATH` | No | `schedule-x-full.json` | Public Schedule-X data for the full calendar. |
 | `SCHEDULE_X_GAMES_BLOB_PATH` | No | `schedule-x-games.json` | Public Schedule-X data for the games-only calendar. |
 | `STATUS_BLOB_PATH` | No | `status.json` | Diagnostics path. |
-| `REFRESH_SCHEDULE` | No | `0 */15 * * * *` | Azure Functions NCRONTAB schedule. |
+| `REFRESH_SCHEDULE` | No | `0 */30 * * * *` | Azure Functions NCRONTAB schedule (30 min default, safe for most platforms). |
 | `FETCH_TIMEOUT_MS` | No | `10000` | Per-request timeout. |
 | `FETCH_RETRY_COUNT` | No | `2` | Retry count after the initial attempt. |
 | `FETCH_RETRY_DELAY_MS` | No | `750` | Base retry backoff in milliseconds. |

@@ -55,6 +55,7 @@ export class TableStore {
         id: entity.id,
         name: entity.name,
         url: entity.url,
+        enabled: entity.enabled !== false, // Default to true if not set
       });
     }
 

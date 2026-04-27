@@ -1,12 +1,13 @@
 import { BlobStore } from "./blobStore";
 import { getConfig } from "./config";
+import { createSnapshotMap, detectRescheduledEvents } from "./eventSnapshot";
 import { fetchFeed } from "./fetchFeeds";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
 import { buildPublicCalendarArtifacts } from "./publicCalendars";
 import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
-import { AppConfig, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
+import { AppConfig, EventSnapshot, FeedChangeAlert, FeedRunResult, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
 import { buildOutputPaths, errorMessage, generateId } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
@@ -59,12 +60,61 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const previousStatus = await safeReadStatus(store, refreshLogger, config.serviceName);
   const sourceFeeds = await loadSourceFeeds(config, refreshLogger);
   const sourceResults = await Promise.all(sourceFeeds.map((source) => fetchFeed(source, config, refreshLogger.setCategory("feed"))));
-  const successfulResults = sourceResults.filter((result) => result.status.ok);
-  const failedStatuses = sourceResults.filter((result) => !result.status.ok).map((result) => result.status);
+
+  // Build map of previous event counts by feed ID
+  const previousEventCounts = new Map<string, number>();
+  const previousConsecutiveFailures = new Map<string, number>();
+  if (previousStatus?.sourceStatuses) {
+    for (const status of previousStatus.sourceStatuses) {
+      previousEventCounts.set(status.id, status.eventCount);
+      previousConsecutiveFailures.set(status.id, status.consecutiveFailures ?? 0);
+    }
+  }
+
+  // Enhance feed statuses with change detection
+  const enhancedSourceResults = sourceResults.map((result) => {
+    const previousCount = previousEventCounts.get(result.source.id);
+    const previousFailures = previousConsecutiveFailures.get(result.source.id) ?? 0;
+    const consecutiveFailures = result.status.ok ? 0 : previousFailures + 1;
+    const suspect = result.status.ok && result.events.length === 0 && (previousCount ?? 0) > 0;
+
+    return {
+      ...result,
+      status: {
+        ...result.status,
+        previousEventCount: previousCount,
+        suspect,
+        consecutiveFailures,
+      },
+    };
+  });
+
+  const successfulResults = enhancedSourceResults.filter((result) => result.status.ok);
+  const failedStatuses = enhancedSourceResults.filter((result) => !result.status.ok).map((result) => result.status);
+
+  // Generate feed change alerts
+  const feedChangeAlerts = generateFeedChangeAlerts(enhancedSourceResults, attemptTimestamp);
+  const suspectFeeds = enhancedSourceResults
+    .filter((r) => r.status.suspect)
+    .map((r) => r.source.id);
+
   const mergeResult = successfulResults.length > 0 ? mergeFeedEvents(successfulResults) : { events: [], potentialDuplicates: [] };
   const candidateEvents = mergeResult.events;
   const potentialDuplicates = mergeResult.potentialDuplicates;
   const candidateEventCount = candidateEvents.length;
+
+  // Detect rescheduled events (7-day future window)
+  const previousSnapshots = new Map<string, EventSnapshot>();
+  if (previousStatus?.eventSnapshots) {
+    for (const [uid, snapshot] of Object.entries(previousStatus.eventSnapshots)) {
+      previousSnapshots.set(uid, snapshot);
+    }
+  }
+  const rescheduledEvents = detectRescheduledEvents(candidateEvents, previousSnapshots, attemptTimestamp);
+
+  // Create new snapshots for next refresh
+  const newSnapshots = createSnapshotMap(candidateEvents, attemptTimestamp);
+
   const previousCalendarExists = await safeCalendarExists(store, refreshLogger);
   const canPublishPartial = failedStatuses.length > 0 && !previousCalendarExists;
   const shouldPublishCalendar = successfulResults.length > 0 && (failedStatuses.length === 0 || canPublishPartial);
@@ -194,6 +244,20 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
       const feedNames = zeroEventFeeds.map((r) => r.source.name).join(", ");
       degradationReasons.push(`${zeroEventFeeds.length} feed(s) returned 0 events: ${feedNames}`);
     }
+
+    // Add feed change alerts to degradation reasons
+    const warningAlerts = feedChangeAlerts.filter((a) => a.severity === "warning" || a.severity === "error");
+    if (warningAlerts.length > 0) {
+      for (const alert of warningAlerts) {
+        degradationReasons.push(
+          `${alert.feedName}: ${alert.change.replace(/-/g, " ")} (${alert.previousCount} → ${alert.currentCount})`,
+        );
+      }
+    }
+  } else if (rescheduledEvents.length > 0) {
+    // Reschedules aren't a failure, but worth noting in status
+    operationalState = "degraded";
+    degradationReasons.push(`${rescheduledEvents.length} event(s) rescheduled (time or location changed)`);
   } else {
     operationalState = "healthy";
   }
@@ -217,9 +281,13 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     calendarPublished,
     gamesOnlyCalendarPublished,
     servedLastKnownGood: usedLastKnownGood,
-    sourceStatuses: sourceResults.map((result) => result.status),
+    sourceStatuses: enhancedSourceResults.map((result) => result.status),
+    feedChangeAlerts: feedChangeAlerts.length > 0 ? feedChangeAlerts : undefined,
+    suspectFeeds: suspectFeeds.length > 0 ? suspectFeeds : undefined,
     potentialDuplicates: potentialDuplicates.length > 0 ? potentialDuplicates : undefined,
+    rescheduledEvents: rescheduledEvents.length > 0 ? rescheduledEvents : undefined,
     cancelledEventsFiltered: cancelledEventsFiltered > 0 ? cancelledEventsFiltered : undefined,
+    eventSnapshots: newSnapshots.size > 0 ? Object.fromEntries(newSnapshots) : undefined,
     output: buildOutputPaths(config),
     errorSummary,
   };
@@ -254,6 +322,69 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     calendarPublished,
     usedLastKnownGood,
   };
+}
+
+/**
+ * Generates feed change alerts based on event count changes
+ */
+function generateFeedChangeAlerts(results: FeedRunResult[], timestamp: string): FeedChangeAlert[] {
+  const alerts: FeedChangeAlert[] = [];
+
+  for (const result of results) {
+    const currentCount = result.status.eventCount;
+    const previousCount = result.status.previousEventCount;
+
+    // Skip if we don't have previous data
+    if (previousCount === undefined) {
+      continue;
+    }
+
+    // Skip if feed failed (no meaningful comparison)
+    if (!result.status.ok) {
+      continue;
+    }
+
+    let changeType: "events-to-zero" | "zero-to-events" | "significant-drop" | "significant-increase" | null = null;
+    let severity: "info" | "warning" | "error" = "info";
+
+    // Events to zero (suspect condition)
+    if (previousCount > 0 && currentCount === 0) {
+      changeType = "events-to-zero";
+      severity = "warning";
+    }
+    // Zero to events (recovery)
+    else if (previousCount === 0 && currentCount > 0) {
+      changeType = "zero-to-events";
+      severity = "info";
+    }
+    // Significant drop (>50%)
+    else if (currentCount < previousCount * 0.5 && previousCount > 0) {
+      changeType = "significant-drop";
+      severity = "warning";
+    }
+    // Significant increase (>2x)
+    else if (currentCount > previousCount * 2 && previousCount > 0) {
+      changeType = "significant-increase";
+      severity = "info";
+    }
+
+    if (changeType) {
+      const percentChange = previousCount > 0 ? ((currentCount - previousCount) / previousCount) * 100 : 100;
+
+      alerts.push({
+        feedId: result.source.id,
+        feedName: result.source.name,
+        change: changeType,
+        previousCount,
+        currentCount,
+        percentChange: Math.round(percentChange),
+        timestamp,
+        severity,
+      });
+    }
+  }
+
+  return alerts;
 }
 
 async function safeReadStatus(store: BlobStore, logger: Logger, serviceName: string) {

@@ -152,6 +152,17 @@ export interface CalendarAges {
   gamesCalendar?: number;
 }
 
+export interface EventSnapshot {
+  uid: string;
+  summary: string;
+  sourceId: string;
+  sourceName: string;
+  startTime: string;
+  endTime?: string;
+  location: string;
+  capturedAt: string;
+}
+
 export interface ServiceStatus {
   // Core identification
   serviceName: string;
@@ -191,6 +202,9 @@ export interface ServiceStatus {
   potentialDuplicates?: PotentialDuplicate[];
   rescheduledEvents?: RescheduledEvent[];
   cancelledEventsFiltered?: number;
+
+  // Event snapshots for change detection (internal, not displayed to users)
+  eventSnapshots?: Record<string, EventSnapshot>;
 
   // Output paths
   output: OutputPaths;
