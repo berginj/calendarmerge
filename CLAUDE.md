@@ -2,9 +2,74 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## 🎯 CRITICAL: Read These Contracts First
+
+**Before making ANY code changes, you MUST read and follow these authoritative contracts:**
+
+1. **[DESIGN_CONTRACTS.md](DESIGN_CONTRACTS.md)** - Design standards and code patterns (REQUIRED)
+2. **[STATE_MACHINE.md](STATE_MACHINE.md)** - Operational state transitions and contracts
+3. **[REQUIREMENTS_CLARIFICATION.md](REQUIREMENTS_CLARIFICATION.md)** - User requirements and decisions
+4. **[PLATFORM_INTEGRATION_NOTES.md](PLATFORM_INTEGRATION_NOTES.md)** - Platform-specific behavior
+
+**These contracts are authoritative. All code must conform to these standards.**
+
+**Contract Hierarchy:**
+- DESIGN_CONTRACTS.md > STATE_MACHINE.md > REQUIREMENTS_CLARIFICATION.md > This file
+
+**If you find code that violates these contracts, fix it to comply.**
+
+---
+
+## ✅ Before You Code Checklist
+
+**When implementing ANY feature:**
+
+- [ ] Read relevant contracts in DESIGN_CONTRACTS.md
+- [ ] Check if pattern exists in codebase (follow existing patterns)
+- [ ] Verify state machine implications (STATE_MACHINE.md)
+- [ ] Follow API response format (Contract 1)
+- [ ] Use standard error codes (Contract 2)
+- [ ] Follow logging standards (Contract 4 - underscore_case events)
+- [ ] Validate input before type casting (Contract 6)
+- [ ] Add tests for new functionality (Contract 13)
+- [ ] Update documentation
+- [ ] Maintain backward compatibility (Contract 15)
+
+**When modifying existing code:**
+
+- [ ] Verify change doesn't violate established contracts
+- [ ] Check for state machine implications
+- [ ] Ensure duplicate detection contract honored (Contract 7)
+- [ ] Ensure reschedule detection contract honored (Contract 8)
+- [ ] Ensure feed change thresholds not modified (Contract 9)
+- [ ] Update tests to reflect changes
+- [ ] Update documentation
+
+**Common Mistakes to Avoid:**
+
+1. ❌ Suppressing duplicate events (MUST flag only, not remove)
+2. ❌ Using 502 status for application errors (use 500)
+3. ❌ Casting types without validation
+4. ❌ Swallowing errors silently
+5. ❌ Using camelCase for log events (MUST be underscore_case)
+6. ❌ Logging full feed URLs (security - MUST redact)
+7. ❌ Modifying refresh schedule without platform research
+8. ❌ Adding required fields to existing interfaces (breaks compatibility)
+
+---
+
 ## Project Overview
 
 `calendarmerge` is an Azure Functions v4 application that merges multiple ICS calendar feeds into unified output calendars with intelligent duplicate detection. It publishes both ICS files and Schedule-X JSON feeds to Azure Blob Storage, along with a public read-only Schedule-X calendar viewer.
+
+**Key Design Principles (from DESIGN_CONTRACTS.md):**
+- Explicit over implicit
+- Consistency over cleverness
+- Contracts over comments
+- Fail-safe over fail-fast (serve stale data rather than nothing)
+- Observable over opaque (everything traceable)
 
 ## Common Development Commands
 
@@ -62,17 +127,97 @@ powershell -ExecutionPolicy Bypass -File .\scripts\azure\deploy-functions.ps1
 npx tsx scripts/migrate-feeds-to-table.ts
 ```
 
+## Established Contracts & Standards
+
+### API Response Format (Contract 1 - DESIGN_CONTRACTS.md)
+
+**ALL API endpoints MUST return standardized responses:**
+
+```typescript
+// Success
+{ requestId: string, status: "success", data: T, message?: string }
+
+// Error
+{ requestId: string, status: "error", error: { code: string, message: string, details?: string } }
+```
+
+**Use helper functions from `api-types.ts`:**
+- `createSuccessResponse(requestId, data, message?)`
+- `createErrorResponse(requestId, code, message, details?)`
+
+**HTTP Status Codes:**
+- 200 (success), 201 (created), 400 (validation), 404 (not found), 409 (conflict), 500 (internal), 503 (unavailable)
+- NEVER use 502 for application errors (only for actual bad gateway scenarios)
+
+### Error Handling (Contract 2 - DESIGN_CONTRACTS.md)
+
+**Use standard error codes from `ERROR_CODES` in api-types.ts:**
+- `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`
+
+**NEVER swallow errors silently:**
+```typescript
+// BAD
+try { await operation(); } catch { /* silent! */ }
+
+// GOOD
+try { await operation(); } catch (error) {
+  logger.warn("operation_fallback", { error: errorMessage(error) });
+  return fallbackValue;
+}
+```
+
+### Logging Standards (Contract 4 - DESIGN_CONTRACTS.md)
+
+**Event naming MUST use underscore_case:**
+```
+{resource}_{action}_{outcome}
+
+Examples:
+- feed_create_succeeded
+- refresh_started
+- calendar_publish_failed
+```
+
+**All loggers MUST include context:**
+```typescript
+// API handlers
+const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
+
+// Refresh operations
+const logger = createLogger(context).withContext(refreshId).setCategory("refresh");
+```
+
+### Validation Contract (Contract 6 - DESIGN_CONTRACTS.md)
+
+**NEVER cast types without validation:**
+```typescript
+// BAD
+const body = (await request.json()) as CreateFeedRequest;
+
+// GOOD
+const validation = validateCreateFeedRequest(await request.json());
+if (!validation.valid) {
+  return createErrorResponse(requestId, ERROR_CODES.VALIDATION_ERROR, ...);
+}
+const body = validation.data; // Now safely typed
+```
+
 ## Architecture
 
 ### Core Flow
-1. **Timer Trigger** (`timerRefresh.ts`) - Runs every 15 minutes (configurable via `REFRESH_SCHEDULE`)
-2. **Fetch Feeds** (`fetchFeeds.ts`) - Downloads ICS files from source URLs with retries
+1. **Timer Trigger** (`timerRefresh.ts`) - Runs every 30 minutes by default (configurable via `REFRESH_SCHEDULE`)
+2. **Fetch Feeds** (`fetchFeeds.ts`) - Downloads ICS files from source URLs with retries and timeout
 3. **Parse ICS** (`ics.ts`) - Parses ICS format into `ParsedEvent` objects
-4. **Merge & Deduplicate** (`merge.ts`) - Two-stage deduplication:
-   - Stage 1: Identity-based (UID or summary+time+location hash)
-   - Stage 2: Same-day deduplication (catches cross-source duplicates)
-5. **Generate Outputs** (`publicCalendars.ts`) - Creates sanitized ICS and Schedule-X JSON
-6. **Publish** (`blobStore.ts`) - Writes to Azure Blob Storage `$web` container
+4. **Merge & Detect** (`merge.ts`) - Identity-based deduplication + potential duplicate flagging:
+   - Removes true duplicates (same UID or identical details)
+   - Flags potential duplicates (same summary + date) but KEEPS all events
+   - Returns `MergeResult` with events and potentialDuplicates
+5. **Filter** (`publicCalendars.ts` + `eventSnapshot.ts`) - Removes cancelled events and reschedule markers
+6. **Detect Changes** (`eventSnapshot.ts`) - Compares with previous snapshots (7-day window)
+7. **Generate Outputs** (`publicCalendars.ts`) - Creates sanitized ICS and Schedule-X JSON
+8. **Publish** (`blobStore.ts`) - Writes both calendars + JSON to Azure Blob Storage `$web` container
+9. **Calculate State** (`refresh.ts`) - Determines operational state (healthy/degraded/failed)
+10. **Save Status** (`blobStore.ts`) - Writes status.json with full diagnostics
 
 ### Key Components
 
@@ -115,18 +260,26 @@ npx tsx scripts/migrate-feeds-to-table.ts
 
 ## Important Patterns
 
-### Duplicate Detection
+### Duplicate Detection (Contract 7 - DESIGN_CONTRACTS.md)
+
+**CRITICAL: Duplicate detection behavior was fundamentally changed in Phase 1.**
+
 The merge logic in `merge.ts` implements identity-based deduplication and potential duplicate flagging:
 
-1. **Identity-based deduplication**: Uses SHA256 hash of UID (or fallback: summary+time+location)
+1. **Identity-based deduplication (REMOVES events):**
+   - Uses SHA256 hash of UID (or fallback: summary+time+location+source)
    - Removes true duplicates with same identityKey
    - Priority: higher sequence > later update > non-cancelled > more detailed
-2. **Potential duplicate flagging**: Detects events with same summary + date but KEEPS all events
+
+2. **Potential duplicate flagging (KEEPS all events):**
+   - Detects events with same summary + date but DIFFERENT identityKey
    - Assigns confidence: high (<15 min apart), medium (15min-2hrs), low (>2hrs)
    - Results included in `status.json` under `potentialDuplicates`
-   - Does NOT suppress events (changed in 2026-04-27)
+   - **DOES NOT suppress events** - all events are kept
 
-See [DUPLICATE_DETECTION.md](DUPLICATE_DETECTION.md) for complete details.
+**CONTRACT: NEVER suppress events based on same summary + date alone.**
+
+See [DUPLICATE_DETECTION.md](DUPLICATE_DETECTION.md) for complete details and examples.
 
 ### Cancelled Event Filtering
 Events are filtered out entirely (never exported) if:
@@ -137,13 +290,40 @@ Events are filtered out entirely (never exported) if:
 
 Filtered count tracked in `status.json` under `cancelledEventsFiltered`.
 
-### Reschedule Detection
-Events in the future 7-day window are tracked for changes:
-- Time changes detected (start or end time modified)
-- Location changes detected
+### Reschedule Detection (Contract 8 - DESIGN_CONTRACTS.md)
+
+**CONTRACT: Only track events in 7-day future window.**
+
+Events are tracked for changes between refresh cycles:
+- **Time changes:** start or end time modified
+- **Location changes:** location string changed
+- **7-day window:** now < event.start ≤ now + 7 days
 - Results in `status.json` under `rescheduledEvents`
 - Event snapshots stored in `status.json` for next comparison
-- See `src/lib/eventSnapshot.ts` for implementation
+
+**Implementation:** `src/lib/eventSnapshot.ts`
+- `createSnapshotMap()` - Creates snapshots (7-day window only)
+- `detectRescheduledEvents()` - Compares current vs previous
+- `isLeagueAppsRescheduleMarker()` - Platform-specific detection
+
+**CONTRACT: Snapshots MUST be pruned to 7-day window to prevent unbounded growth.**
+
+### Feed Change Detection (Contract 9 - DESIGN_CONTRACTS.md)
+
+**CONTRACT: Track and alert on feed event count changes.**
+
+**Change types and thresholds (codified):**
+- `events-to-zero` (warning): previousCount > 0 && currentCount === 0
+- `zero-to-events` (info): previousCount === 0 && currentCount > 0
+- `significant-drop` (warning): currentCount < previousCount * 0.5
+- `significant-increase` (info): currentCount > previousCount * 2
+
+**Results in:**
+- `feedChangeAlerts` array in status.json
+- `suspectFeeds` array (feed IDs with 0 events)
+- Degradation reasons when severity is warning
+
+**CONTRACT: Off-season (0 events) is NOT a failure - it's a suspect condition.**
 
 ### Operational State & Failure Handling
 The refresh workflow implements a three-tier health model:
@@ -300,3 +480,83 @@ Required GitHub variables:
 - If local runtime fails → Set `AzureWebJobsStorage` to Azurite or real connection string
 - If feeds fail → Check `status.json` for per-feed errors
 - To rollback → Redeploy previous commit with `deploy-functions.ps1` and trigger manual refresh
+- If tests fail → Check that changes don't violate DESIGN_CONTRACTS.md
+- If monitoring alerts wrong → Review MONITORING_GUIDE.md for correct queries
+
+---
+
+## Quick Contract Reference
+
+**When you need to know:**
+
+| What | Check This Document | Contract # |
+|------|---------------------|------------|
+| API response format | DESIGN_CONTRACTS.md | Contract 1 |
+| Error handling | DESIGN_CONTRACTS.md | Contract 2 |
+| HTTP status codes | DESIGN_CONTRACTS.md | Contract 1 |
+| Type organization | DESIGN_CONTRACTS.md | Contract 3 |
+| Logging event names | DESIGN_CONTRACTS.md | Contract 4 |
+| State machine rules | STATE_MACHINE.md | Contract 5 |
+| Validation patterns | DESIGN_CONTRACTS.md | Contract 6 |
+| Duplicate detection | DUPLICATE_DETECTION.md | Contract 7 |
+| Reschedule detection | DESIGN_CONTRACTS.md | Contract 8 |
+| Feed change thresholds | DESIGN_CONTRACTS.md | Contract 9 |
+| Naming conventions | DESIGN_CONTRACTS.md | Contract 10 |
+| Platform handling | PLATFORM_INTEGRATION_NOTES.md | Contract 11 |
+| status.json schema | DESIGN_CONTRACTS.md | Contract 12 |
+| Testing standards | DESIGN_CONTRACTS.md | Contract 13 |
+| Backward compatibility | DESIGN_CONTRACTS.md | Contract 15 |
+
+---
+
+## Contract Enforcement
+
+**Before committing code:**
+
+1. Run `npm run build` - Must pass with no errors
+2. Run `npm test` - All 80+ tests must pass
+3. Review DESIGN_CONTRACTS.md - Verify compliance
+4. Check backward compatibility - No breaking changes without documentation
+5. Update tests for new functionality
+6. Update documentation
+
+**Code review checklist:**
+
+- [ ] API responses follow standard envelope
+- [ ] Error codes from ERROR_CODES enum
+- [ ] Log events use underscore_case
+- [ ] No type casting without validation
+- [ ] No silent error swallowing
+- [ ] State transitions follow STATE_MACHINE.md
+- [ ] Duplicate detection follows contract (flag, not suppress)
+- [ ] Feed URLs redacted in logs
+- [ ] Tests added
+- [ ] Documentation updated
+
+---
+
+## Document Reference Map
+
+**Architecture & Design:**
+- DESIGN_CONTRACTS.md - Authoritative design standards
+- STATE_MACHINE.md - State transition contracts
+- DUPLICATE_DETECTION.md - Duplicate handling contract
+
+**Requirements & Research:**
+- REQUIREMENTS_CLARIFICATION.md - User requirements (source of truth)
+- PLATFORM_INTEGRATION_NOTES.md - Platform behavior and polling
+
+**Implementation:**
+- IMPLEMENTATION_SUMMARY.md - Phase 1 details
+- PHASE2_SUMMARY.md - Phase 2 details
+- COMPLETE_IMPLEMENTATION.md - Full project summary
+
+**Operations:**
+- MONITORING_GUIDE.md - Alert rules and dashboards
+- DEPLOYMENT_GUIDE.md - Deployment procedures
+
+**User-Facing:**
+- README.md - Feature overview and setup
+- QUICK_START.md - Fast setup guide
+
+**When in doubt, start with DESIGN_CONTRACTS.md.**
