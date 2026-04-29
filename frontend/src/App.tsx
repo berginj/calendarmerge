@@ -13,6 +13,7 @@ import {
 import FeedList from './components/FeedList';
 import FeedForm from './components/FeedForm';
 import Settings from './components/Settings';
+import ServiceHealthBanner from './components/ServiceHealthBanner';
 import './App.css';
 
 type View = 'feeds' | 'settings';
@@ -153,6 +154,8 @@ function App() {
 
   return (
     <div className="app">
+      <ServiceHealthBanner />
+
       <header className="app-header">
         <h1>Calendar Merge</h1>
         <p>Manage your calendar feed sources</p>
