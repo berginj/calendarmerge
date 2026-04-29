@@ -11,13 +11,17 @@ import {
   updateFeed,
 } from './api/feedsApi';
 import ServiceHealthBanner from './components/ServiceHealthBanner';
-import { ToastProvider } from './components/ui/Toast';
+import MobileMenu from './components/MobileMenu';
+import { ToastProvider, Toast } from './components/ui/Toast';
 import { TooltipProvider } from './components/ui/Tooltip';
+import { useToast } from './hooks/useToast';
+import { useKeyboardShortcut } from './hooks/useKeyboardShortcut';
+import { useManualRefresh } from './hooks/useManualRefresh';
 import Dashboard from './views/Dashboard';
 import Changes from './views/Changes';
 import Feeds from './views/Feeds';
 import Settings from './components/Settings';
-import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Menu, HelpCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import './App.css';
 
@@ -40,6 +44,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [adminKey, setAdminKey] = useState(() => loadSavedFunctionsKey());
   const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  const { toast, toasts, removeToast } = useToast();
+  const { refresh: manualRefresh } = useManualRefresh();
 
   const buildTimeAdminKey = hasBuildTimeFunctionsKey();
   const savedAdminKey = loadSavedFunctionsKey();
@@ -126,18 +135,32 @@ function App() {
       setError(null);
       await createFeed(feed);
       await loadFeeds();
+      toast.success('Feed created successfully', `${feed.name} has been added`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create feed');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create feed';
+      setError(errorMsg);
+      toast.error('Failed to create feed', errorMsg);
     }
   };
 
-  const handleUpdate = async (feedId: string, updates: { name?: string; url?: string }) => {
+  const handleUpdate = async (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => {
     try {
       setError(null);
       await updateFeed(feedId, updates);
       await loadFeeds();
+
+      if (updates.enabled !== undefined) {
+        toast.success(
+          updates.enabled ? 'Feed enabled' : 'Feed disabled',
+          'Changes will take effect on next refresh'
+        );
+      } else {
+        toast.success('Feed updated successfully');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update feed');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update feed';
+      setError(errorMsg);
+      toast.error('Failed to update feed', errorMsg);
     }
   };
 
@@ -150,49 +173,113 @@ function App() {
       setError(null);
       await deleteFeed(feedId);
       await loadFeeds();
+      toast.success('Feed deleted successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete feed');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete feed';
+      setError(errorMsg);
+      toast.error('Failed to delete feed', errorMsg);
     }
   };
 
+  // Keyboard shortcuts
+  useKeyboardShortcut('cmd+r', () => {
+    if (hasConfiguredAdminKey) {
+      manualRefresh();
+      toast.info('Manual refresh triggered');
+    }
+  }, [hasConfiguredAdminKey]);
+
+  useKeyboardShortcut('cmd+k', () => {
+    setCurrentView('feeds');
+  }, []);
+
+  useKeyboardShortcut('?', () => {
+    setShowShortcuts(!showShortcuts);
+  }, [showShortcuts]);
+
   return (
-    <div className="app">
-      <ServiceHealthBanner />
+    <TooltipProvider>
+      <ToastProvider>
+        <div className="app">
+          {/* Skip to main content (accessibility) */}
+          <a href="#main-content" className="skip-to-main">
+            Skip to main content
+          </a>
 
-      <header className="app-header">
-        <h1>Calendar Merge</h1>
-        <p>Manage your calendar feed sources</p>
+          <ServiceHealthBanner />
 
-        <nav className="app-nav">
-          <button
-            className={clsx('nav-button', currentView === 'dashboard' && 'active')}
-            onClick={() => setCurrentView('dashboard')}
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </button>
-          <button
-            className={clsx('nav-button', currentView === 'feeds' && 'active')}
-            onClick={() => setCurrentView('feeds')}
-          >
-            <Rss className="h-4 w-4" />
-            Feeds
-          </button>
-          <button
-            className={clsx('nav-button', currentView === 'changes' && 'active')}
-            onClick={() => setCurrentView('changes')}
-          >
-            <Bell className="h-4 w-4" />
-            Changes
-          </button>
-          <button
-            className={clsx('nav-button', currentView === 'settings' && 'active')}
-            onClick={() => setCurrentView('settings')}
-          >
-            <SettingsIcon className="h-4 w-4" />
-            Settings
-          </button>
-        </nav>
+          <header className="app-header">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1>Calendar Merge</h1>
+                <p>Manage your calendar feed sources</p>
+              </div>
+
+              {/* Mobile menu button and shortcuts */}
+              <div className="flex items-center gap-2 md:hidden">
+                <button
+                  onClick={() => setShowShortcuts(true)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  aria-label="Show keyboard shortcuts"
+                >
+                  <HelpCircle className="h-5 w-5 text-slate-600" />
+                </button>
+                <button
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  aria-label="Open navigation menu"
+                >
+                  <Menu className="h-5 w-5 text-slate-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Desktop navigation */}
+            <nav className="app-nav hidden md:flex">
+              <button
+                className={clsx('nav-button', currentView === 'dashboard' && 'active')}
+                onClick={() => setCurrentView('dashboard')}
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </button>
+              <button
+                className={clsx('nav-button', currentView === 'feeds' && 'active')}
+                onClick={() => setCurrentView('feeds')}
+              >
+                <Rss className="h-4 w-4" />
+                Feeds
+              </button>
+              <button
+                className={clsx('nav-button', currentView === 'changes' && 'active')}
+                onClick={() => setCurrentView('changes')}
+              >
+                <Bell className="h-4 w-4" />
+                Changes
+              </button>
+              <button
+                className={clsx('nav-button', currentView === 'settings' && 'active')}
+                onClick={() => setCurrentView('settings')}
+              >
+                <SettingsIcon className="h-4 w-4" />
+                Settings
+              </button>
+              <button
+                onClick={() => setShowShortcuts(true)}
+                className="nav-button"
+                title="Keyboard shortcuts (?)"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            </nav>
+
+            {/* Mobile menu */}
+            <MobileMenu
+              open={mobileMenuOpen}
+              onClose={() => setMobileMenuOpen(false)}
+              currentView={currentView}
+              onViewChange={setCurrentView}
+            />
 
         <div className="admin-key-panel">
           <label htmlFor="admin-key">Admin Function Key</label>
@@ -273,31 +360,89 @@ function App() {
         </div>
       </header>
 
-      <main className="app-main">
-        <TooltipProvider>
-          <ToastProvider>
-            {currentView === 'dashboard' && <Dashboard />}
+      <main id="main-content" className="app-main" role="main">
+        {currentView === 'dashboard' && <Dashboard />}
 
-            {currentView === 'feeds' && (
-              <Feeds
-                feeds={feeds}
-                loading={loading}
-                error={error}
-                hasConfiguredAdminKey={hasConfiguredAdminKey}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
-                onCreate={handleCreate}
-                setError={setError}
-              />
-            )}
+        {currentView === 'feeds' && (
+          <Feeds
+            feeds={feeds}
+            loading={loading}
+            error={error}
+            hasConfiguredAdminKey={hasConfiguredAdminKey}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onCreate={handleCreate}
+            setError={setError}
+          />
+        )}
 
-            {currentView === 'changes' && <Changes />}
+        {currentView === 'changes' && <Changes />}
 
-            {currentView === 'settings' && <Settings />}
-          </ToastProvider>
-        </TooltipProvider>
+        {currentView === 'settings' && <Settings />}
       </main>
+
+      {/* Toast notifications */}
+      {toasts.map(toastItem => (
+        <Toast
+          key={toastItem.id}
+          title={toastItem.title}
+          description={toastItem.description}
+          variant={toastItem.variant}
+          duration={toastItem.duration}
+          onOpenChange={(open) => !open && removeToast(toastItem.id)}
+        />
+      ))}
+
+      {/* Keyboard shortcuts help */}
+      {showShortcuts && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowShortcuts(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Keyboard Shortcuts</h3>
+              <button
+                onClick={() => setShowShortcuts(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Manual Refresh</span>
+                <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">
+                  ⌘ R
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Go to Feeds</span>
+                <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">
+                  ⌘ K
+                </kbd>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">Show Shortcuts</span>
+                <kbd className="px-2 py-1 bg-slate-100 border border-slate-300 rounded text-xs font-mono">
+                  ?
+                </kbd>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs text-slate-500">
+              ⌘ on Mac, Ctrl on Windows/Linux
+            </p>
+          </div>
+        </div>
+      )}
     </div>
+  </ToastProvider>
+</TooltipProvider>
   );
 }
 

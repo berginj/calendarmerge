@@ -35,6 +35,7 @@ export default function Feeds({
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'healthy' | 'suspect' | 'failed' | 'disabled'>('all');
+  const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
   const { data: status } = useServiceStatus();
   const { refresh, isRefreshing } = useManualRefresh();
 
@@ -54,6 +55,62 @@ export default function Feeds({
     } catch (err) {
       // Error handled by parent
     }
+  };
+
+  // Bulk operations
+  const toggleSelectAll = () => {
+    if (selectedFeeds.size === filteredFeeds.length) {
+      setSelectedFeeds(new Set());
+    } else {
+      setSelectedFeeds(new Set(filteredFeeds.map(f => f.id)));
+    }
+  };
+
+  const toggleSelectFeed = (feedId: string) => {
+    const newSelection = new Set(selectedFeeds);
+    if (newSelection.has(feedId)) {
+      newSelection.delete(feedId);
+    } else {
+      newSelection.add(feedId);
+    }
+    setSelectedFeeds(newSelection);
+  };
+
+  const handleBulkEnable = async () => {
+    for (const feedId of Array.from(selectedFeeds)) {
+      try {
+        await onUpdate(feedId, { enabled: true });
+      } catch (err) {
+        console.error(`Failed to enable ${feedId}`, err);
+      }
+    }
+    setSelectedFeeds(new Set());
+  };
+
+  const handleBulkDisable = async () => {
+    for (const feedId of Array.from(selectedFeeds)) {
+      try {
+        await onUpdate(feedId, { enabled: false });
+      } catch (err) {
+        console.error(`Failed to disable ${feedId}`, err);
+      }
+    }
+    setSelectedFeeds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedFeeds.size} feed(s)?`)) {
+      return;
+    }
+
+    for (const feedId of Array.from(selectedFeeds)) {
+      try {
+        await onDelete(feedId);
+      } catch (err) {
+        console.error(`Failed to delete ${feedId}`, err);
+      }
+    }
+    setSelectedFeeds(new Set());
   };
 
   // Get feed health from status
@@ -143,6 +200,38 @@ export default function Feeds({
           </Button>
         </div>
       </div>
+
+      {/* Bulk selection and actions */}
+      {filteredFeeds.length > 0 && hasConfiguredAdminKey && (
+        <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selectedFeeds.size === filteredFeeds.length && filteredFeeds.length > 0}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-2 focus:ring-primary-700"
+            />
+            Select All ({selectedFeeds.size} selected)
+          </label>
+
+          {selectedFeeds.size > 0 && (
+            <div className="flex gap-2 ml-auto">
+              <Button onClick={handleBulkEnable} variant="secondary" size="sm">
+                <CheckCircle className="h-4 w-4" />
+                Enable
+              </Button>
+              <Button onClick={handleBulkDisable} variant="secondary" size="sm">
+                <XCircle className="h-4 w-4" />
+                Disable
+              </Button>
+              <Button onClick={handleBulkDelete} variant="danger" size="sm">
+                <Trash className="h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter chips */}
       <div className="flex flex-wrap gap-2">
@@ -258,6 +347,8 @@ export default function Feeds({
               onUpdate={onUpdate}
               onDelete={onDelete}
               onToggleEnabled={handleToggleEnabled}
+              selected={selectedFeeds.has(feed.id)}
+              onSelectChange={toggleSelectFeed}
             />
           ))}
         </div>
@@ -313,12 +404,16 @@ function EnhancedFeedCard({
   onUpdate,
   onDelete,
   onToggleEnabled,
+  selected,
+  onSelectChange,
 }: {
   feed: SourceFeedConfig;
   feedHealth: any;
   onUpdate: (feedId: string, updates: any) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
   onToggleEnabled: (feedId: string, enabled: boolean) => Promise<void>;
+  selected: boolean;
+  onSelectChange: (feedId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
 
@@ -362,10 +457,18 @@ function EnhancedFeedCard({
   };
 
   return (
-    <Card>
+    <Card className={clsx(selected && 'ring-2 ring-primary-500')}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4 flex-1">
+            {/* Selection checkbox */}
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => onSelectChange(feed.id)}
+              className="mt-1.5 h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-2 focus:ring-primary-700"
+            />
+
             {/* Health icon */}
             <div className="mt-1">
               {getHealthIcon()}

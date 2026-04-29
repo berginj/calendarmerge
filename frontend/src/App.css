@@ -31,10 +31,20 @@ body {
 }
 
 .app-header {
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
   background: var(--card-bg);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+@media (min-width: 768px) {
+  .app-header {
+    padding: 2rem;
+  }
 }
 
 .app-header h1 {
@@ -199,8 +209,53 @@ body {
   flex: 1;
   max-width: 1200px;
   width: 100%;
-  margin: 2rem auto;
+  margin: 1rem auto;
   padding: 0 1rem;
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    margin: 2rem auto;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  button:not(.btn-icon), a {
+    min-height: 44px;
+  }
+
+  .nav-button {
+    padding: 0.75rem 1.25rem;
+  }
+
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
+
+/* Skip to main content link (accessibility) */
+.skip-to-main {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  padding: 1rem;
+  background: var(--primary-color);
+  color: white;
+  text-decoration: none;
+  border-radius: 0.5rem;
+}
+
+.skip-to-main:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+/* Focus visible enhancements */
+*:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
 }
 
 .error-message {
