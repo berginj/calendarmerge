@@ -71,10 +71,10 @@ const PRIVATE_IP_PATTERNS = [
 const PRIVATE_IPV6_PATTERNS = [
   /^::1$/,                     // IPv6 localhost
   /^::$/,                      // IPv6 any
-  /^fe80:/i,                   // IPv6 link-local
-  /^fc00:/i,                   // IPv6 unique local
-  /^fd00:/i,                   // IPv6 unique local
-  /^ff00:/i,                   // IPv6 multicast
+  /^fe80:/i,                   // IPv6 link-local (fe80::/10)
+  /^fc00:/i,                   // IPv6 unique local (fc00::/7)
+  /^fd[0-9a-f]{2}:/i,          // IPv6 unique local (fd00::/8)
+  /^ff[0-9a-f]{2}:/i,          // IPv6 multicast (ff00::/8) - matches ff00-ffff
 ];
 
 function isPrivateOrLocalIP(hostname: string): boolean {
