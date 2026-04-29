@@ -10,13 +10,18 @@ import {
   saveFunctionsKey,
   updateFeed,
 } from './api/feedsApi';
-import FeedList from './components/FeedList';
-import FeedForm from './components/FeedForm';
-import Settings from './components/Settings';
 import ServiceHealthBanner from './components/ServiceHealthBanner';
+import { ToastProvider } from './components/ui/Toast';
+import { TooltipProvider } from './components/ui/Tooltip';
+import Dashboard from './views/Dashboard';
+import Changes from './views/Changes';
+import Feeds from './views/Feeds';
+import Settings from './components/Settings';
+import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon } from 'lucide-react';
+import { clsx } from 'clsx';
 import './App.css';
 
-type View = 'feeds' | 'settings';
+type View = 'dashboard' | 'feeds' | 'changes' | 'settings';
 
 interface LinkItem {
   label: string;
@@ -29,11 +34,10 @@ function toDirectoryUrl(path: string, origin: string): URL {
 }
 
 function App() {
-  const [currentView, setCurrentView] = useState<View>('feeds');
+  const [currentView, setCurrentView] = useState<View>('dashboard');
   const [feeds, setFeeds] = useState<SourceFeedConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const [adminKey, setAdminKey] = useState(() => loadSavedFunctionsKey());
   const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
 
@@ -122,7 +126,6 @@ function App() {
       setError(null);
       await createFeed(feed);
       await loadFeeds();
-      setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create feed');
     }
@@ -162,15 +165,31 @@ function App() {
 
         <nav className="app-nav">
           <button
-            className={`nav-button ${currentView === 'feeds' ? 'active' : ''}`}
+            className={clsx('nav-button', currentView === 'dashboard' && 'active')}
+            onClick={() => setCurrentView('dashboard')}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Dashboard
+          </button>
+          <button
+            className={clsx('nav-button', currentView === 'feeds' && 'active')}
             onClick={() => setCurrentView('feeds')}
           >
+            <Rss className="h-4 w-4" />
             Feeds
           </button>
           <button
-            className={`nav-button ${currentView === 'settings' ? 'active' : ''}`}
+            className={clsx('nav-button', currentView === 'changes' && 'active')}
+            onClick={() => setCurrentView('changes')}
+          >
+            <Bell className="h-4 w-4" />
+            Changes
+          </button>
+          <button
+            className={clsx('nav-button', currentView === 'settings' && 'active')}
             onClick={() => setCurrentView('settings')}
           >
+            <SettingsIcon className="h-4 w-4" />
             Settings
           </button>
         </nav>
@@ -255,50 +274,28 @@ function App() {
       </header>
 
       <main className="app-main">
-        {currentView === 'feeds' && (
-          <>
-            {error && (
-              <div className="error-message">
-                {error}
-                <button onClick={() => setError(null)}>Dismiss</button>
-              </div>
-            )}
+        <TooltipProvider>
+          <ToastProvider>
+            {currentView === 'dashboard' && <Dashboard />}
 
-            <div className="actions">
-              <button
-                className="btn-primary"
-                onClick={() => setShowForm(!showForm)}
-                disabled={!hasConfiguredAdminKey}
-              >
-                {showForm ? 'Cancel' : 'Add New Feed'}
-              </button>
-            </div>
-
-            {showForm && hasConfiguredAdminKey && (
-              <FeedForm
-                onSubmit={handleCreate}
-                onCancel={() => setShowForm(false)}
-              />
-            )}
-
-            {!hasConfiguredAdminKey ? (
-              <div className="empty-state">
-                <p>A Function key is required to load feed URLs.</p>
-                <p>Save the admin key above, then the current feeds will appear here.</p>
-              </div>
-            ) : loading ? (
-              <div className="loading">Loading feeds...</div>
-            ) : (
-              <FeedList
+            {currentView === 'feeds' && (
+              <Feeds
                 feeds={feeds}
+                loading={loading}
+                error={error}
+                hasConfiguredAdminKey={hasConfiguredAdminKey}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
+                onCreate={handleCreate}
+                setError={setError}
               />
             )}
-          </>
-        )}
 
-        {currentView === 'settings' && <Settings />}
+            {currentView === 'changes' && <Changes />}
+
+            {currentView === 'settings' && <Settings />}
+          </ToastProvider>
+        </TooltipProvider>
       </main>
     </div>
   );
