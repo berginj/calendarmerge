@@ -10,10 +10,12 @@ app.http("manualRefresh", {
   handler: manualRefreshHandler,
 });
 
-// SECURITY: Rate limiting to prevent DoS attacks
-// Minimum 30 seconds between manual refresh calls
+// SECURITY: Basic rate limiting to prevent DoS attacks
+// LIMITATION: This is in-memory per-instance, not durable across scale-out
+// Primary protection is the activeRefresh promise in refresh.ts (prevents concurrent refreshes)
+// This adds defense-in-depth by limiting rapid sequential calls on same instance
 const REFRESH_COOLDOWN_MS = 30000;
-let lastManualRefreshTime = 0;
+let lastSuccessfulRefreshTime = 0;
 
 async function manualRefreshHandler(
   _request: HttpRequest,
@@ -24,17 +26,20 @@ async function manualRefreshHandler(
 
   logger.info("manual_refresh_requested", { requestId });
 
-  // SECURITY: Check rate limit
+  // NOTE: Concurrent refreshes are already prevented by activeRefresh promise in refresh.ts
+  // This cooldown is additional protection against rapid sequential calls
+  // LIMITATION: Only effective on single instance, does not work across scale-out
   const now = Date.now();
-  const timeSinceLastRefresh = now - lastManualRefreshTime;
+  const timeSinceLastRefresh = now - lastSuccessfulRefreshTime;
 
-  if (lastManualRefreshTime > 0 && timeSinceLastRefresh < REFRESH_COOLDOWN_MS) {
+  if (lastSuccessfulRefreshTime > 0 && timeSinceLastRefresh < REFRESH_COOLDOWN_MS) {
     const retryAfterSeconds = Math.ceil((REFRESH_COOLDOWN_MS - timeSinceLastRefresh) / 1000);
 
     logger.warn("manual_refresh_rate_limited", {
       requestId,
       timeSinceLastMs: timeSinceLastRefresh,
       retryAfterSeconds,
+      note: "In-memory cooldown - may not apply across instances",
     });
 
     return {
@@ -54,11 +59,16 @@ async function manualRefreshHandler(
     };
   }
 
-  lastManualRefreshTime = now;
+  // NOTE: We intentionally do NOT update timestamp here - only after successful refresh
+  // This allows immediate retry after failures
 
   try {
     const { runRefresh } = await import("../lib/refresh");
     const result = await runRefresh(logger, "manual");
+
+    // Update cooldown timestamp only after successful completion
+    // This allows immediate retry after failures
+    lastSuccessfulRefreshTime = Date.now();
 
     logger.info("manual_refresh_completed", {
       requestId,

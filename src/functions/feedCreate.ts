@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -78,7 +78,10 @@ async function createFeedHandler(
 
     logger.info("feed_created", { requestId, feedId, name: body.name });
 
-    // SECURITY: Redact feed URL to remove bearer tokens from response
+    // SECURITY NOTE: Feed URL is NOT redacted in this authenticated endpoint
+    // Rationale: User just created this feed and needs to see the full URL they entered
+    // This endpoint requires function-level auth, so URL is protected by authentication
+    // URLs are redacted in logs only
     return {
       status: 201,
       jsonBody: {
@@ -86,7 +89,7 @@ async function createFeedHandler(
         feed: {
           id: entity.id,
           name: entity.name,
-          url: redactFeedUrl(entity.url),
+          url: entity.url, // Full URL returned (protected by function auth)
           enabled: entity.enabled,
         },
         message: "Feed created successfully",

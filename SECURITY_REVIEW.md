@@ -648,3 +648,86 @@ $feeds.data.feeds[0].url  # Should be https://example.com/cal.ics, not with ?tok
   - 30 issues identified (6 critical, 6 high, 18 medium)
   - Prioritized action items
   - Implementation guidance provided
+
+- **2026-04-29**: Code review findings (concerns.md)
+  - Feed URL redaction breaks edit flow - REVERTED redaction in authenticated endpoints
+  - SSRF protection incomplete - Enhanced IPv6 handling, added DNS resolution note
+  - ICS size limiting partial - Noted limitation in docs
+  - Rate limiting flawed - Fixed to only apply after successful refresh, documented limitations
+
+## Post-Review Updates
+
+### Issue #1: Feed URL Redaction - CORRECTED
+
+**Decision:** Do NOT redact URLs in authenticated API endpoints
+
+**Rationale:**
+- Function-level auth already protects these endpoints
+- Users need to see full URLs to manage their feeds
+- Redacting breaks edit flow (loses bearer tokens)
+- Continue redacting in logs only (already implemented)
+
+**Files Reverted:**
+- feedsList.ts - Returns full URLs (protected by auth)
+- feedCreate.ts - Returns full URLs (protected by auth)
+- feedUpdate.ts - Returns full URLs (protected by auth)
+
+**Security Posture:**
+- Feed URLs protected by function key requirement
+- URLs never logged in full (redacted in all log calls)
+- Trade-off: Authenticated users can see URLs (necessary for management)
+
+### Issue #2: SSRF Protection - ENHANCED
+
+**Improvements Made:**
+- Enhanced IPv6 handling (removes brackets before checking)
+- Added more IPv6 private ranges (fd00, ff00)
+- Added explicit localhost and 0.0.0.0 checks
+
+**Acknowledged Limitations:**
+- Does not resolve DNS (would require async lookup, performance impact)
+- Does not check HTTP redirects (would require following all redirects)
+- Defense-in-depth approach, not complete SSRF prevention
+
+**Additional Protection Needed (Future):**
+- DNS resolution to check actual IP address
+- Redirect following with IP validation
+- Or whitelist approach (allow only specific domains)
+
+### Issue #3: ICS Size Limiting - DOCUMENTED
+
+**Acknowledgment:**
+- Current implementation reads full body if Content-Length missing
+- Provides partial protection only
+- Complete protection requires streaming parser
+
+**Current Protection:**
+- Checks Content-Length header (when present)
+- Validates size after read (always)
+- 10MB limit enforced
+
+**Future Enhancement:**
+- Streaming parser that aborts mid-download
+- Would require significant refactoring of ICS parser
+
+### Issue #4: Rate Limiting - IMPROVED
+
+**Fixes Applied:**
+- Timestamp now updates AFTER successful refresh (not before)
+- Allows immediate retry after failures
+- Added documentation of multi-instance limitation
+- Relies on activeRefresh promise as primary protection
+
+**Acknowledged Limitations:**
+- In-memory cooldown only works on single instance
+- Multiple Azure Function instances bypass it
+- Global users share cooldown on one worker
+
+**Current Protection:**
+- activeRefresh promise prevents concurrent refreshes (primary)
+- In-memory cooldown adds defense-in-depth (secondary)
+- Combined approach provides reasonable protection
+
+**For Production Scale:**
+- Consider Azure API Management for true distributed rate limiting
+- Or use Table Storage to track cooldowns globally

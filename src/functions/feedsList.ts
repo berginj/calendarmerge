@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId, redactFeedUrl } from "../lib/util";
+import { errorMessage, generateId } from "../lib/util";
 
 app.http("listFeeds", {
   methods: ["GET"],
@@ -23,12 +23,10 @@ async function listFeedsHandler(
     const { loadSourceFeeds } = await import("../lib/sourceFeeds");
     const feeds = await loadSourceFeeds(config, logger);
 
-    // SECURITY: Redact feed URLs to remove bearer tokens
-    // Feed URLs often contain sensitive tokens in query parameters
-    const redactedFeeds = feeds.map((feed) => ({
-      ...feed,
-      url: redactFeedUrl(feed.url),
-    }));
+    // SECURITY NOTE: Feed URLs are NOT redacted in this authenticated endpoint
+    // Rationale: Users with valid function keys need to see their own feed URLs to edit them
+    // URLs are redacted in logs only (via redactFeedUrl in logger calls)
+    // This endpoint requires function-level auth, so URLs are protected by authentication
 
     logger.info("feeds_list_succeeded", { requestId, count: feeds.length });
 
@@ -36,7 +34,7 @@ async function listFeedsHandler(
       status: 200,
       jsonBody: {
         requestId,
-        feeds: redactedFeeds,
+        feeds, // Full URLs returned (protected by function auth)
         count: feeds.length,
       },
     };

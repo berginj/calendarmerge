@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { validateFeed } from "../lib/feedValidation";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -128,14 +128,18 @@ async function updateFeedHandler(
       });
     }
 
-    // SECURITY: Redact feed URL to remove bearer tokens from response
+    // SECURITY NOTE: Feed URL is NOT redacted in this authenticated endpoint
+    // Rationale: Users with valid function keys need to see full URLs to manage their feeds
+    // This endpoint requires function-level auth, so URL is protected by authentication
+    // URLs are redacted in logs only (via redactFeedUrl in logger calls)
+    // IMPORTANT: Frontend edit flow depends on receiving full URL to avoid losing tokens
     return {
       status: 200,
       jsonBody: {
         feed: {
           id: updated.id,
           name: updated.name,
-          url: redactFeedUrl(updated.url),
+          url: updated.url, // Full URL returned (protected by function auth)
           enabled: updated.enabled,
         },
         message: "Feed updated successfully",

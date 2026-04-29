@@ -57,26 +57,46 @@ export function normalizeUrlBase(input: string | undefined): string | undefined 
 }
 
 // SECURITY: Block private IP ranges to prevent SSRF attacks
+// NOTE: This is partial protection - does not resolve DNS or check redirects
+// For complete SSRF protection, DNS resolution and redirect checking needed
 const PRIVATE_IP_PATTERNS = [
-  /^127\./,                    // Localhost
+  /^127\./,                    // Localhost IPv4
   /^10\./,                     // Private class A
   /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private class B
   /^192\.168\./,               // Private class C
-  /^169\.254\./,               // Link-local
+  /^169\.254\./,               // Link-local IPv4
   /^0\.0\.0\.0$/,              // Invalid
+];
+
+const PRIVATE_IPV6_PATTERNS = [
   /^::1$/,                     // IPv6 localhost
+  /^::$/,                      // IPv6 any
   /^fe80:/i,                   // IPv6 link-local
   /^fc00:/i,                   // IPv6 unique local
+  /^fd00:/i,                   // IPv6 unique local
+  /^ff00:/i,                   // IPv6 multicast
 ];
 
 function isPrivateOrLocalIP(hostname: string): boolean {
-  // Check if hostname is an IP address
-  if (!hostname.includes('.') && !hostname.includes(':')) {
-    return false; // Domain name, not IP
+  // Normalize hostname (remove brackets from IPv6 literals like [::1])
+  const normalized = hostname.replace(/^\[|\]$/g, '');
+
+  // Check for localhost keywords
+  if (normalized === 'localhost' || normalized === '0.0.0.0') {
+    return true;
   }
 
-  // Check against private IP patterns
-  return PRIVATE_IP_PATTERNS.some(pattern => pattern.test(hostname));
+  // Check IPv4 patterns
+  if (PRIVATE_IP_PATTERNS.some(pattern => pattern.test(normalized))) {
+    return true;
+  }
+
+  // Check IPv6 patterns
+  if (normalized.includes(':') && PRIVATE_IPV6_PATTERNS.some(pattern => pattern.test(normalized))) {
+    return true;
+  }
+
+  return false;
 }
 
 export function normalizeFeedUrl(input: string): string {
