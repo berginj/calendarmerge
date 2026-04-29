@@ -3,7 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { validateFeed } from "../lib/feedValidation";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -128,13 +128,14 @@ async function updateFeedHandler(
       });
     }
 
+    // SECURITY: Redact feed URL to remove bearer tokens from response
     return {
       status: 200,
       jsonBody: {
         feed: {
           id: updated.id,
           name: updated.name,
-          url: updated.url,
+          url: redactFeedUrl(updated.url),
           enabled: updated.enabled,
         },
         message: "Feed updated successfully",

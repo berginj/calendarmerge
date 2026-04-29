@@ -13,10 +13,14 @@ export function useManualRefresh() {
 
       const apiBase = new URL('/api', window.location.origin);
       const refreshUrl = new URL('refresh', apiBase);
-      refreshUrl.searchParams.set('code', key);
 
+      // SECURITY: Use header authentication instead of query parameter
+      // Query parameters are logged and visible in browser history
       const response = await fetch(refreshUrl.toString(), {
         method: 'POST',
+        headers: {
+          'x-functions-key': key,
+        },
       });
 
       if (!response.ok) {

@@ -9,13 +9,15 @@ interface ApiErrorBody {
   details?: string | string[];
 }
 
+// SECURITY: Use sessionStorage instead of localStorage to reduce XSS exposure
+// sessionStorage clears when browser/tab closes, limiting credential lifetime
 function getStoredFunctionsKey(): string {
   if (typeof window === 'undefined') {
     return '';
   }
 
   try {
-    return window.localStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim() || '';
+    return window.sessionStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim() || '';
   } catch {
     return '';
   }
@@ -40,11 +42,12 @@ export function saveFunctionsKey(value: string): void {
 
   const trimmed = value.trim();
   if (!trimmed) {
-    window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+    window.sessionStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
     return;
   }
 
-  window.localStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, trimmed);
+  // SECURITY: Keys now stored in sessionStorage (cleared on browser close)
+  window.sessionStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, trimmed);
 }
 
 export function clearFunctionsKey(): void {
@@ -52,7 +55,7 @@ export function clearFunctionsKey(): void {
     return;
   }
 
-  window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+  window.sessionStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
 }
 
 async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {

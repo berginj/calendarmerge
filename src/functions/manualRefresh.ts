@@ -10,6 +10,11 @@ app.http("manualRefresh", {
   handler: manualRefreshHandler,
 });
 
+// SECURITY: Rate limiting to prevent DoS attacks
+// Minimum 30 seconds between manual refresh calls
+const REFRESH_COOLDOWN_MS = 30000;
+let lastManualRefreshTime = 0;
+
 async function manualRefreshHandler(
   _request: HttpRequest,
   context: InvocationContext,
@@ -18,6 +23,38 @@ async function manualRefreshHandler(
   const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
 
   logger.info("manual_refresh_requested", { requestId });
+
+  // SECURITY: Check rate limit
+  const now = Date.now();
+  const timeSinceLastRefresh = now - lastManualRefreshTime;
+
+  if (lastManualRefreshTime > 0 && timeSinceLastRefresh < REFRESH_COOLDOWN_MS) {
+    const retryAfterSeconds = Math.ceil((REFRESH_COOLDOWN_MS - timeSinceLastRefresh) / 1000);
+
+    logger.warn("manual_refresh_rate_limited", {
+      requestId,
+      timeSinceLastMs: timeSinceLastRefresh,
+      retryAfterSeconds,
+    });
+
+    return {
+      status: 429,
+      headers: {
+        'Retry-After': retryAfterSeconds.toString(),
+      },
+      jsonBody: {
+        requestId,
+        status: "error",
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Please wait before refreshing again",
+          details: `Manual refresh is limited to once every 30 seconds. Retry in ${retryAfterSeconds} seconds.`,
+        },
+      },
+    };
+  }
+
+  lastManualRefreshTime = now;
 
   try {
     const { runRefresh } = await import("../lib/refresh");

@@ -32,6 +32,11 @@ export function normalizeBlobPath(input: string): string {
     throw new Error("Blob paths must not be empty.");
   }
 
+  // SECURITY: Block path traversal attempts
+  if (value.includes("..")) {
+    throw new Error("Blob paths cannot contain '..' sequences (path traversal blocked)");
+  }
+
   return value;
 }
 
@@ -51,6 +56,29 @@ export function normalizeUrlBase(input: string | undefined): string | undefined 
   return parsed.toString().replace(/\/+$/, "");
 }
 
+// SECURITY: Block private IP ranges to prevent SSRF attacks
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,                    // Localhost
+  /^10\./,                     // Private class A
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private class B
+  /^192\.168\./,               // Private class C
+  /^169\.254\./,               // Link-local
+  /^0\.0\.0\.0$/,              // Invalid
+  /^::1$/,                     // IPv6 localhost
+  /^fe80:/i,                   // IPv6 link-local
+  /^fc00:/i,                   // IPv6 unique local
+];
+
+function isPrivateOrLocalIP(hostname: string): boolean {
+  // Check if hostname is an IP address
+  if (!hostname.includes('.') && !hostname.includes(':')) {
+    return false; // Domain name, not IP
+  }
+
+  // Check against private IP patterns
+  return PRIVATE_IP_PATTERNS.some(pattern => pattern.test(hostname));
+}
+
 export function normalizeFeedUrl(input: string): string {
   const value = input.trim();
   if (!value) {
@@ -68,6 +96,11 @@ export function normalizeFeedUrl(input: string): string {
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error(`Feed URL must use http, https, or webcal: ${value}`);
+  }
+
+  // SECURITY: Block localhost and private IPs to prevent SSRF
+  if (parsed.hostname === "localhost" || isPrivateOrLocalIP(parsed.hostname)) {
+    throw new Error(`Feed URL cannot use private or local addresses: ${parsed.hostname}`);
   }
 
   return parsed.toString();

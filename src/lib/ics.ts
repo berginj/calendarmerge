@@ -3,6 +3,9 @@ import { DateTime } from "luxon";
 import { IcsProperty, ParsedDateValue, ParsedEvent, SourceFeedConfig } from "./types";
 import { sha256Hex } from "./util";
 
+// SECURITY: Maximum events per feed to prevent DoS attacks
+const MAX_EVENTS_PER_FEED = 10000;
+
 export function parseIcsCalendar(input: string, source: SourceFeedConfig): ParsedEvent[] {
   const lines = unfoldLines(input);
   const events: ParsedEvent[] = [];
@@ -31,6 +34,11 @@ export function parseIcsCalendar(input: string, source: SourceFeedConfig): Parse
 
       if (nestedComponentDepth !== 0) {
         throw new Error("Encountered END:VEVENT before nested components closed.");
+      }
+
+      // SECURITY: Limit total events to prevent resource exhaustion
+      if (events.length >= MAX_EVENTS_PER_FEED) {
+        throw new Error(`Feed exceeds maximum event limit (${MAX_EVENTS_PER_FEED} events)`);
       }
 
       events.push(buildParsedEvent(currentEventProperties, source));

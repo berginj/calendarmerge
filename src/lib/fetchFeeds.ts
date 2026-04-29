@@ -78,6 +78,9 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
   };
 }
 
+// SECURITY: Maximum ICS file size to prevent DoS attacks (10MB)
+const MAX_ICS_SIZE_BYTES = 10 * 1024 * 1024;
+
 async function fetchFeedText(url: string, timeoutMs: number): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
@@ -94,7 +97,20 @@ async function fetchFeedText(url: string, timeoutMs: number): Promise<string> {
       throw new HttpStatusError(response.status, `Feed request returned HTTP ${response.status}.`);
     }
 
-    return await response.text();
+    // SECURITY: Check content-length before downloading
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > MAX_ICS_SIZE_BYTES) {
+      throw new Error(`Feed too large: ${contentLength} bytes (max ${MAX_ICS_SIZE_BYTES})`);
+    }
+
+    const text = await response.text();
+
+    // SECURITY: Verify actual size even if content-length not provided
+    if (text.length > MAX_ICS_SIZE_BYTES) {
+      throw new Error(`Feed content exceeds size limit (${text.length} bytes)`);
+    }
+
+    return text;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       throw new Error(`Feed request timed out after ${timeoutMs}ms.`);

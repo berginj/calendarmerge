@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -78,6 +78,7 @@ async function createFeedHandler(
 
     logger.info("feed_created", { requestId, feedId, name: body.name });
 
+    // SECURITY: Redact feed URL to remove bearer tokens from response
     return {
       status: 201,
       jsonBody: {
@@ -85,7 +86,7 @@ async function createFeedHandler(
         feed: {
           id: entity.id,
           name: entity.name,
-          url: entity.url,
+          url: redactFeedUrl(entity.url),
           enabled: entity.enabled,
         },
         message: "Feed created successfully",
