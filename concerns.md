@@ -137,3 +137,110 @@ Areas to investigate fixing:
 2. Reframe the SSRF and DoS notes in commit/docs until the protections are complete.
 3. Add targeted tests for the new security behavior instead of relying on the existing broad pass rate.
 4. Ask the other developer to review the findings and either confirm the risks or document intended behavior where the current implementation is deliberate.
+
+## Follow-up Verification (2026-04-29)
+
+After pull-up changes from commits `5c5ca9a` and `3299bcb`, the current status is:
+
+### 1. Feed URL edit regression
+
+Status: Fixed in code, not fully verified by automated end-to-end coverage
+
+What changed:
+- Authenticated feed management endpoints now return full URLs again instead of redacted values.
+- This removes the round-trip overwrite path that could strip tokens during name-only edits.
+
+Pointers:
+- `src/functions/feedsList.ts:37`
+- `src/functions/feedCreate.ts:92`
+- `src/functions/feedUpdate.ts:142`
+
+Assessment:
+- The previously identified regression path appears closed.
+- I did not find an automated integration test that proves a tokenized feed survives a name-only edit without URL loss.
+
+Recommended follow-up:
+- Add an end-to-end or handler-level test for:
+  - create tokenized feed
+  - fetch/edit only the name
+  - verify stored URL is unchanged
+
+### 2. SSRF protection completeness
+
+Status: Improved, but still partial
+
+What changed:
+- IPv6 bracket handling was fixed.
+- Additional IPv6 private/multicast patterns are now blocked.
+- Targeted tests were added for IPv4 and IPv6 literal inputs.
+
+Pointers:
+- `src/lib/util.ts:59`
+- `src/lib/util.ts:80`
+- `test/security/ssrf-protection.test.ts:41`
+- `test/security/ssrf-protection.test.ts:87`
+
+Assessment:
+- The specific IPv6 literal gap from the original review is addressed.
+- The larger SSRF concern is not fully resolved because DNS resolution and redirect target validation are still explicitly unimplemented.
+- The new tests document those limitations rather than closing them.
+
+Recommended follow-up:
+- Resolve hostnames before fetch and validate resolved addresses.
+- Re-check redirect targets.
+- Avoid describing current protection as complete SSRF mitigation.
+
+### 3. ICS size-limit enforcement
+
+Status: Not fixed in code, only documented
+
+What changed:
+- The limitation has been acknowledged in follow-up docs.
+- No streaming or incremental body-limit enforcement was added.
+
+Pointers:
+- `src/lib/fetchFeeds.ts:106`
+- `src/lib/fetchFeeds.ts:109`
+
+Assessment:
+- The function still reads the full response body with `response.text()` before the post-read size check runs.
+- This means a chunked or misleading response can still force the oversized body into memory first.
+- The original concern remains valid.
+
+Recommended follow-up:
+- Stream the response body and count bytes while reading.
+- Abort immediately once the byte threshold is crossed.
+- Add tests for oversized responses without `Content-Length`.
+
+### 4. Manual refresh cooldown behavior
+
+Status: Improved, but incompletely tested and still limited by design
+
+What changed:
+- Cooldown timestamp now updates after successful refresh completion rather than before refresh execution.
+- This should allow immediate retry after failures.
+
+Pointers:
+- `src/functions/manualRefresh.ts:13`
+- `src/functions/manualRefresh.ts:35`
+- `src/functions/manualRefresh.ts:71`
+
+Assessment:
+- The retry-after-failure regression appears fixed in code.
+- The per-instance/global-on-worker limitation remains and is now documented rather than removed.
+- I did not find automated tests covering cooldown behavior, retry-after-failure, or concurrent/manual refresh edge cases.
+
+Recommended follow-up:
+- Add tests for failed refresh followed by immediate retry.
+- Add tests for successful refresh followed by cooldown enforcement.
+- Decide whether the long-term goal is per-instance defense-in-depth or real distributed rate limiting.
+
+### Verification run
+
+Executed locally after the follow-up changes:
+- Backend tests: `106/106` passing
+- Frontend build: passing
+
+Important note:
+- Passing tests do not fully prove the highest-risk application flows.
+- The newly added security tests are useful, but they mostly validate utility-layer input checks rather than the original end-to-end regression scenarios.
