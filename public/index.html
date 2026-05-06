@@ -306,6 +306,7 @@
       let datasets = { full: null, games: null };
       let currentMode = "full";
       let currentEvents = [];
+      let calendarApp = null;
 
       const calendarRoot = document.getElementById("calendar");
       const details = document.getElementById("details");
@@ -387,7 +388,6 @@
 
         const normalized = normalizeDatasetEvents(dataset.events);
         currentEvents = normalized.events;
-        calendarRoot.innerHTML = "";
         details.innerHTML = `
           <h3>${mode === "full" ? "Full calendar loaded" : "Games calendar loaded"}</h3>
           <p class="meta">Select an event to inspect its public location details.</p>
@@ -402,11 +402,12 @@
           throw new Error("Schedule-X failed to load calendar views.");
         }
 
-        const selectedDate = getInitialCalendarDate(currentEvents);
-        const calendar = sx.createCalendar({
+        const selectedDate = getInitialCalendarDate(currentEvents, mode);
+        const defaultView = getInitialView(mode, sx, views);
+        const calendarConfig = {
           locale: "en-US",
           timezone: "UTC",
-          defaultView: sx.viewWeek?.name || views[0].name,
+          defaultView,
           selectedDate,
           isResponsive: true,
           views,
@@ -417,9 +418,18 @@
               showEventDetails(findEvent(event.id));
             },
           },
-        });
+        };
 
-        calendar.render(calendarRoot);
+        if (!calendarApp) {
+          calendarRoot.innerHTML = "";
+          calendarApp = sx.createCalendar(calendarConfig);
+          calendarApp.render(calendarRoot);
+          return;
+        }
+
+        calendarApp.events.set(currentEvents);
+        calendarApp.$app.datePickerState.selectedDate.value = selectedDate;
+        calendarApp.$app.calendarState.setView(defaultView, selectedDate);
 
         if (normalized.skippedCount > 0) {
           setStatus(
@@ -430,14 +440,27 @@
         }
       }
 
-      function getInitialCalendarDate(events) {
+      function getInitialView(mode, sx, views) {
+        if (mode === "games") {
+          return sx.viewMonthAgenda?.name || views[0].name;
+        }
+
+        return sx.viewWeek?.name || views[0].name;
+      }
+
+      function getInitialCalendarDate(events, mode) {
         const today = new Date().toISOString().slice(0, 10);
         const dates = events
           .map((event) => (typeof event.start === "string" ? event.start.slice(0, 10) : ""))
           .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
           .sort();
 
-        return dates.find((date) => date >= today) || dates[0] || today;
+        const upcoming = dates.find((date) => date >= today);
+        if (upcoming) {
+          return upcoming;
+        }
+
+        return mode === "games" ? dates[dates.length - 1] || today : dates[0] || today;
       }
 
       function normalizeDatasetEvents(events) {

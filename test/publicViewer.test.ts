@@ -15,7 +15,9 @@ describe("public Schedule-X viewer", () => {
   });
 
   it("sets an explicit default view for the mounted calendar", () => {
-    expect(html).toContain("defaultView: sx.viewWeek?.name || views[0].name");
+    expect(html).toContain("defaultView");
+    expect(html).toContain("getInitialView(mode, sx, views)");
+    expect(html).toContain("calendarApp.events.set(currentEvents)");
     expect(html).toContain(".filter(Boolean)");
   });
 });
