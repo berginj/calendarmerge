@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sports games calendar</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --field: #0f6b4a;
+        --field-dark: #084632;
+        --chalk: #fff8ed;
+        --line: rgba(255, 248, 237, 0.62);
+        --ink: #fdf8ef;
+        --muted: rgba(253, 248, 239, 0.78);
+        --action: #f9c74f;
+        --action-strong: #f59e0b;
+        --action-ink: #251a05;
+        font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          linear-gradient(90deg, transparent 0 10%, var(--line) 10.15% 10.3%, transparent 10.45% 89.55%, var(--line) 89.7% 89.85%, transparent 90%),
+          repeating-linear-gradient(90deg, rgba(255, 248, 237, 0.12) 0 1px, transparent 1px 6.5rem),
+          linear-gradient(135deg, var(--field) 0%, #157253 42%, var(--field-dark) 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 50% 16%, rgba(255, 248, 237, 0.18), transparent 22rem),
+          linear-gradient(180deg, rgba(6, 34, 25, 0.08), rgba(6, 34, 25, 0.28));
+      }
+
+      main {
+        position: relative;
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: clamp(1.25rem, 4vw, 3rem);
+      }
+
+      .content {
+        width: min(44rem, 100%);
+      }
+
+      .label {
+        margin: 0 0 0.85rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--chalk);
+      }
+
+      h1 {
+        margin: 0;
+        max-width: 11ch;
+        font-size: clamp(3.1rem, 12vw, 7rem);
+        line-height: 0.88;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 1.15rem 0 0;
+        max-width: 34rem;
+        color: var(--muted);
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        line-height: 1.55;
+      }
+
+      .subscribe {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 3.25rem;
+        min-width: min(100%, 18rem);
+        margin-top: 2rem;
+        padding: 0.95rem 1.25rem;
+        border: 2px solid rgba(255, 248, 237, 0.76);
+        border-radius: 8px;
+        background: linear-gradient(180deg, var(--action), var(--action-strong));
+        color: var(--action-ink);
+        font-weight: 800;
+        text-align: center;
+        text-decoration: none;
+        box-shadow: 0 18px 44px rgba(10, 30, 22, 0.3);
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease,
+          border-color 140ms ease;
+      }
+
+      .subscribe:hover,
+      .subscribe:focus-visible {
+        transform: translateY(-1px);
+        border-color: var(--chalk);
+        box-shadow: 0 22px 58px rgba(10, 30, 22, 0.34);
+      }
+
+      .subscribe:focus-visible {
+        outline: 3px solid rgba(255, 248, 237, 0.86);
+        outline-offset: 4px;
+      }
+
+      @media (max-width: 560px) {
+        main {
+          align-items: end;
+          padding-bottom: 12vh;
+        }
+
+        h1 {
+          max-width: 9ch;
+        }
+
+        .subscribe {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="content" aria-labelledby="page-title">
+        <p class="label">Sports games</p>
+        <h1 id="page-title">Games calendar</h1>
+        <p>Subscribe once and game updates will flow into your calendar app.</p>
+        <a
+          id="subscribe-link"
+          class="subscribe"
+          href="./calendar-games.ics"
+          data-ics-path="calendar-games.ics"
+        >Subscribe to games calendar</a>
+      </section>
+    </main>
+
+    <script>
+      const subscribeLink = document.getElementById("subscribe-link");
+      const icsPath = subscribeLink?.dataset.icsPath || "calendar-games.ics";
+      const icsUrl = new URL(icsPath, window.location.href);
+      icsUrl.protocol = "webcal:";
+      subscribeLink.href = icsUrl.toString();
+    </script>
+  </body>
+</html>

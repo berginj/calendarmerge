@@ -28,6 +28,7 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 - `schedule-x-games.json` - Read-only Schedule-X event payload for the games-only calendar
 - `status.json` - Public service health and published output counts
 - `index.html` - Public read-only Schedule-X viewer
+- `games.html` - Games-only subscribe page
 - `manage/` - Feed management web UI
 
 **Change Detection:**
@@ -215,7 +216,7 @@ What the bootstrap script does:
 - sets app settings with `az functionapp config appsettings set`
 - grants the Function App managed identity `Storage Blob Data Contributor`
 - enables blob static website hosting with `az storage blob service-properties update`
-- uploads `public/index.html`
+- uploads `public/index.html` and `public/games.html`
 
 ## Deploy Functions
 
@@ -289,6 +290,7 @@ Public output URLs:
 - `$($web.TrimEnd('/'))/schedule-x-games.json` - Schedule-X data for the games-only calendar
 - `$($web.TrimEnd('/'))/status.json` - Service status
 - `$($web.TrimEnd('/'))/` - Read-only Schedule-X viewer
+- `$($web.TrimEnd('/'))/games.html` - Games-only subscribe page
 - `$($web.TrimEnd('/'))/manage/` - Feed management UI
 
 Blob paths written by the app:
@@ -299,6 +301,7 @@ Blob paths written by the app:
 - `$web/schedule-x-games.json`
 - `$web/status.json`
 - `$web/index.html`
+- `$web/games.html`
 - `$web/manage/` - Frontend app
 
 Function endpoints:
