@@ -12,7 +12,7 @@ function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const apiBase = toDirectoryUrl('/api', window.location.origin);
+  const apiBase = toDirectoryUrl(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
   const publicBase = new URL('../', window.location.href);
   const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
   const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
