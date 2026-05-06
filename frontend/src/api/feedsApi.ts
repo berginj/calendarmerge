@@ -1,11 +1,16 @@
 import { SourceFeedConfig } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
-const BUILD_TIME_FUNCTIONS_KEY = import.meta.env.VITE_FUNCTIONS_KEY?.trim();
 const FUNCTIONS_KEY_STORAGE_KEY = 'calendarmerge_functions_key';
 
 interface ApiErrorBody {
-  error?: string;
+  status?: 'error';
+  error?: string | {
+    code?: string;
+    message?: string;
+    details?: string;
+    validationErrors?: Record<string, string[]>;
+  };
   details?: string | string[];
 }
 
@@ -24,15 +29,11 @@ function getStoredFunctionsKey(): string {
 }
 
 function getFunctionsKey(): string {
-  return getStoredFunctionsKey() || BUILD_TIME_FUNCTIONS_KEY || '';
+  return getStoredFunctionsKey();
 }
 
 export function loadSavedFunctionsKey(): string {
   return getStoredFunctionsKey();
-}
-
-export function hasBuildTimeFunctionsKey(): boolean {
-  return Boolean(BUILD_TIME_FUNCTIONS_KEY);
 }
 
 export function saveFunctionsKey(value: string): void {
@@ -66,6 +67,18 @@ async function parseApiError(response: Response, requiresAdmin: boolean): Promis
   const contentType = response.headers.get('content-type');
   if (contentType?.includes('application/json')) {
     const error = (await response.json()) as ApiErrorBody;
+    if (error.error && typeof error.error === 'object') {
+      const validationErrors = error.error.validationErrors
+        ? Object.values(error.error.validationErrors).flat().join(', ')
+        : '';
+      return new Error(
+        validationErrors ||
+        error.error.details ||
+        error.error.message ||
+        `API Error: ${response.status} ${response.statusText}`,
+      );
+    }
+
     const details = Array.isArray(error.details) ? error.details.join(', ') : error.details;
     return new Error(details || error.error || `API Error: ${response.status} ${response.statusText}`);
   }
@@ -80,7 +93,15 @@ async function parseApiError(response: Response, requiresAdmin: boolean): Promis
   return new Error(text || `API Error: ${response.status} ${response.statusText}`);
 }
 
-async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = false): Promise<T> {
+interface ApiSuccessEnvelope<T> {
+  requestId: string;
+  status: 'success' | 'partial-success';
+  data: T;
+  message?: string;
+  warnings?: string[];
+}
+
+export async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = false): Promise<T> {
   const headers = new Headers(init?.headers);
   const functionsKey = requiresAdmin ? getFunctionsKey() : '';
   if (functionsKey) {
@@ -96,7 +117,18 @@ async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = 
     throw await parseApiError(response, requiresAdmin);
   }
 
-  return (await response.json()) as T;
+  const body = await response.json();
+  if (
+    body &&
+    typeof body === 'object' &&
+    ('status' in body) &&
+    ((body as ApiSuccessEnvelope<T>).status === 'success' || (body as ApiSuccessEnvelope<T>).status === 'partial-success') &&
+    'data' in body
+  ) {
+    return (body as ApiSuccessEnvelope<T>).data;
+  }
+
+  return body as T;
 }
 
 export async function listFeeds(): Promise<SourceFeedConfig[]> {
@@ -151,6 +183,16 @@ export async function deleteFeed(feedId: string): Promise<void> {
     `/feeds/${feedId}`,
     {
       method: 'DELETE',
+    },
+    true,
+  );
+}
+
+export async function triggerManualRefresh(): Promise<unknown> {
+  return requestJson<unknown>(
+    '/refresh',
+    {
+      method: 'POST',
     },
     true,
   );

@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("getSettings", {
   methods: ["GET"],
@@ -11,7 +12,7 @@ app.http("getSettings", {
   handler: getSettingsHandler,
 });
 
-async function getSettingsHandler(
+export async function getSettingsHandler(
   _request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -27,16 +28,14 @@ async function getSettingsHandler(
 
     logger.info("settings_retrieved", { requestId });
 
-    return {
-      status: 200,
-      jsonBody: { requestId, settings },
-    };
+    return toHttpResponse(
+      createSuccessResponse(requestId, { settings }),
+    );
   } catch (error) {
     logger.error("settings_get_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: { requestId, error: "Failed to get settings" },
-    };
+    return toHttpResponse(
+      createErrorResponse(requestId, ERROR_CODES.INTERNAL_ERROR, "Failed to get settings"),
+    );
   }
 }

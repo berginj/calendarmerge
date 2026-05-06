@@ -4,7 +4,6 @@ import {
   clearFunctionsKey,
   createFeed,
   deleteFeed,
-  hasBuildTimeFunctionsKey,
   listFeeds,
   loadSavedFunctionsKey,
   saveFunctionsKey,
@@ -50,19 +49,10 @@ function App() {
   const { toast, toasts, removeToast } = useToast();
   const { refresh: manualRefresh } = useManualRefresh();
 
-  const buildTimeAdminKey = hasBuildTimeFunctionsKey();
   const savedAdminKey = loadSavedFunctionsKey();
-  const hasConfiguredAdminKey = buildTimeAdminKey || savedAdminKey.trim().length > 0;
-  const functionsKey = adminKey.trim() || savedAdminKey.trim();
+  const hasConfiguredAdminKey = savedAdminKey.trim().length > 0;
   const apiBase = toDirectoryUrl(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
   const publicBase = new URL('../', window.location.href);
-  const withCode = (url: URL) => {
-    if (functionsKey) {
-      url.searchParams.set('code', functionsKey);
-    }
-
-    return url.toString();
-  };
   const publicLinks: LinkItem[] = [
     { label: 'Schedule-X Viewer', href: new URL('index.html', publicBase).toString() },
     { label: 'Status JSON', href: new URL('status.json', publicBase).toString() },
@@ -75,9 +65,8 @@ function App() {
     { label: 'Ping', href: new URL('ping', apiBase).toString() },
     { label: 'Status API', href: new URL('status', apiBase).toString() },
     { label: 'Settings API', href: new URL('settings', apiBase).toString() },
-    { label: 'Feeds Simple', href: new URL('feeds-simple', apiBase).toString() },
-    { label: 'Feeds API', href: withCode(new URL('feeds', apiBase)) },
-    { label: 'Diagnostic API', href: withCode(new URL('diagnostic', apiBase)) },
+    { label: 'Feeds API', href: new URL('feeds', apiBase).toString() },
+    { label: 'Diagnostic API', href: new URL('diagnostic', apiBase).toString() },
   ];
   const manageBase = window.location.href;
   const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
@@ -111,7 +100,7 @@ function App() {
     saveFunctionsKey(trimmed);
     setAdminKey(trimmed);
     setAdminKeyMessage(trimmed ? 'Admin key saved in this browser.' : 'Admin key cleared.');
-    if (trimmed || buildTimeAdminKey) {
+    if (trimmed) {
       void loadFeeds();
     }
   };
@@ -120,14 +109,9 @@ function App() {
     clearFunctionsKey();
     setAdminKey('');
     setAdminKeyMessage('Admin key cleared.');
-    if (!buildTimeAdminKey) {
-      setFeeds([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    void loadFeeds();
+    setFeeds([]);
+    setLoading(false);
+    setError(null);
   };
 
   const handleCreate = async (feed: { name: string; url: string }) => {
@@ -305,9 +289,6 @@ function App() {
               ? ' Admin access is configured for this browser.'
               : ' Enter a key to load and manage feed URLs.'}
           </p>
-          {buildTimeAdminKey && !adminKey && (
-            <p className="admin-key-help">A build-configured key is currently available.</p>
-          )}
           {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
         </div>
 
@@ -350,9 +331,9 @@ function App() {
                   </a>
                 ))}
               </div>
-              {!functionsKey && (
+              {!hasConfiguredAdminKey && (
                 <p className="admin-key-help">
-                  Save a Function key above to make the protected API links usable.
+                  Protected endpoints require clients to send the Function key in the x-functions-key header.
                 </p>
               )}
             </section>

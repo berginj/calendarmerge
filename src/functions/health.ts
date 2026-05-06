@@ -1,7 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { createSuccessResponse, toHttpResponse } from "../lib/api-types";
 import { createLogger } from "../lib/log";
 import { loadCurrentStatus } from "../lib/refresh";
+import { generateId } from "../lib/util";
 
 app.http("healthStatus", {
   methods: ["GET"],
@@ -10,13 +12,12 @@ app.http("healthStatus", {
   handler: healthHandler,
 });
 
-async function healthHandler(_request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+export async function healthHandler(_request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   const logger = createLogger(context);
   const status = await loadCurrentStatus(logger);
 
-  return {
-    status: status.healthy ? 200 : 503,
-    jsonBody: {
+  return toHttpResponse(
+    createSuccessResponse(generateId(), {
       serviceName: status.serviceName,
       state: status.state,
       lastSuccessfulRefresh: status.lastSuccessfulRefresh,
@@ -31,6 +32,7 @@ async function healthHandler(_request: HttpRequest, context: InvocationContext):
       calendarPublished: status.calendarPublished,
       gamesOnlyCalendarPublished: status.gamesOnlyCalendarPublished,
       servedLastKnownGood: status.servedLastKnownGood,
-    },
-  };
+    }),
+    status.healthy ? 200 : 503,
+  );
 }

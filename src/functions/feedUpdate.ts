@@ -3,7 +3,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { validateFeed } from "../lib/feedValidation";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -18,19 +19,19 @@ interface UpdateFeedRequest {
   enabled?: boolean;
 }
 
-async function updateFeedHandler(
+export async function updateFeedHandler(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
-  const logger = createLogger(context);
+  const requestId = generateId();
+  const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
 
   try {
     const feedId = request.params.feedId;
     if (!feedId) {
-      return {
-        status: 400,
-        jsonBody: { error: "Feed ID is required" },
-      };
+      return toHttpResponse(
+        createErrorResponse(requestId, ERROR_CODES.VALIDATION_ERROR, "Feed ID is required"),
+      );
     }
 
     const body = (await request.json()) as UpdateFeedRequest;
@@ -40,13 +41,15 @@ async function updateFeedHandler(
     if (!validation.valid) {
       logger.warn("feed_update_validation_failed", { feedId, errors: validation.errors });
 
-      return {
-        status: 400,
-        jsonBody: {
-          error: "Validation failed",
-          details: validation.errors,
-        },
-      };
+      return toHttpResponse(
+        createErrorResponse(
+          requestId,
+          ERROR_CODES.VALIDATION_ERROR,
+          "Validation failed",
+          validation.errors.join("; "),
+          { body: validation.errors },
+        ),
+      );
     }
 
     const config = getConfig();
@@ -59,10 +62,9 @@ async function updateFeedHandler(
     if (!existing) {
       logger.warn("feed_update_not_found", { feedId });
 
-      return {
-        status: 404,
-        jsonBody: { error: "Feed not found" },
-      };
+      return toHttpResponse(
+        createErrorResponse(requestId, ERROR_CODES.NOT_FOUND, "Feed not found"),
+      );
     }
 
     // Build updates object
@@ -73,11 +75,14 @@ async function updateFeedHandler(
 
     // Validate feed URL if it's being changed
     let validationResult;
-    if (body.url !== undefined && body.url !== existing.url) {
-      const requestId = generateId();
+    if (updates.url !== undefined && updates.url !== existing.url) {
       const apiLogger = logger.withContext(undefined, requestId).setCategory("api");
 
-      apiLogger.info("validating_feed_url_change", { feedId, oldUrl: existing.url, newUrl: updates.url });
+      apiLogger.info("validating_feed_url_change", {
+        feedId,
+        oldUrl: redactFeedUrl(existing.url),
+        newUrl: redactFeedUrl(updates.url),
+      });
 
       const tempFeedConfig = {
         id: feedId,
@@ -90,14 +95,14 @@ async function updateFeedHandler(
       if (!validationResult.valid) {
         logger.warn("feed_validation_failed", { feedId, error: validationResult.error });
 
-        return {
-          status: 400,
-          jsonBody: {
-            error: "Feed validation failed",
-            details: validationResult.error,
-            httpStatus: validationResult.httpStatus,
-          },
-        };
+        return toHttpResponse(
+          createErrorResponse(
+            requestId,
+            ERROR_CODES.VALIDATION_ERROR,
+            "Feed validation failed",
+            validationResult.error,
+          ),
+        );
       }
 
       // Log validation success with details
@@ -115,11 +120,11 @@ async function updateFeedHandler(
     logger.info("feed_updated", { feedId, updates: Object.keys(updates) });
 
     // Trigger automatic refresh if URL was changed or feed was enabled
-    const shouldTriggerRefresh = (body.url !== undefined && body.url !== existing.url) ||
+    const shouldTriggerRefresh = (updates.url !== undefined && updates.url !== existing.url) ||
                                   (body.enabled === true && existing.enabled === false);
 
     if (shouldTriggerRefresh) {
-      logger.info("triggering_refresh_after_feed_update", { feedId, reason: body.url !== existing.url ? "url_changed" : "feed_enabled" });
+      logger.info("triggering_refresh_after_feed_update", { feedId, reason: updates.url !== existing.url ? "url_changed" : "feed_enabled" });
 
       // Import and trigger refresh asynchronously (don't wait for it)
       const { runRefresh } = await import("../lib/refresh");
@@ -133,32 +138,33 @@ async function updateFeedHandler(
     // This endpoint requires function-level auth, so URL is protected by authentication
     // URLs are redacted in logs only (via redactFeedUrl in logger calls)
     // IMPORTANT: Frontend edit flow depends on receiving full URL to avoid losing tokens
-    return {
-      status: 200,
-      jsonBody: {
-        feed: {
-          id: updated.id,
-          name: updated.name,
-          url: updated.url, // Full URL returned (protected by function auth)
-          enabled: updated.enabled,
+    return toHttpResponse(
+      createSuccessResponse(
+        requestId,
+        {
+          feed: {
+            id: updated.id,
+            name: updated.name,
+            url: updated.url, // Full URL returned (protected by function auth)
+            enabled: updated.enabled,
+          },
+          validated: validationResult !== undefined,
+          validationDetails: validationResult ? {
+            eventCount: validationResult.eventCount,
+            detectedPlatform: validationResult.detectedPlatform,
+            warnings: validationResult.warnings,
+          } : undefined,
+          refreshTriggered: shouldTriggerRefresh,
         },
-        message: "Feed updated successfully",
-        validated: validationResult !== undefined,
-        validationDetails: validationResult ? {
-          eventCount: validationResult.eventCount,
-          detectedPlatform: validationResult.detectedPlatform,
-          warnings: validationResult.warnings,
-        } : undefined,
-        refreshTriggered: shouldTriggerRefresh,
-      },
-    };
+        "Feed updated successfully",
+      ),
+    );
   } catch (error) {
     logger.error("feed_update_failed", { error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: { error: "Failed to update feed" },
-    };
+    return toHttpResponse(
+      createErrorResponse(requestId, ERROR_CODES.INTERNAL_ERROR, "Failed to update feed"),
+    );
   }
 }
 

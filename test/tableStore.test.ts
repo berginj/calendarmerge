@@ -37,4 +37,44 @@ describe("TableStore", () => {
     const feedId = TableStore.generateFeedId("Test@#$%Calendar");
     expect(feedId).toBe("test-calendar");
   });
+
+  it("should treat missing enabled values as enabled when listing feeds", async () => {
+    async function* listEntities() {
+      yield {
+        partitionKey: "default",
+        rowKey: "legacy-feed",
+        id: "legacy-feed",
+        name: "Legacy Feed",
+        url: "https://example.com/calendar.ics",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+      yield {
+        partitionKey: "default",
+        rowKey: "disabled-feed",
+        id: "disabled-feed",
+        name: "Disabled Feed",
+        url: "https://example.com/disabled.ics",
+        enabled: false,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      };
+    }
+
+    const store = new TableStore("teststorage");
+    (store as unknown as { tableClient: { listEntities: () => AsyncGenerator<unknown> } }).tableClient = {
+      listEntities,
+    };
+
+    const feeds = await store.listFeeds();
+
+    expect(feeds).toEqual([
+      {
+        id: "legacy-feed",
+        name: "Legacy Feed",
+        url: "https://example.com/calendar.ics",
+        enabled: true,
+      },
+    ]);
+  });
 });

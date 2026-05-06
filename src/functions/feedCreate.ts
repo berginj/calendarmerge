@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -17,7 +18,7 @@ interface CreateFeedRequest {
   url: string;
 }
 
-async function createFeedHandler(
+export async function createFeedHandler(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -32,14 +33,15 @@ async function createFeedHandler(
     if (!validation.valid) {
       logger.warn("feed_create_validation_failed", { requestId, errors: validation.errors });
 
-      return {
-        status: 400,
-        jsonBody: {
+      return toHttpResponse(
+        createErrorResponse(
           requestId,
-          error: "Validation failed",
-          details: validation.errors,
-        },
-      };
+          ERROR_CODES.VALIDATION_ERROR,
+          "Validation failed",
+          validation.errors.join("; "),
+          { body: validation.errors },
+        ),
+      );
     }
 
     const config = getConfig();
@@ -56,14 +58,15 @@ async function createFeedHandler(
     if (existing) {
       logger.warn("feed_create_duplicate_id", { requestId, feedId });
 
-      return {
-        status: 409,
-        jsonBody: {
+      return toHttpResponse(
+        createErrorResponse(
           requestId,
-          error: "Feed ID already exists",
-          feedId,
-        },
-      };
+          ERROR_CODES.CONFLICT,
+          "Feed ID already exists",
+          undefined,
+          { id: [`Feed ID already exists: ${feedId}`] },
+        ),
+      );
     }
 
     // Create feed
@@ -82,29 +85,27 @@ async function createFeedHandler(
     // Rationale: User just created this feed and needs to see the full URL they entered
     // This endpoint requires function-level auth, so URL is protected by authentication
     // URLs are redacted in logs only
-    return {
-      status: 201,
-      jsonBody: {
+    return toHttpResponse(
+      createSuccessResponse(
         requestId,
-        feed: {
-          id: entity.id,
-          name: entity.name,
-          url: entity.url, // Full URL returned (protected by function auth)
-          enabled: entity.enabled,
+        {
+          feed: {
+            id: entity.id,
+            name: entity.name,
+            url: entity.url, // Full URL returned (protected by function auth)
+            enabled: entity.enabled,
+          },
         },
-        message: "Feed created successfully",
-      },
-    };
+        "Feed created successfully",
+      ),
+      201,
+    );
   } catch (error) {
     logger.error("feed_create_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: {
-        requestId,
-        error: "Failed to create feed",
-      },
-    };
+    return toHttpResponse(
+      createErrorResponse(requestId, ERROR_CODES.INTERNAL_ERROR, "Failed to create feed"),
+    );
   }
 }
 

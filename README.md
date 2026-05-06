@@ -302,11 +302,11 @@ Function endpoints:
 
 **Public:**
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status` - Health check
-- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - List feeds (GET)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Read refresh settings (GET)
 
 **Protected:**
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh` - Manual refresh (POST)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - List feeds (GET)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - Create feed (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/{id}` - Update/Delete feed (PUT/DELETE)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Update refresh settings (PUT)
@@ -323,7 +323,8 @@ $refreshKey = az functionapp keys list `
 
 Invoke-WebRequest `
   -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh?code=$refreshKey"
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
+  -Headers @{"x-functions-key" = $refreshKey}
 ```
 
 ## Testing

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeFeedUrl } from "../../src/lib/util";
+import { normalizeFeedUrl, validateFeedUrlTarget } from "../../src/lib/util";
 
 describe("SSRF Protection", () => {
   describe("IPv4 private addresses", () => {
@@ -84,17 +84,21 @@ describe("SSRF Protection", () => {
     });
   });
 
-  describe("Known Limitations (documented)", () => {
-    it("LIMITATION: Does not resolve DNS", () => {
-      // This URL would pass validation even if example.com resolves to 127.0.0.1
-      // DNS resolution not implemented due to performance/complexity trade-offs
-      expect(normalizeFeedUrl("https://example.com/cal.ics")).toBe("https://example.com/cal.ics");
+  describe("DNS target validation", () => {
+    it("should reject public hostnames that resolve to private addresses", async () => {
+      await expect(
+        validateFeedUrlTarget("https://calendar.example.com/cal.ics", async () => [
+          { address: "10.0.0.5", family: 4 },
+        ]),
+      ).rejects.toThrow("resolves to private");
     });
 
-    it("LIMITATION: Does not check HTTP redirects", () => {
-      // Initial URL validation passes, but redirects are not validated
-      // Redirect checking not implemented due to complexity
-      expect(normalizeFeedUrl("https://example.com/cal.ics")).toBe("https://example.com/cal.ics");
+    it("should allow public hostnames that resolve to public addresses", async () => {
+      await expect(
+        validateFeedUrlTarget("https://calendar.example.com/cal.ics", async () => [
+          { address: "93.184.216.34", family: 4 },
+        ]),
+      ).resolves.toBe("https://calendar.example.com/cal.ics");
     });
   });
 });

@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
+import { lookup as dnsLookup } from "node:dns/promises";
+import { isIP } from "node:net";
 
 import { AppConfig, OutputPaths } from "./types";
 
@@ -56,44 +58,74 @@ export function normalizeUrlBase(input: string | undefined): string | undefined 
   return parsed.toString().replace(/\/+$/, "");
 }
 
-// SECURITY: Block private IP ranges to prevent SSRF attacks
-// NOTE: This is partial protection - does not resolve DNS or check redirects
-// For complete SSRF protection, DNS resolution and redirect checking needed
-const PRIVATE_IP_PATTERNS = [
-  /^127\./,                    // Localhost IPv4
-  /^10\./,                     // Private class A
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // Private class B
-  /^192\.168\./,               // Private class C
-  /^169\.254\./,               // Link-local IPv4
-  /^0\.0\.0\.0$/,              // Invalid
-];
+export type FeedDnsLookup = (
+  hostname: string,
+  options: { all: true; verbatim: true },
+) => Promise<Array<{ address: string; family: number }>>;
 
-const PRIVATE_IPV6_PATTERNS = [
-  /^::1$/,                     // IPv6 localhost
-  /^::$/,                      // IPv6 any
-  /^fe80:/i,                   // IPv6 link-local (fe80::/10)
-  /^fc00:/i,                   // IPv6 unique local (fc00::/7)
-  /^fd[0-9a-f]{2}:/i,          // IPv6 unique local (fd00::/8)
-  /^ff[0-9a-f]{2}:/i,          // IPv6 multicast (ff00::/8) - matches ff00-ffff
-];
+const defaultDnsLookup: FeedDnsLookup = (hostname, options) => dnsLookup(hostname, options);
 
-function isPrivateOrLocalIP(hostname: string): boolean {
-  // Normalize hostname (remove brackets from IPv6 literals like [::1])
-  const normalized = hostname.replace(/^\[|\]$/g, '');
+function normalizeHostname(hostname: string): string {
+  return hostname.replace(/^\[|\]$/g, "").toLowerCase();
+}
 
-  // Check for localhost keywords
-  if (normalized === 'localhost' || normalized === '0.0.0.0') {
+function isBlockedIPv4Address(address: string): boolean {
+  const octets = address.split(".").map((part) => Number.parseInt(part, 10));
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first, second, third] = octets;
+
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 192 && second === 0 && third === 0) ||
+    (first === 192 && second === 0 && third === 2) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    (first === 198 && second === 51 && third === 100) ||
+    (first === 203 && second === 0 && third === 113) ||
+    first >= 224
+  );
+}
+
+function isBlockedIPv6Address(address: string): boolean {
+  const normalized = normalizeHostname(address);
+  const ipv4Mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (ipv4Mapped) {
+    return isBlockedIPv4Address(ipv4Mapped[1]);
+  }
+
+  return (
+    normalized === "::" ||
+    normalized === "::1" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("ff") ||
+    /^fe[89ab]/.test(normalized) ||
+    normalized.startsWith("2001:db8:")
+  );
+}
+
+export function isPrivateOrLocalAddress(hostnameOrAddress: string): boolean {
+  const normalized = normalizeHostname(hostnameOrAddress);
+
+  if (normalized === "localhost" || normalized.endsWith(".localhost")) {
     return true;
   }
 
-  // Check IPv4 patterns
-  if (PRIVATE_IP_PATTERNS.some(pattern => pattern.test(normalized))) {
-    return true;
+  const ipVersion = isIP(normalized);
+  if (ipVersion === 4) {
+    return isBlockedIPv4Address(normalized);
   }
 
-  // Check IPv6 patterns
-  if (normalized.includes(':') && PRIVATE_IPV6_PATTERNS.some(pattern => pattern.test(normalized))) {
-    return true;
+  if (ipVersion === 6) {
+    return isBlockedIPv6Address(normalized);
   }
 
   return false;
@@ -119,11 +151,42 @@ export function normalizeFeedUrl(input: string): string {
   }
 
   // SECURITY: Block localhost and private IPs to prevent SSRF
-  if (parsed.hostname === "localhost" || isPrivateOrLocalIP(parsed.hostname)) {
+  if (isPrivateOrLocalAddress(parsed.hostname)) {
     throw new Error(`Feed URL cannot use private or local addresses: ${parsed.hostname}`);
   }
 
   return parsed.toString();
+}
+
+export async function validateFeedUrlTarget(
+  input: string,
+  lookupAddress: FeedDnsLookup = defaultDnsLookup,
+): Promise<string> {
+  const normalizedUrl = normalizeFeedUrl(input);
+  const parsed = new URL(normalizedUrl);
+  const hostname = normalizeHostname(parsed.hostname);
+
+  if (isIP(hostname)) {
+    return normalizedUrl;
+  }
+
+  let addresses: Array<{ address: string; family: number }>;
+  try {
+    addresses = await lookupAddress(hostname, { all: true, verbatim: true });
+  } catch (error) {
+    throw new Error(`Feed URL host could not be resolved: ${parsed.hostname}`);
+  }
+
+  if (addresses.length === 0) {
+    throw new Error(`Feed URL host did not resolve to any addresses: ${parsed.hostname}`);
+  }
+
+  const blockedAddress = addresses.find((address) => isPrivateOrLocalAddress(address.address));
+  if (blockedAddress) {
+    throw new Error(`Feed URL host resolves to private or local address: ${parsed.hostname}`);
+  }
+
+  return normalizedUrl;
 }
 
 export function deriveFeedIdFromUrl(input: string, fallbackIndex?: number): string {

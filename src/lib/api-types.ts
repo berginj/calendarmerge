@@ -71,6 +71,7 @@ export const ERROR_CODES = {
   INVALID_REQUEST: "INVALID_REQUEST",
   NOT_FOUND: "NOT_FOUND",
   CONFLICT: "CONFLICT",
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
 
   // Server Errors (5xx)
   INTERNAL_ERROR: "INTERNAL_ERROR",
@@ -304,7 +305,7 @@ export function createErrorResponse(
 export function toHttpResponse<T>(
   response: SuccessResponse<T> | PartialSuccessResponse<T> | ErrorResponse,
   httpStatus?: number,
-): { status: number; jsonBody: any } {
+): { status: number; jsonBody: SuccessResponse<T> | PartialSuccessResponse<T> | ErrorResponse } {
   if (response.status === "error") {
     const statusCode = httpStatus ?? getHttpStatusForErrorCode(response.error.code);
     return {
@@ -331,6 +332,8 @@ function getHttpStatusForErrorCode(code: string): number {
       return 404;
     case ERROR_CODES.CONFLICT:
       return 409;
+    case ERROR_CODES.RATE_LIMIT_EXCEEDED:
+      return 429;
     case ERROR_CODES.SERVICE_UNAVAILABLE:
       return 503;
     default:

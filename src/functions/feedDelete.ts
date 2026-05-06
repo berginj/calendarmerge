@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("deleteFeed", {
   methods: ["DELETE"],
@@ -11,7 +12,7 @@ app.http("deleteFeed", {
   handler: deleteFeedHandler,
 });
 
-async function deleteFeedHandler(
+export async function deleteFeedHandler(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -21,10 +22,9 @@ async function deleteFeedHandler(
   try {
     const feedId = request.params.feedId;
     if (!feedId) {
-      return {
-        status: 400,
-        jsonBody: { requestId, error: "Feed ID is required" },
-      };
+      return toHttpResponse(
+        createErrorResponse(requestId, ERROR_CODES.VALIDATION_ERROR, "Feed ID is required"),
+      );
     }
 
     const config = getConfig();
@@ -37,10 +37,9 @@ async function deleteFeedHandler(
     if (!existing) {
       logger.warn("feed_delete_not_found", { requestId, feedId });
 
-      return {
-        status: 404,
-        jsonBody: { requestId, error: "Feed not found" },
-      };
+      return toHttpResponse(
+        createErrorResponse(requestId, ERROR_CODES.NOT_FOUND, "Feed not found"),
+      );
     }
 
     // Soft delete (set enabled=false)
@@ -48,16 +47,14 @@ async function deleteFeedHandler(
 
     logger.info("feed_deleted", { requestId, feedId });
 
-    return {
-      status: 200,
-      jsonBody: { requestId, message: "Feed deleted successfully" },
-    };
+    return toHttpResponse(
+      createSuccessResponse(requestId, { feedId }, "Feed deleted successfully"),
+    );
   } catch (error) {
     logger.error("feed_delete_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: { requestId, error: "Failed to delete feed" },
-    };
+    return toHttpResponse(
+      createErrorResponse(requestId, ERROR_CODES.INTERNAL_ERROR, "Failed to delete feed"),
+    );
   }
 }

@@ -5,3 +5,4 @@ dist/
 coverage/
 local.settings.json
 .claude/
+remote-review/

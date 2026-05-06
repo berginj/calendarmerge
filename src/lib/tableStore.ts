@@ -10,7 +10,7 @@ export interface SourceFeedEntity {
   id: string; // same as rowKey
   name: string;
   url: string;
-  enabled: boolean; // for soft deletes
+  enabled?: boolean; // for soft deletes; legacy rows may omit it
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp
 }
@@ -45,17 +45,21 @@ export class TableStore {
   }
 
   async listFeeds(partitionKey: string = "default"): Promise<SourceFeedConfig[]> {
-    const filter = `PartitionKey eq '${partitionKey}' and enabled eq true`;
+    const filter = `PartitionKey eq '${escapeODataString(partitionKey)}'`;
     const entities: SourceFeedConfig[] = [];
 
     for await (const entity of this.tableClient.listEntities<SourceFeedEntity>({
       queryOptions: { filter },
     })) {
+      if (entity.enabled === false) {
+        continue;
+      }
+
       entities.push({
         id: entity.id,
         name: entity.name,
         url: entity.url,
-        enabled: entity.enabled !== false, // Default to true if not set
+        enabled: entity.enabled ?? true, // Default to true if not set
       });
     }
 
@@ -132,4 +136,8 @@ export class TableStore {
       return slugifyId(input);
     }
   }
+}
+
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''");
 }

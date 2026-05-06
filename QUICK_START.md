@@ -150,7 +150,8 @@ REFRESH_KEY=$(az functionapp keys list \
   --output tsv)
 
 # Trigger refresh
-curl -X POST "https://YOUR_FUNCTION_APP.azurewebsites.net/api/refresh?code=$REFRESH_KEY"
+curl -X POST "https://YOUR_FUNCTION_APP.azurewebsites.net/api/refresh" \
+  -H "x-functions-key: $REFRESH_KEY"
 ```
 
 ### Check Service Status

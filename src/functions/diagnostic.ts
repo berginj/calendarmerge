@@ -1,5 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { createSuccessResponse, toHttpResponse } from "../lib/api-types";
+import { generateId } from "../lib/util";
+
 // Diagnostic endpoint to test config loading
 app.http("diagnostic", {
   methods: ["GET"],
@@ -8,10 +11,11 @@ app.http("diagnostic", {
   handler: diagnosticHandler,
 });
 
-async function diagnosticHandler(
+export async function diagnosticHandler(
   _request: HttpRequest,
   _context: InvocationContext,
 ): Promise<HttpResponseInit> {
+  const requestId = generateId();
   const diagnostics = {
     timestamp: new Date().toISOString(),
     nodeVersion: process.version,
@@ -65,8 +69,5 @@ async function diagnosticHandler(
     };
   }
 
-  return {
-    status: 200,
-    jsonBody: diagnostics,
-  };
+  return toHttpResponse(createSuccessResponse(requestId, diagnostics));
 }

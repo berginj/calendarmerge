@@ -2,6 +2,13 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId } from "../lib/util";
+import {
+  createErrorResponse,
+  createPartialSuccessResponse,
+  createSuccessResponse,
+  ERROR_CODES,
+  toHttpResponse,
+} from "../lib/api-types";
 
 app.http("manualRefresh", {
   methods: ["POST"],
@@ -17,7 +24,11 @@ app.http("manualRefresh", {
 const REFRESH_COOLDOWN_MS = 30000;
 let lastSuccessfulRefreshTime = 0;
 
-async function manualRefreshHandler(
+export function resetManualRefreshCooldownForTest(): void {
+  lastSuccessfulRefreshTime = 0;
+}
+
+export async function manualRefreshHandler(
   _request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -42,20 +53,18 @@ async function manualRefreshHandler(
       note: "In-memory cooldown - may not apply across instances",
     });
 
-    return {
-      status: 429,
-      headers: {
-        'Retry-After': retryAfterSeconds.toString(),
-      },
-      jsonBody: {
+    const response = toHttpResponse(
+      createErrorResponse(
         requestId,
-        status: "error",
-        error: {
-          code: "RATE_LIMIT_EXCEEDED",
-          message: "Please wait before refreshing again",
-          details: `Manual refresh is limited to once every 30 seconds. Retry in ${retryAfterSeconds} seconds.`,
-        },
-      },
+        ERROR_CODES.RATE_LIMIT_EXCEEDED,
+        "Please wait before refreshing again",
+        `Manual refresh is limited to once every 30 seconds. Retry in ${retryAfterSeconds} seconds.`,
+      ),
+    );
+
+    return {
+      ...response,
+      headers: { "Retry-After": retryAfterSeconds.toString() },
     };
   }
 
@@ -66,9 +75,11 @@ async function manualRefreshHandler(
     const { runRefresh } = await import("../lib/refresh");
     const result = await runRefresh(logger, "manual");
 
-    // Update cooldown timestamp only after successful completion
-    // This allows immediate retry after failures
-    lastSuccessfulRefreshTime = Date.now();
+    // Update cooldown timestamp only after a non-failed refresh result.
+    // Failed refresh attempts should be immediately retryable.
+    if (result.status.state !== "failed") {
+      lastSuccessfulRefreshTime = Date.now();
+    }
 
     logger.info("manual_refresh_completed", {
       requestId,
@@ -77,48 +88,76 @@ async function manualRefreshHandler(
       operationalState: result.status.operationalState,
     });
 
-    return {
-      status: result.status.state === "failed" ? 502 : 200,
-      jsonBody: {
-        requestId,
-        refreshId: result.status.refreshId,
-        success: result.status.state !== "failed",
-        partialFailure: result.status.state === "partial",
-        operationalState: result.status.operationalState,
-        degradationReasons: result.status.degradationReasons,
-        eventCount: result.status.mergedEventCount,
-        gamesOnlyEventCount: result.status.gamesOnlyMergedEventCount,
-        candidateEventCount: result.candidateEventCount,
-        sourceStatuses: result.status.sourceStatuses,
-        feedChangeAlerts: result.status.feedChangeAlerts,
-        suspectFeeds: result.status.suspectFeeds,
-        potentialDuplicates: result.status.potentialDuplicates,
-        rescheduledEvents: result.status.rescheduledEvents,
-        cancelledEventsFiltered: result.status.cancelledEventsFiltered,
-        output: result.status.output,
-        servedLastKnownGood: result.usedLastKnownGood,
-        calendarPublished: result.calendarPublished,
-        gamesOnlyCalendarPublished: result.status.gamesOnlyCalendarPublished,
-        lastAttemptedRefresh: result.status.lastAttemptedRefresh,
-        lastSuccessfulRefresh: result.status.lastSuccessfulRefresh,
-        lastSuccessfulCheck: result.status.lastSuccessfulCheck,
-        checkAgeHours: result.status.checkAgeHours,
-        errorSummary: result.status.errorSummary,
-        state: result.status.state,
-        healthy: result.status.healthy,
-      },
+    const responseData = {
+      refreshId: result.status.refreshId,
+      success: result.status.state !== "failed",
+      partialFailure: result.status.state === "partial",
+      operationalState: result.status.operationalState,
+      degradationReasons: result.status.degradationReasons,
+      eventCount: result.status.mergedEventCount,
+      gamesOnlyEventCount: result.status.gamesOnlyMergedEventCount,
+      candidateEventCount: result.candidateEventCount,
+      sourceStatuses: result.status.sourceStatuses,
+      feedChangeAlerts: result.status.feedChangeAlerts,
+      suspectFeeds: result.status.suspectFeeds,
+      potentialDuplicates: result.status.potentialDuplicates,
+      rescheduledEvents: result.status.rescheduledEvents,
+      cancelledEventsFiltered: result.status.cancelledEventsFiltered,
+      output: result.status.output,
+      servedLastKnownGood: result.usedLastKnownGood,
+      calendarPublished: result.calendarPublished,
+      gamesOnlyCalendarPublished: result.status.gamesOnlyCalendarPublished,
+      lastAttemptedRefresh: result.status.lastAttemptedRefresh,
+      lastSuccessfulRefresh: result.status.lastSuccessfulRefresh,
+      lastSuccessfulCheck: result.status.lastSuccessfulCheck,
+      checkAgeHours: result.status.checkAgeHours,
+      errorSummary: result.status.errorSummary,
+      state: result.status.state,
+      healthy: result.status.healthy,
     };
+
+    if (result.status.state === "failed") {
+      return toHttpResponse(
+        createErrorResponse(
+          requestId,
+          ERROR_CODES.SERVICE_UNAVAILABLE,
+          "Refresh failed",
+          result.status.errorSummary.join("; ") || "No calendars were published.",
+        ),
+        502,
+      );
+    }
+
+    if (result.status.state === "partial") {
+      return toHttpResponse(
+        createPartialSuccessResponse(
+          requestId,
+          responseData,
+          result.status.errorSummary,
+          "Refresh completed with warnings",
+          { refreshId: result.status.refreshId },
+        ),
+      );
+    }
+
+    return toHttpResponse(
+      createSuccessResponse(
+        requestId,
+        responseData,
+        "Refresh completed successfully",
+        { refreshId: result.status.refreshId },
+      ),
+    );
   } catch (error) {
     logger.error("manual_refresh_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: {
+    return toHttpResponse(
+      createErrorResponse(
         requestId,
-        success: false,
-        error: "Manual refresh failed",
-        details: errorMessage(error),
-      },
-    };
+        ERROR_CODES.INTERNAL_ERROR,
+        "Manual refresh failed",
+        errorMessage(error),
+      ),
+    );
   }
 }

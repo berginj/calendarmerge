@@ -151,14 +151,14 @@ $key = az functionapp keys list `
   --query "functionKeys.default" `
   --output tsv
 
-$refreshUrl = "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh?code=$key"
-$result = Invoke-RestMethod -Method POST -Uri $refreshUrl
+$refreshUrl = "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh"
+$result = Invoke-RestMethod -Method POST -Uri $refreshUrl -Headers @{"x-functions-key" = $key}
 
 # Verify new response fields
 Write-Host "Request ID: $($result.requestId)"
-Write-Host "Refresh ID: $($result.refreshId)"
-Write-Host "Operational State: $($result.operationalState)"
-Write-Host "Potential Duplicates: $($result.potentialDuplicates.Count)"
+Write-Host "Refresh ID: $($result.data.refreshId)"
+Write-Host "Operational State: $($result.data.operationalState)"
+Write-Host "Potential Duplicates: $($result.data.potentialDuplicates.Count)"
 Write-Host "Reschedules: $($result.rescheduledEvents.Count)"
 ```
 
@@ -276,7 +276,9 @@ $key = az functionapp keys list `
   --query "functionKeys.default" `
   --output tsv
 
-Invoke-RestMethod -Method POST -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh?code=$key"
+Invoke-RestMethod -Method POST `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
+  -Headers @{"x-functions-key" = $key}
 ```
 
 ### Partial Rollback (Config Only)
@@ -529,14 +531,15 @@ $key = az functionapp keys list `
   --output tsv
 
 $result = Invoke-RestMethod -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh?code=$key"
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
+  -Headers @{"x-functions-key" = $key}
 
 # Verify new fields
 Write-Host "✓ requestId: $($result.requestId)"
-Write-Host "✓ refreshId: $($result.refreshId)"
-Write-Host "✓ operationalState: $($result.operationalState)"
-Write-Host "✓ potentialDuplicates count: $($result.potentialDuplicates.Count ?? 0)"
-Write-Host "✓ rescheduledEvents count: $($result.rescheduledEvents.Count ?? 0)"
+Write-Host "✓ refreshId: $($result.data.refreshId)"
+Write-Host "✓ operationalState: $($result.data.operationalState)"
+Write-Host "✓ potentialDuplicates count: $($result.data.potentialDuplicates.Count ?? 0)"
+Write-Host "✓ rescheduledEvents count: $($result.data.rescheduledEvents.Count ?? 0)"
 ```
 
 ### Test 2: Feed Management
@@ -545,34 +548,37 @@ Write-Host "✓ rescheduledEvents count: $($result.rescheduledEvents.Count ?? 0)
 ```powershell
 # Disable a feed
 $disableResult = Invoke-RestMethod -Method PUT `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed?code=$key" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
+  -Headers @{"x-functions-key" = $key} `
   -Body '{"enabled":false}' `
   -ContentType "application/json"
 
 Write-Host "✓ requestId: $($disableResult.requestId)"
-Write-Host "✓ enabled: $($disableResult.feed.enabled)"
+Write-Host "✓ enabled: $($disableResult.data.feed.enabled)"
 
 # Re-enable (should trigger refresh)
 $enableResult = Invoke-RestMethod -Method PUT `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed?code=$key" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
+  -Headers @{"x-functions-key" = $key} `
   -Body '{"enabled":true}' `
   -ContentType "application/json"
 
-Write-Host "✓ refreshTriggered: $($enableResult.refreshTriggered)"
+Write-Host "✓ refreshTriggered: $($enableResult.data.refreshTriggered)"
 ```
 
 **Test Feed Validation:**
 ```powershell
 # Update feed URL (will validate before saving)
 $updateResult = Invoke-RestMethod -Method PUT `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed?code=$key" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
+  -Headers @{"x-functions-key" = $key} `
   -Body '{"url":"https://new-url.com/calendar.ics"}' `
   -ContentType "application/json"
 
-Write-Host "✓ validated: $($updateResult.validated)"
-Write-Host "✓ eventCount: $($updateResult.validationDetails.eventCount)"
-Write-Host "✓ detectedPlatform: $($updateResult.validationDetails.detectedPlatform)"
-Write-Host "✓ refreshTriggered: $($updateResult.refreshTriggered)"
+Write-Host "✓ validated: $($updateResult.data.validated)"
+Write-Host "✓ eventCount: $($updateResult.data.validationDetails.eventCount)"
+Write-Host "✓ detectedPlatform: $($updateResult.data.validationDetails.detectedPlatform)"
+Write-Host "✓ refreshTriggered: $($updateResult.data.refreshTriggered)"
 ```
 
 ### Test 3: Verify status.json

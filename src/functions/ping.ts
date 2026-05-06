@@ -1,5 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { createSuccessResponse, toHttpResponse } from "../lib/api-types";
+import { generateId } from "../lib/util";
+
 // Simple diagnostic endpoint with no dependencies
 app.http("ping", {
   methods: ["GET"],
@@ -8,13 +11,12 @@ app.http("ping", {
   handler: pingHandler,
 });
 
-async function pingHandler(
+export async function pingHandler(
   _request: HttpRequest,
   _context: InvocationContext,
 ): Promise<HttpResponseInit> {
-  return {
-    status: 200,
-    jsonBody: {
+  return toHttpResponse(
+    createSuccessResponse(generateId(), {
       message: "pong",
       timestamp: new Date().toISOString(),
       nodeVersion: process.version,
@@ -23,6 +25,6 @@ async function pingHandler(
         hasSourceFeeds: Boolean(process.env.SOURCE_FEEDS_JSON),
         hasOutputStorageAccount: Boolean(process.env.OUTPUT_STORAGE_ACCOUNT),
       },
-    },
-  };
+    }),
+  );
 }

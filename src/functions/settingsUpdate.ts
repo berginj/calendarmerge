@@ -4,6 +4,7 @@ import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
 import type { AppSettings } from "../lib/settingsStore";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("updateSettings", {
   methods: ["PUT"],
@@ -14,7 +15,7 @@ app.http("updateSettings", {
 
 const VALID_SCHEDULES = ["every-15-min", "hourly", "every-2-hours", "business-hours", "manual-only"];
 
-async function updateSettingsHandler(
+export async function updateSettingsHandler(
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -28,14 +29,15 @@ async function updateSettingsHandler(
     if (body.refreshSchedule && !VALID_SCHEDULES.includes(body.refreshSchedule)) {
       logger.warn("settings_update_invalid_schedule", { requestId, schedule: body.refreshSchedule });
 
-      return {
-        status: 400,
-        jsonBody: {
+      return toHttpResponse(
+        createErrorResponse(
           requestId,
-          error: "Invalid refresh schedule",
-          validOptions: VALID_SCHEDULES,
-        },
-      };
+          ERROR_CODES.VALIDATION_ERROR,
+          "Invalid refresh schedule",
+          `Valid options: ${VALID_SCHEDULES.join(", ")}`,
+          { refreshSchedule: VALID_SCHEDULES },
+        ),
+      );
     }
 
     const config = getConfig();
@@ -46,20 +48,14 @@ async function updateSettingsHandler(
 
     logger.info("settings_updated", { requestId, refreshSchedule: settings.refreshSchedule });
 
-    return {
-      status: 200,
-      jsonBody: {
-        requestId,
-        settings,
-        message: "Settings updated successfully",
-      },
-    };
+    return toHttpResponse(
+      createSuccessResponse(requestId, { settings }, "Settings updated successfully"),
+    );
   } catch (error) {
     logger.error("settings_update_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: { requestId, error: "Failed to update settings" },
-    };
+    return toHttpResponse(
+      createErrorResponse(requestId, ERROR_CODES.INTERNAL_ERROR, "Failed to update settings"),
+    );
   }
 }

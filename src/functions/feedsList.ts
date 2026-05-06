@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId } from "../lib/util";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("listFeeds", {
   methods: ["GET"],
@@ -11,7 +12,7 @@ app.http("listFeeds", {
   handler: listFeedsHandler,
 });
 
-async function listFeedsHandler(
+export async function listFeedsHandler(
   _request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
@@ -30,24 +31,22 @@ async function listFeedsHandler(
 
     logger.info("feeds_list_succeeded", { requestId, count: feeds.length });
 
-    return {
-      status: 200,
-      jsonBody: {
-        requestId,
+    return toHttpResponse(
+      createSuccessResponse(requestId, {
         feeds, // Full URLs returned (protected by function auth)
         count: feeds.length,
-      },
-    };
+      }),
+    );
   } catch (error) {
     logger.error("feeds_list_failed", { requestId, error: errorMessage(error) });
 
-    return {
-      status: 500,
-      jsonBody: {
+    return toHttpResponse(
+      createErrorResponse(
         requestId,
-        error: "Failed to load feeds",
-        details: errorMessage(error),
-      },
-    };
+        ERROR_CODES.INTERNAL_ERROR,
+        "Failed to load feeds",
+        errorMessage(error),
+      ),
+    );
   }
 }

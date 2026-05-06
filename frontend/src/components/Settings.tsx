@@ -167,7 +167,6 @@ function Settings() {
           <a href={apiBaseDisplay} target="_blank" rel="noreferrer">{apiBaseDisplay}</a>
           <a href={new URL('status', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('status', apiBase).toString()}</a>
           <a href={new URL('settings', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('settings', apiBase).toString()}</a>
-          <a href={new URL('feeds-simple', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('feeds-simple', apiBase).toString()}</a>
           <a href={publicBaseDisplay} target="_blank" rel="noreferrer">{publicBaseDisplay}</a>
           <a href={new URL('index.html', publicBase).toString()} target="_blank" rel="noreferrer">{new URL('index.html', publicBase).toString()}</a>
           <a href={new URL('status.json', publicBase).toString()} target="_blank" rel="noreferrer">{new URL('status.json', publicBase).toString()}</a>
