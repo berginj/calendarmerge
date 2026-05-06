@@ -21,11 +21,11 @@ jobs:
   test_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install backend dependencies
@@ -47,7 +47,7 @@ jobs:
         run: npm run build
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_4AFC0F50DAC647279FA31EE99554BFE6 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_998DD97F26E54CC581D749EF843AAA1D }}
