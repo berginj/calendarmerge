@@ -397,13 +397,19 @@
         gamesButton.setAttribute("aria-pressed", String(mode === "games"));
 
         const sx = window.SXCalendar;
+        const views = [sx.viewMonthGrid, sx.viewWeek, sx.viewDay, sx.viewMonthAgenda].filter(Boolean);
+        if (!sx?.createCalendar || views.length === 0) {
+          throw new Error("Schedule-X failed to load calendar views.");
+        }
+
         const selectedDate = getInitialCalendarDate(currentEvents);
         const calendar = sx.createCalendar({
           locale: "en-US",
           timezone: "UTC",
+          defaultView: sx.viewWeek?.name || views[0].name,
           selectedDate,
           isResponsive: true,
-          views: [sx.viewMonthGrid, sx.viewWeek, sx.viewDay, sx.viewMonthAgenda, sx.viewList],
+          views,
           events: currentEvents,
           calendars: buildCalendars(currentEvents),
           callbacks: {
