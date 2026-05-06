@@ -291,6 +291,7 @@ Public output URLs:
 - `$($web.TrimEnd('/'))/status.json` - Service status
 - `$($web.TrimEnd('/'))/` - Read-only Schedule-X viewer
 - `$($web.TrimEnd('/'))/games.html` - Games-only subscribe page
+- `$($web.TrimEnd('/'))/games/` - Games-only subscribe page
 - `$($web.TrimEnd('/'))/manage/` - Feed management UI
 
 Blob paths written by the app:
@@ -302,6 +303,7 @@ Blob paths written by the app:
 - `$web/status.json`
 - `$web/index.html`
 - `$web/games.html`
+- `$web/games/index.html`
 - `$web/manage/` - Frontend app
 
 Function endpoints:

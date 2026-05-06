@@ -262,6 +262,17 @@ Invoke-AzCli storage blob upload `
   --only-show-errors `
   --output none | Out-Null
 
+Invoke-AzCli storage blob upload `
+  --account-name $StorageAccount `
+  --account-key $storageAccountKey `
+  --container-name '$web' `
+  --name games/index.html `
+  --file (Join-Path $projectRoot "public/games.html") `
+  --overwrite true `
+  --content-type "text/html; charset=utf-8" `
+  --only-show-errors `
+  --output none | Out-Null
+
 Write-Host "Building frontend..."
 Push-Location (Join-Path $projectRoot "frontend")
 try {

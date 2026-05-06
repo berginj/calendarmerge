@@ -9,8 +9,8 @@ describe("public games subscribe page", () => {
     const anchorCount = (html.match(/<a\b/g) ?? []).length;
 
     expect(anchorCount).toBe(1);
-    expect(html).toContain('href="./calendar-games.ics"');
-    expect(html).toContain('data-ics-path="calendar-games.ics"');
+    expect(html).toContain('href="/calendar-games.ics"');
+    expect(html).toContain('data-ics-path="/calendar-games.ics"');
     expect(html).toContain("webcal://${url.host}${url.pathname}${url.search}${url.hash}");
     expect(html).not.toContain("calendar.ics");
     expect(html).not.toContain("schedule-x-full.json");
@@ -26,25 +26,31 @@ describe("public games subscribe page", () => {
     const bootstrapScript = readFileSync("scripts/azure/bootstrap.ps1", "utf8");
 
     expect(workflow).toContain("--name \"games.html\"");
+    expect(workflow).toContain("--name \"games/index.html\"");
     expect(workflow).toContain('--file "./public/games.html"');
     expect(deployScript).toContain("--name games.html");
+    expect(deployScript).toContain("--name games/index.html");
     expect(deployScript).toContain('"public/games.html"');
     expect(bootstrapScript).toContain("--name games.html");
+    expect(bootstrapScript).toContain("--name games/index.html");
     expect(bootstrapScript).toContain('"public/games.html"');
   });
 
-  it("rewrites the lone subscription action to a webcal URL for the current host", () => {
+  it.each([
+    "https://calendarmergeprod01.z13.web.core.windows.net/games.html",
+    "https://calendarmergeprod01.z13.web.core.windows.net/games/",
+  ])("rewrites the lone subscription action to a root webcal URL from %s", (pageUrl) => {
     const html = readFileSync("public/games.html", "utf8");
     const script = extractInlineScript(html);
     const link = {
-      dataset: { icsPath: "calendar-games.ics" },
+      dataset: { icsPath: "/calendar-games.ics" },
       href: "",
     };
     const context = vm.createContext({
       URL,
       window: {
         location: {
-          href: "https://calendarmergeprod01.z13.web.core.windows.net/games.html",
+          href: pageUrl,
         },
       },
       document: {
