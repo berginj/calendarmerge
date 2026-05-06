@@ -91,7 +91,7 @@ function refreshResult(state: "success" | "partial" | "failed") {
     status: {
       refreshId: "refresh-1",
       state,
-      operationalState: state === "failed" ? "failed" : "healthy",
+      operationalState: state === "failed" ? "failed" : state === "partial" ? "degraded" : "healthy",
       degradationReasons: state === "partial" ? ["one feed failed"] : undefined,
       mergedEventCount: state === "failed" ? 0 : 3,
       gamesOnlyMergedEventCount: state === "failed" ? 0 : 1,
@@ -110,7 +110,7 @@ function refreshResult(state: "success" | "partial" | "failed") {
       lastSuccessfulRefresh: state === "failed" ? undefined : "2026-05-06T00:00:00.000Z",
       lastSuccessfulCheck: {},
       checkAgeHours: {},
-      errorSummary: state === "failed" ? ["all feeds failed"] : [],
+      errorSummary: state === "failed" ? ["all feeds failed"] : state === "partial" ? ["one feed failed"] : [],
       healthy: state !== "failed",
     },
     candidateEventCount: state === "failed" ? 0 : 3,
@@ -185,7 +185,7 @@ describe("HTTP API handlers", () => {
     blobMocks.store.readStatusForRefresh.mockResolvedValue({
       serviceName: "calendarmerge",
       refreshId: "refresh-1",
-      operationalState: "degraded",
+      operationalState: "healthy",
       degradationReasons: ["1 feed(s) failed: Private Feed"],
       state: "partial",
       healthy: true,
@@ -393,6 +393,54 @@ describe("HTTP API handlers", () => {
     expect(updateResponse.jsonBody.data.settings.refreshSchedule).toBe("manual-only");
   });
 
+  it("returns manual refresh success through the standard response envelope", async () => {
+    refreshMocks.runRefresh.mockResolvedValueOnce(refreshResult("success"));
+
+    const response = await manualRefreshHandler(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.status).toBe("success");
+    expect(response.jsonBody.data).toEqual(expect.objectContaining({
+      refreshId: "refresh-1",
+      success: true,
+      partialFailure: false,
+      operationalState: "healthy",
+      eventCount: 3,
+      gamesOnlyEventCount: 1,
+      state: "success",
+      healthy: true,
+    }));
+    expect(response.jsonBody.metadata).toEqual({ refreshId: "refresh-1" });
+  });
+
+  it("returns manual refresh partial success through the standard response envelope", async () => {
+    refreshMocks.runRefresh.mockResolvedValueOnce(refreshResult("partial"));
+
+    const response = await manualRefreshHandler(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.status).toBe("partial-success");
+    expect(response.jsonBody.warnings).toEqual(["one feed failed"]);
+    expect(response.jsonBody.data).toEqual(expect.objectContaining({
+      refreshId: "refresh-1",
+      success: true,
+      partialFailure: true,
+      operationalState: "degraded",
+      state: "partial",
+    }));
+  });
+
+  it("returns manual refresh failure as service unavailable through the standard error envelope", async () => {
+    refreshMocks.runRefresh.mockResolvedValueOnce(refreshResult("failed"));
+
+    const response = await manualRefreshHandler(request(), context);
+
+    expect(response.status).toBe(503);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(response.jsonBody.error.message).toBe("Refresh failed");
+  });
+
   it("rate limits manual refresh only after a non-failed refresh result", async () => {
     refreshMocks.runRefresh
       .mockResolvedValueOnce(refreshResult("failed"))
@@ -403,10 +451,12 @@ describe("HTTP API handlers", () => {
     const retry = await manualRefreshHandler(request(), context);
     const rateLimited = await manualRefreshHandler(request(), context);
 
-    expect(failed.status).toBe(502);
+    expect(failed.status).toBe(503);
     expect(retry.status).toBe(200);
     expect(rateLimited.status).toBe(429);
     expect(rateLimited.jsonBody.status).toBe("error");
+    expect(rateLimited.jsonBody.error.code).toBe("RATE_LIMIT_EXCEEDED");
+    expect(rateLimited.headers).toEqual(expect.objectContaining({ "Retry-After": expect.any(String) }));
     expect(refreshMocks.runRefresh).toHaveBeenCalledTimes(2);
   });
 });

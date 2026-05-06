@@ -121,10 +121,10 @@ export async function manualRefreshHandler(
         createErrorResponse(
           requestId,
           ERROR_CODES.SERVICE_UNAVAILABLE,
-          "Refresh failed",
-          result.status.errorSummary.join("; ") || "No calendars were published.",
-        ),
-        502,
+        "Refresh failed",
+        result.status.errorSummary.join("; ") || "No calendars were published.",
+      ),
+        503,
       );
     }
 

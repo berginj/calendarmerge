@@ -361,7 +361,7 @@ async function manualRefreshHandler(...) {
 ### Priority 1: High (Fix This Week)
 
 1. **Standardize to header auth everywhere** (1 hr)
-2. **Split status endpoint (public/private)** (2 hrs)
+2. **Split status endpoint (public/private)** (completed: public `status.json` is sanitized; protected `/api/status/internal` serves redacted admin diagnostics)
 3. **Configure CORS properly** (30 min)
 4. **Add API rate limiting** (2 hrs)
 5. **Add feed fetch rate limiting** (2 hrs)

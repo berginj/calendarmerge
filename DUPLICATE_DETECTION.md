@@ -65,7 +65,7 @@ Where:
 - Morning practice and afternoon game
 - Rescheduled events that appear on same day
 
-**New Behavior:** Keep ALL events, flag potential duplicates in `status.json`
+**New Behavior:** Keep ALL events, flag potential duplicates in protected admin status.
 
 **Benefits:**
 - No legitimate events are hidden
@@ -83,7 +83,7 @@ Where:
 **Output:**
 - ✅ TWO events: Both kept in calendar
 - 🔍 Flagged as potential duplicate with confidence: "medium" (4 hours apart)
-- 📊 status.json includes:
+- Protected `/api/status/internal` includes:
   ```json
   {
     "potentialDuplicates": [{
@@ -157,7 +157,7 @@ No configuration needed - duplicate detection and flagging runs automatically on
 
 ### Viewing Potential Duplicates
 
-Potential duplicates are reported in `status.json`:
+Potential duplicates are reported in protected admin status:
 
 ```json
 {
@@ -187,7 +187,7 @@ Potential duplicates are reported in `status.json`:
 }
 ```
 
-Access at: `https://<storage-account>.z13.web.core.windows.net/status.json`
+Access at: `https://<function-app>.azurewebsites.net/api/status/internal` with the Function key in the `x-functions-key` header.
 
 ## Testing
 
@@ -208,7 +208,7 @@ The duplicate detection logic is fully tested in `test/merge.test.ts` with cover
 
 - ❗ **BREAKING**: Events previously suppressed will now appear
 - ✅ Calendars will have ALL events (including potential duplicates)
-- ✅ status.json will include `potentialDuplicates` array
+- ✅ Protected admin status will include `potentialDuplicates` array
 - ✅ Users can review flagged duplicates manually
 - ⚠️ If you were relying on automatic suppression, you may see "duplicate" events
 
@@ -216,7 +216,7 @@ The duplicate detection logic is fully tested in `test/merge.test.ts` with cover
 
 No migration needed, but be aware:
 1. Merged event count may increase after update
-2. Review `potentialDuplicates` in status.json to identify duplicates
+2. Review `potentialDuplicates` from `/api/status/internal` to identify duplicates
 3. Consider updating source feeds to remove true duplicates at the source
 
 ## Future Enhancements
@@ -269,6 +269,6 @@ interface MergeResult {
 - **Removed:** Automatic same-day suppression (Stage 2 deduplication)
 - **Added:** Potential duplicate detection and flagging
 - **Added:** Confidence levels (high/medium/low)
-- **Added:** potentialDuplicates field in status.json
+- **Added:** potentialDuplicates field in protected admin status
 - **Changed:** Cancelled events now filtered entirely (never exported)
 - **Impact:** Merged calendars will contain more events, but all legitimate events preserved

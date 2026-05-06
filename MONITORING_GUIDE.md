@@ -57,13 +57,13 @@ This guide provides comprehensive monitoring and alerting recommendations for th
     "1 feed(s) failed: School Calendar",
     "Athletics: events to zero (20 → 0)"
   ],
-  "feedChangeAlerts": [...],
-  "suspectFeeds": ["athletics"],
   "lastAttemptedRefresh": "2026-04-27T12:00:00Z"
 }
 ```
 
-**Failed Response (502 Bad Gateway):**
+Per-feed diagnostics, feed change alerts, duplicate candidates, and reschedule details are private operational data. Fetch them from the protected admin endpoint with a Function key.
+
+**Failed Response (503 Service Unavailable for refresh failure):**
 ```json
 {
   "serviceName": "calendarmerge",
@@ -87,10 +87,21 @@ This guide provides comprehensive monitoring and alerting recommendations for th
 **URL:** `https://{storage}.z13.web.core.windows.net/status.json`
 
 **Purpose:**
-- Same data as `/api/status` but publicly accessible
+- Public-safe service health and published output metadata
 - Updated after every refresh
 - Persisted even when Azure Functions is down
 - Useful for external monitoring tools
+- Does not include `sourceStatuses`, `feedChangeAlerts`, `potentialDuplicates`, `rescheduledEvents`, or `eventSnapshots`
+
+### Admin Status (Protected Endpoint)
+
+**URL:** `https://{function-app}.azurewebsites.net/api/status/internal`
+
+**Purpose:**
+- Protected operational diagnostics for the management UI and operators
+- Includes sanitized `sourceStatuses`, `feedChangeAlerts`, `suspectFeeds`, `potentialDuplicates`, and `rescheduledEvents`
+- Redacts feed URLs and excludes `eventSnapshots`
+- Requires the Function key in the `x-functions-key` header
 
 ---
 
@@ -235,7 +246,7 @@ status | where operationalState == "degraded"
 
 **Action:**
 1. Review `degradationReasons` in status.json
-2. Check feed-specific errors
+2. Check feed-specific errors in `/api/status/internal`
 3. Create ticket for investigation
 4. Notify team via Slack/email
 
@@ -243,12 +254,14 @@ status | where operationalState == "degraded"
 
 #### 5. Feed Consecutive Failures
 
+The following admin-diagnostic examples assume an authenticated collector has fetched `/api/status/internal` and exposed the standard response envelope as `json`. Do not point unauthenticated external monitors at this protected endpoint.
+
 **Condition:**
 ```kusto
-let status = externaldata(json: dynamic)
-  [@"https://{storage}.z13.web.core.windows.net/status.json"];
+let status = AdminStatusResponses;
 status
-| mv-expand feedStatus = sourceStatuses
+| extend body = json.data.status
+| mv-expand feedStatus = body.sourceStatuses
 | where feedStatus.consecutiveFailures >= 3
 | project feedId = feedStatus.id, feedName = feedStatus.name,
          consecutiveFailures = feedStatus.consecutiveFailures,
@@ -268,10 +281,10 @@ status
 
 **Condition:**
 ```kusto
-let status = externaldata(json: dynamic)
-  [@"https://{storage}.z13.web.core.windows.net/status.json"];
+let status = AdminStatusResponses;
 status
-| mv-expand alert = feedChangeAlerts
+| extend body = json.data.status
+| mv-expand alert = body.feedChangeAlerts
 | where alert.change == "events-to-zero"
 | where alert.severity in ("warning", "error")
 ```
@@ -289,10 +302,10 @@ status
 
 **Condition:**
 ```kusto
-let status = externaldata(json: dynamic)
-  [@"https://{storage}.z13.web.core.windows.net/status.json"];
+let status = AdminStatusResponses;
 status
-| mv-expand alert = feedChangeAlerts
+| extend body = json.data.status
+| mv-expand alert = body.feedChangeAlerts
 | where alert.change == "significant-drop"
 | where alert.percentChange < -50
 ```
@@ -331,12 +344,12 @@ status
 
 **Condition:**
 ```kusto
-let status = externaldata(json: dynamic)
-  [@"https://{storage}.z13.web.core.windows.net/status.json"];
+let status = AdminStatusResponses;
 status
-| where array_length(rescheduledEvents) > 0
-| mv-expand reschedule = rescheduledEvents
-| project timestamp = lastAttemptedRefresh,
+| extend body = json.data.status
+| where array_length(body.rescheduledEvents) > 0
+| mv-expand reschedule = body.rescheduledEvents
+| project timestamp = body.lastAttemptedRefresh,
          summary = reschedule.summary,
          feedName = reschedule.feedName,
          timeChanged = isnotnull(reschedule.changes.time),
@@ -354,11 +367,11 @@ status
 
 **Condition:**
 ```kusto
-let status = externaldata(json: dynamic)
-  [@"https://{storage}.z13.web.core.windows.net/status.json"];
+let status = AdminStatusResponses;
 status
-| where array_length(potentialDuplicates) > 0
-| mv-expand duplicate = potentialDuplicates
+| extend body = json.data.status
+| where array_length(body.potentialDuplicates) > 0
+| mv-expand duplicate = body.potentialDuplicates
 | where duplicate.confidence == "high"
 ```
 
@@ -649,7 +662,7 @@ Action: Email notification
 **Check Configuration:**
 - Interval: Every 5 minutes
 - HTTP Method: GET
-- Expected Status: 200 or 502 (both are valid)
+- Expected Status: 200
 - Keyword monitoring: Look for `"healthy": true`
 - Alert if: No response or HTTP 500/503
 
@@ -675,13 +688,13 @@ return "OK";
 **Symptoms:**
 - `operationalState: "failed"`
 - `degradationReasons: ["All feeds failed"]`
-- All `sourceStatuses` have `ok: false`
+- Protected admin status shows all `sourceStatuses` with `ok: false`
 
 **Investigation Steps:**
 1. Check network connectivity from Azure Function
 2. Verify DNS resolution for feed URLs
 3. Check if common platform (e.g., GameChanger) is down
-4. Review HTTP status codes in sourceStatuses
+4. Review HTTP status codes in protected admin `sourceStatuses`
 5. Test feed URLs manually with curl/Postman
 
 **Common Causes:**
@@ -723,8 +736,8 @@ return "OK";
 
 **Symptoms:**
 - Feed returns 0 events (previously had events)
-- `suspectFeeds: ["feedId"]`
-- `feedChangeAlerts` includes "events-to-zero"
+- Protected admin status includes `suspectFeeds: ["feedId"]`
+- Protected admin status `feedChangeAlerts` includes "events-to-zero"
 
 **Investigation Steps:**
 1. Check if this is expected (season ended)
@@ -773,7 +786,7 @@ return "OK";
 ### Scenario 5: Reschedules Detected
 
 **Symptoms:**
-- `rescheduledEvents` array populated
+- Protected admin status `rescheduledEvents` array populated
 - `degradationReasons: ["N event(s) rescheduled"]`
 
 **Investigation:**
@@ -898,8 +911,18 @@ Write-Host "Event Count: $($response.eventCount)"
 ### Review Feed Health
 
 ```powershell
-# Get status
-$status = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
+# Get protected admin status
+$key = az functionapp keys list `
+  --resource-group $env:AZ_RESOURCE_GROUP `
+  --name $env:AZ_FUNCTIONAPP_NAME `
+  --query "functionKeys.default" `
+  --output tsv
+
+$response = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
+
+$status = $response.data.status
 
 # Display per-feed health
 $status.sourceStatuses | Format-Table id, name, ok, eventCount, consecutiveFailures, error
@@ -908,8 +931,12 @@ $status.sourceStatuses | Format-Table id, name, ok, eventCount, consecutiveFailu
 ### Check for Reschedules
 
 ```powershell
-# Get status
-$status = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
+# Get protected admin status
+$response = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
+
+$status = $response.data.status
 
 # Display reschedules
 if ($status.rescheduledEvents) {
@@ -922,7 +949,11 @@ if ($status.rescheduledEvents) {
 ### View Potential Duplicates
 
 ```powershell
-$status = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
+$response = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
+
+$status = $response.data.status
 
 if ($status.potentialDuplicates) {
   foreach ($dup in $status.potentialDuplicates) {
@@ -952,7 +983,7 @@ if ($status.potentialDuplicates) {
 
 **Change Detection:**
 - Target: Detect 100% of reschedules within 7-day window
-- Measured: Reschedules reported in status.json
+- Measured: Reschedules reported in protected admin status
 
 ### Service Level Indicators (SLIs)
 

@@ -69,6 +69,8 @@ Definition of done:
 
 Priority: P0
 
+Status: Complete in implementation slice 2026-05-06.
+
 Problem:
 The authoritative design contract still describes `status.json` as containing internal details, while the current security posture intentionally omits them from the public payload.
 
@@ -91,6 +93,8 @@ Definition of done:
 ## WI-004: Add API And Status Contract Test Suite
 
 Priority: P1
+
+Status: Complete in implementation slice 2026-05-06.
 
 Problem:
 The repo has good handler/integration coverage, but not dedicated schema contract tests for public and protected API shapes.
@@ -121,15 +125,17 @@ Definition of done:
 
 Priority: P1
 
+Status: Not started. Manual refresh failed-response status was corrected to `503`; shared validation cleanup remains.
+
 Problem:
-Handlers still use ad hoc validation and cast request JSON before validating. Manual refresh also returns `502`, which conflicts with the design contract except for proxy cases.
+Handlers still use ad hoc validation and cast request JSON before validating.
 
 Scope:
 - Introduce shared validation helpers or a lightweight handler wrapper.
 - Use the standard `ValidationResult<T>` shape for handler input validation.
 - Avoid casting `await request.json()` directly to request types before validation.
 - Convert validation details into `validationErrors` consistently.
-- Replace manual refresh failed-response `502` with the contract-aligned status code, likely `503 SERVICE_UNAVAILABLE`.
+- Keep manual refresh failed-response mapped to contract-aligned `503 SERVICE_UNAVAILABLE`.
 - Normalize malformed JSON handling.
 
 Definition of done:

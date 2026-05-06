@@ -43,7 +43,7 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 - Merge logic is implemented as pure TypeScript library code under `src/lib/`.
 - Azure Blob Storage stores the public outputs in `$web/`.
 - `status.json` is written on every run with public-safe health details.
-- Full refresh diagnostics are stored in a private internal status blob for change detection between runs.
+- Full refresh diagnostics are stored in a private internal status blob for change detection between runs and are exposed to the management UI only through the protected `/api/status/internal` endpoint.
 - `calendar.ics`, `calendar-games.ics`, `schedule-x-full.json`, and `schedule-x-games.json` are published together from the merged event set.
 - Public calendar artifacts are sanitized before publishing so attendees, organizers, contacts, and direct contact notes are not exposed.
 - `calendar.ics` is only replaced when all feeds succeed, or when there is no previous good calendar and at least one feed succeeds.
@@ -315,6 +315,7 @@ Function endpoints:
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Read refresh settings (GET)
 
 **Protected:**
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal` - Admin status diagnostics (GET)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh` - Manual refresh (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - List feeds (GET)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - Create feed (POST)
@@ -390,8 +391,9 @@ npm run test:watch  # Watch mode for development
 - Structured logging with categories (refresh, feed, publish, api, etc.)
 
 **Monitoring Endpoints:**
-- `GET /api/status` - Service health and diagnostics
-- `GET https://{storage}.z13.web.core.windows.net/status.json` - Public status
+- `GET /api/status` - Public service health API
+- `GET /api/status/internal` - Protected admin diagnostics API
+- `GET https://{storage}.z13.web.core.windows.net/status.json` - Public-safe status artifact
 - See [MONITORING_GUIDE.md](MONITORING_GUIDE.md) for complete monitoring setup
 - See [STATE_MACHINE.md](STATE_MACHINE.md) for state transitions
 
@@ -417,12 +419,12 @@ az storage blob upload-batch `
 ## Rollback And Troubleshooting
 
 **Operational Issues:**
-- Partial feed failures do not overwrite an existing `calendar.ics`; check `status.json` for per-feed errors
+- Partial feed failures do not overwrite an existing `calendar.ics`; check `status.json` for public degradation summary and `/api/status/internal` for per-feed errors
 - Full failures write `status.json` and keep the existing `calendar.ics` untouched
 - Check `operationalState` and `degradationReasons` in status.json for specific issues
-- Review `feedChangeAlerts` for feed event count changes
-- Check `rescheduledEvents` for detected time/location changes
-- Review `potentialDuplicates` for flagged duplicate events
+- Review `/api/status/internal` `feedChangeAlerts` for feed event count changes
+- Check `/api/status/internal` `rescheduledEvents` for detected time/location changes
+- Review `/api/status/internal` `potentialDuplicates` for flagged duplicate events
 
 **Permission Issues:**
 - If publishing fails, confirm the managed identity still has `Storage Blob Data Contributor` on the storage account

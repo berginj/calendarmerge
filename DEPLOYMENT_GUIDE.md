@@ -21,10 +21,10 @@ This guide walks through deploying the Phase 1 and Phase 2 enhancements to an ex
 
 **1. Duplicate Detection Behavior Changed**
 - **Old:** Events with same summary + same day were automatically suppressed
-- **New:** ALL events kept, duplicates flagged in status.json
+- **New:** ALL events kept, duplicates flagged in protected admin status
 - **Impact:** Merged event count will increase
 - **User Impact:** May see events they expected to be deduplicated
-- **Action:** Review `potentialDuplicates` in status.json after deployment
+- **Action:** Review `potentialDuplicates` from `/api/status/internal` after deployment
 
 **2. Health Field Semantics Changed**
 - **Old:** `healthy: true` for partial failures (some feeds failed but data served)
@@ -42,7 +42,8 @@ This guide walks through deploying the Phase 1 and Phase 2 enhancements to an ex
 ### Phase 2 - No Breaking Changes
 
 Phase 2 is fully additive:
-- All new fields in status.json are optional
+- Public `status.json` remains public-safe and omits private feed/event diagnostics
+- Protected admin status fields are additive behind Function auth
 - All new API response fields are additive
 - Backward compatible with existing integrations
 
@@ -159,22 +160,26 @@ Write-Host "Request ID: $($result.requestId)"
 Write-Host "Refresh ID: $($result.data.refreshId)"
 Write-Host "Operational State: $($result.data.operationalState)"
 Write-Host "Potential Duplicates: $($result.data.potentialDuplicates.Count)"
-Write-Host "Reschedules: $($result.rescheduledEvents.Count)"
+Write-Host "Reschedules: $($result.data.rescheduledEvents.Count)"
 ```
 
-**Check status.json:**
+**Check public status.json and protected admin status:**
 ```powershell
 $publicStatus = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
 
-# Verify Phase 1 fields
+# Verify public-safe fields
 $publicStatus.operationalState
 $publicStatus.degradationReasons
-$publicStatus.potentialDuplicates
+$publicStatus.PSObject.Properties.Name -contains "potentialDuplicates" # expected false
 
-# Verify Phase 2 fields
-$publicStatus.feedChangeAlerts
-$publicStatus.rescheduledEvents
-$publicStatus.suspectFeeds
+$adminResponse = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
+
+$adminStatus = $adminResponse.data.status
+$adminStatus.potentialDuplicates
+$adminStatus.feedChangeAlerts
+$adminStatus.rescheduledEvents
 ```
 
 ---
@@ -328,7 +333,7 @@ After deployment, merged event count will likely increase because:
 - Events with same summary + different times now kept
 
 **Review Process:**
-1. Check `potentialDuplicates` in status.json
+1. Check `potentialDuplicates` from `/api/status/internal`
 2. Identify high-confidence duplicates
 3. Investigate source feeds
 4. Clean up true duplicates at the source if possible
@@ -336,9 +341,12 @@ After deployment, merged event count will likely increase because:
 
 **Example:**
 ```powershell
-# Get potential duplicates
-$status = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
+# Get potential duplicates from protected admin status
+$response = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
 
+$status = $response.data.status
 $status.potentialDuplicates | Where-Object { $_.confidence -eq "high" } | ForEach-Object {
   Write-Host "`nPotential Duplicate: $($_.summary) on $($_.date)"
   Write-Host "Confidence: $($_.confidence)"
@@ -586,20 +594,24 @@ Write-Host "✓ refreshTriggered: $($updateResult.data.refreshTriggered)"
 ```powershell
 $status = Invoke-RestMethod "https://$env:AZ_STORAGE_ACCOUNT.z13.web.core.windows.net/status.json"
 
-# Phase 1 fields
+# Public-safe fields
 Write-Host "✓ refreshId: $($status.refreshId)"
 Write-Host "✓ operationalState: $($status.operationalState)"
 Write-Host "✓ degradationReasons: $($status.degradationReasons -join '; ')"
 Write-Host "✓ lastSuccessfulCheck.fullCalendar: $($status.lastSuccessfulCheck.fullCalendar)"
 Write-Host "✓ checkAgeHours.fullCalendar: $($status.checkAgeHours.fullCalendar)"
-Write-Host "✓ potentialDuplicates count: $(($status.potentialDuplicates ?? @()).Count)"
 Write-Host "✓ cancelledEventsFiltered: $($status.cancelledEventsFiltered ?? 0)"
+Write-Host "✓ public status omits diagnostics: $(-not ($status.PSObject.Properties.Name -contains 'sourceStatuses'))"
 
-# Phase 2 fields
-Write-Host "✓ feedChangeAlerts count: $(($status.feedChangeAlerts ?? @()).Count)"
-Write-Host "✓ suspectFeeds count: $(($status.suspectFeeds ?? @()).Count)"
-Write-Host "✓ rescheduledEvents count: $(($status.rescheduledEvents ?? @()).Count)"
-Write-Host "✓ eventSnapshots count: $(($status.eventSnapshots ?? @{}).Count)"
+$adminResponse = Invoke-RestMethod `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
+  -Headers @{ "x-functions-key" = $key }
+
+$adminStatus = $adminResponse.data.status
+Write-Host "✓ feedChangeAlerts count: $(($adminStatus.feedChangeAlerts ?? @()).Count)"
+Write-Host "✓ suspectFeeds count: $(($adminStatus.suspectFeeds ?? @()).Count)"
+Write-Host "✓ rescheduledEvents count: $(($adminStatus.rescheduledEvents ?? @()).Count)"
+Write-Host "✓ eventSnapshots omitted: $(-not ($adminStatus.PSObject.Properties.Name -contains 'eventSnapshots'))"
 ```
 
 ---
@@ -643,7 +655,7 @@ customMetrics
 **User reports:** "I'm seeing duplicate events!"
 
 **Investigation:**
-1. Check `potentialDuplicates` in status.json
+1. Check `potentialDuplicates` from `/api/status/internal`
 2. Verify these are flagged duplicates
 3. Determine confidence level
 4. Decide: true duplicates or legitimate events
@@ -675,7 +687,7 @@ customMetrics
 **Alert fires:** "15 events rescheduled"
 
 **Investigation:**
-1. Review `rescheduledEvents` in status.json
+1. Review `rescheduledEvents` from `/api/status/internal`
 2. Check if weather event or league-wide change
 3. Verify changes are real (check platform)
 

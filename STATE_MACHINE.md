@@ -193,7 +193,8 @@ This document defines the complete state machine for the calendar merge service,
 - **Actions:**
   - Build ServiceStatus object
   - Calculate operational state
-  - Write status.json
+  - Write sanitized public status.json
+  - Write full private internal status for admin diagnostics and future change detection
   - Send monitoring notifications
 - **Next State:**
   - If status.json write succeeds → COMPLETE
@@ -388,12 +389,12 @@ interface EnhancedServiceStatus {
   gamesOnlyCalendarPublished: boolean;
   servedLastKnownGood: boolean;
 
-  // Feed details
+  // Feed details (private internal/admin status only)
   sourceStatuses: EnhancedFeedStatus[];
   feedChangeAlerts: FeedChangeAlert[]; // NEW
   suspectFeeds: string[]; // NEW: Feed IDs with 0 events
 
-  // Event insights (NEW)
+  // Event insights (private internal/admin status only)
   potentialDuplicates: PotentialDuplicate[];
   rescheduledEvents: RescheduledEvent[];
   cancelledEventsFiltered: number; // Count of filtered cancelled events

@@ -166,6 +166,28 @@ interface ResponseMetadata {
 }
 ```
 
+**GET /api/status/internal - Protected Admin Status**
+```typescript
+// Success
+{
+  "requestId": "...",
+  "status": "success",
+  "data": {
+    "status": {
+      "serviceName": "calendarmerge",
+      "refreshId": "...",
+      "operationalState": "healthy",
+      "sourceStatuses": [...],
+      "feedChangeAlerts": [...],
+      "potentialDuplicates": [...],
+      "rescheduledEvents": [...]
+    }
+  }
+}
+```
+
+`/api/status/internal` MUST require Function auth, MUST redact feed URLs, and MUST NOT return `eventSnapshots`.
+
 ---
 
 ## Contract 2: Error Handling Standards
@@ -680,7 +702,7 @@ type ValidationResult<T> =
 ### Snapshot Storage Contract
 
 **MUST store snapshots:**
-- In `status.json` under `eventSnapshots`
+- In private internal status storage under `eventSnapshots`
 - Only for events in 7-day future window
 - As Record<uid, EventSnapshot>
 - Overwritten on each refresh
@@ -909,15 +931,21 @@ function detectPlatformFromUrl(url: string): string | undefined {
 
 ---
 
-## Contract 12: Status.json Schema
+## Contract 12: Status Contracts
 
-**This is the authoritative schema contract:**
+Public and admin status are separate contracts. Public status is served from static Blob Storage as `status.json` and MUST contain only public-safe service health, output metadata, and aggregate counts. Admin status is served through a Function-auth endpoint and may include operational diagnostics after sanitization.
+
+### Public `status.json`
+
+**Public URL:** `https://{storage}.z13.web.core.windows.net/status.json`
+
+**MUST include only public-safe fields:**
 
 ```typescript
-interface ServiceStatus {
+interface PublicServiceStatus {
   // Core (REQUIRED)
   serviceName: string;
-  refreshId: string;                 // NEW - REQUIRED going forward
+  refreshId?: string;
 
   // State (REQUIRED)
   operationalState: OperationalState; // "healthy" | "degraded" | "failed"
@@ -942,16 +970,8 @@ interface ServiceStatus {
   gamesOnlyCalendarPublished: boolean;
   servedLastKnownGood: boolean;
 
-  // Feeds (REQUIRED)
-  sourceStatuses: FeedStatus[];        // Must include enhanced fields
-  feedChangeAlerts?: FeedChangeAlert[]; // When changes detected
-  suspectFeeds?: string[];             // Feed IDs with 0 events
-
-  // Event Insights (OPTIONAL but recommended)
-  potentialDuplicates?: PotentialDuplicate[];
-  rescheduledEvents?: RescheduledEvent[];
+  // Public aggregate insights
   cancelledEventsFiltered?: number;
-  eventSnapshots?: Record<string, EventSnapshot>;
 
   // Output (REQUIRED)
   output: OutputPaths;
@@ -961,7 +981,41 @@ interface ServiceStatus {
 }
 ```
 
-**Fields marked REQUIRED MUST always be present.**
+**Public status MUST NOT include:**
+- `sourceStatuses`
+- `feedChangeAlerts`
+- `suspectFeeds`
+- `potentialDuplicates`
+- `rescheduledEvents`
+- `eventSnapshots`
+- raw feed URLs or private calendar tokens
+- stack traces, storage credentials, or private event details
+
+### Protected Admin Status
+
+**Protected URL:** `GET /api/status/internal`
+
+The endpoint MUST use the standard success/error envelope and return `{ status: AdminServiceStatus }` in `data`.
+
+```typescript
+interface AdminServiceStatus extends Omit<ServiceStatus, "eventSnapshots"> {
+  sourceStatuses: FeedStatus[];         // URLs redacted before return
+  feedChangeAlerts?: FeedChangeAlert[];
+  suspectFeeds?: string[];
+  potentialDuplicates?: PotentialDuplicate[];
+  rescheduledEvents?: RescheduledEvent[];
+  cancelledEventsFiltered?: number;
+}
+```
+
+**Admin status MUST:**
+- Require Function auth.
+- Read from private internal status storage, falling back to starting status when absent.
+- Redact feed URLs before returning `sourceStatuses`.
+- Exclude `eventSnapshots` by default.
+- Preserve diagnostics needed by the management UI.
+
+**Fields marked REQUIRED MUST always be present on their respective contract.**
 **Fields marked OPTIONAL may be omitted when not applicable.**
 
 ---
@@ -1312,7 +1366,7 @@ app.http("createFeed", {
 
 **Priority 1 (Critical Consistency):**
 1. Standardize API response envelopes
-2. Fix HTTP status code usage (502 → 500)
+2. Audit HTTP status code usage against this contract
 3. Add error codes
 4. Fix silent error swallowing
 
