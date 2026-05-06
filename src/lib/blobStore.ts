@@ -2,6 +2,7 @@ import { BlobServiceClient } from "@azure/storage-blob";
 import { DefaultAzureCredential } from "@azure/identity";
 
 import { AppConfig, ServiceStatus } from "./types";
+import { buildPublicStatus } from "./status";
 
 export class BlobStore {
   private readonly serviceClient: BlobServiceClient;
@@ -59,7 +60,7 @@ export class BlobStore {
   async writeStatus(status: ServiceStatus): Promise<void> {
     await this.ensureContainer();
     await this.getBlobClient(this.config.statusBlobPath).uploadData(
-      Buffer.from(`${JSON.stringify(status, null, 2)}\n`, "utf8"),
+      Buffer.from(`${JSON.stringify(buildPublicStatus(status), null, 2)}\n`, "utf8"),
       {
         blobHTTPHeaders: {
           blobContentType: "application/json; charset=utf-8",

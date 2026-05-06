@@ -3,6 +3,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { createSuccessResponse, toHttpResponse } from "../lib/api-types";
 import { createLogger } from "../lib/log";
 import { loadCurrentStatus } from "../lib/refresh";
+import { buildPublicStatus } from "../lib/status";
 import { generateId } from "../lib/util";
 
 app.http("healthStatus", {
@@ -17,22 +18,7 @@ export async function healthHandler(_request: HttpRequest, context: InvocationCo
   const status = await loadCurrentStatus(logger);
 
   return toHttpResponse(
-    createSuccessResponse(generateId(), {
-      serviceName: status.serviceName,
-      state: status.state,
-      lastSuccessfulRefresh: status.lastSuccessfulRefresh,
-      lastAttemptedRefresh: status.lastAttemptedRefresh,
-      sourceFeedCount: status.sourceFeedCount,
-      mergedEventCount: status.mergedEventCount,
-      gamesOnlyMergedEventCount: status.gamesOnlyMergedEventCount,
-      candidateMergedEventCount: status.candidateMergedEventCount,
-      output: status.output,
-      errorSummary: status.errorSummary,
-      sourceStatuses: status.sourceStatuses,
-      calendarPublished: status.calendarPublished,
-      gamesOnlyCalendarPublished: status.gamesOnlyCalendarPublished,
-      servedLastKnownGood: status.servedLastKnownGood,
-    }),
+    createSuccessResponse(generateId(), buildPublicStatus(status)),
     status.healthy ? 200 : 503,
   );
 }

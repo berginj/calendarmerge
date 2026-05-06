@@ -213,6 +213,30 @@ export interface ServiceStatus {
   errorSummary: string[];
 }
 
+export type PublicServiceStatus = Pick<
+  ServiceStatus,
+  | "serviceName"
+  | "refreshId"
+  | "operationalState"
+  | "degradationReasons"
+  | "state"
+  | "healthy"
+  | "lastAttemptedRefresh"
+  | "lastSuccessfulRefresh"
+  | "lastSuccessfulCheck"
+  | "checkAgeHours"
+  | "sourceFeedCount"
+  | "mergedEventCount"
+  | "gamesOnlyMergedEventCount"
+  | "candidateMergedEventCount"
+  | "calendarPublished"
+  | "gamesOnlyCalendarPublished"
+  | "servedLastKnownGood"
+  | "cancelledEventsFiltered"
+  | "output"
+  | "errorSummary"
+>;
+
 export interface RefreshResult {
   status: ServiceStatus;
   candidateEventCount: number;
