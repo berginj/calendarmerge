@@ -1,5 +1,5 @@
-import { AppConfig, PublicServiceStatus, ServiceStatus } from "./types";
-import { buildOutputPaths } from "./util";
+import { AdminServiceStatus, AppConfig, FeedStatus, PublicServiceStatus, ServiceStatus } from "./types";
+import { buildOutputPaths, redactFeedUrl } from "./util";
 
 export function buildStartingStatus(config: AppConfig): ServiceStatus {
   return {
@@ -40,5 +40,25 @@ export function buildPublicStatus(status: ServiceStatus): PublicServiceStatus {
     cancelledEventsFiltered: status.cancelledEventsFiltered,
     output: status.output,
     errorSummary: status.errorSummary,
+  };
+}
+
+export function buildAdminStatus(status: ServiceStatus): AdminServiceStatus {
+  const { eventSnapshots: _eventSnapshots, ...adminStatus } = status;
+
+  return {
+    ...adminStatus,
+    sourceStatuses: status.sourceStatuses.map(redactFeedStatusUrl),
+  };
+}
+
+function redactFeedStatusUrl(status: FeedStatus): FeedStatus {
+  if (!status.url) {
+    return status;
+  }
+
+  return {
+    ...status,
+    url: redactFeedUrl(status.url),
   };
 }

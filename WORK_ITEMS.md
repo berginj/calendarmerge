@@ -8,6 +8,8 @@ This backlog converts the current design-contract review into implementation-rea
 
 Priority: P0
 
+Status: Complete in implementation slice 2026-05-06.
+
 Problem:
 The public `status.json` is intentionally sanitized, but the management UI still needs feed health, feed alerts, reschedules, and duplicate diagnostics. Those details should be available only through an authenticated API endpoint.
 
@@ -40,6 +42,8 @@ Definition of done:
 ## WI-002: Wire Management UI To Admin Insights Instead Of Public Status
 
 Priority: P0
+
+Status: In progress. Admin status fetching and guarded UI states are implemented; frontend runtime tests and live `/manage/` verification remain.
 
 Problem:
 The management UI currently fetches public `status.json`, but dashboard and changes views expect fields that are no longer public.

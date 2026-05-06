@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildPublicStatus } from "../src/lib/status";
+import { buildAdminStatus, buildPublicStatus } from "../src/lib/status";
 import type { ServiceStatus } from "../src/lib/types";
 
 describe("public status", () => {
@@ -133,5 +133,80 @@ describe("public status", () => {
     expect(serialized).not.toContain("Private appointment");
     expect(serialized).not.toContain("Private location");
     expect(serialized).not.toContain("secret-event");
+  });
+
+  it("keeps admin diagnostics but removes snapshots and redacts feed URLs", () => {
+    const status: ServiceStatus = {
+      serviceName: "calendarmerge",
+      refreshId: "refresh-1",
+      operationalState: "degraded",
+      state: "partial",
+      healthy: true,
+      sourceFeedCount: 1,
+      mergedEventCount: 10,
+      gamesOnlyMergedEventCount: 2,
+      calendarPublished: true,
+      gamesOnlyCalendarPublished: true,
+      servedLastKnownGood: false,
+      sourceStatuses: [
+        {
+          id: "private-feed",
+          name: "Private Feed",
+          url: "https://calendar.example/private/basic.ics?token=secret",
+          ok: true,
+          attemptedAt: "2026-05-06T12:00:00.000Z",
+          durationMs: 100,
+          eventCount: 11,
+        },
+      ],
+      feedChangeAlerts: [
+        {
+          feedId: "private-feed",
+          feedName: "Private Feed",
+          change: "significant-drop",
+          previousCount: 100,
+          currentCount: 11,
+          percentChange: -89,
+          timestamp: "2026-05-06T12:00:00.000Z",
+          severity: "warning",
+        },
+      ],
+      eventSnapshots: {
+        "secret-event": {
+          uid: "secret-event",
+          summary: "Private appointment",
+          sourceId: "private-feed",
+          sourceName: "Private Feed",
+          startTime: "2026-05-07T13:00:00.000Z",
+          location: "Private location",
+          capturedAt: "2026-05-06T12:00:00.000Z",
+        },
+      },
+      output: {
+        storageAccount: "calendarmerge",
+        container: "$web",
+        calendarBlobPath: "calendar.ics",
+        gamesCalendarBlobPath: "calendar-games.ics",
+        scheduleXFullBlobPath: "schedule-x-full.json",
+        scheduleXGamesBlobPath: "schedule-x-games.json",
+        statusBlobPath: "status.json",
+        blobBaseUrl: "https://example.com",
+        blobCalendarUrl: "https://example.com/calendar.ics",
+        blobGamesCalendarUrl: "https://example.com/calendar-games.ics",
+        blobScheduleXFullUrl: "https://example.com/schedule-x-full.json",
+        blobScheduleXGamesUrl: "https://example.com/schedule-x-games.json",
+        blobStatusUrl: "https://example.com/status.json",
+      },
+      errorSummary: [],
+    };
+
+    const adminStatus = buildAdminStatus(status);
+    const serialized = JSON.stringify(adminStatus);
+
+    expect(adminStatus.sourceStatuses[0].url).toBe("https://calendar.example/[redacted]");
+    expect(adminStatus.feedChangeAlerts).toHaveLength(1);
+    expect(adminStatus).not.toHaveProperty("eventSnapshots");
+    expect(serialized).not.toContain("token=secret");
+    expect(serialized).not.toContain("private/basic.ics");
   });
 });

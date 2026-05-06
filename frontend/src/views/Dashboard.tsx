@@ -24,7 +24,8 @@ export default function Dashboard() {
     );
   }
 
-  const failedCount = status.sourceStatuses.filter(f => !f.ok).length;
+  const sourceStatuses = status.sourceStatuses ?? [];
+  const failedCount = sourceStatuses.filter(f => !f.ok).length;
 
   return (
     <div className="space-y-8">
@@ -48,8 +49,14 @@ export default function Dashboard() {
           icon={<Rss className="h-6 w-6" />}
           label="Active Feeds"
           value={status.sourceFeedCount}
-          sublabel={failedCount > 0 ? `${failedCount} failed` : 'All healthy'}
-          status={failedCount > 0 ? 'error' : 'success'}
+          sublabel={
+            !status.adminInsightsAvailable
+              ? 'Admin details unavailable'
+              : failedCount > 0
+                ? `${failedCount} failed`
+                : 'All healthy'
+          }
+          status={!status.adminInsightsAvailable ? 'neutral' : failedCount > 0 ? 'error' : 'success'}
         />
 
         <MetricCard
@@ -168,7 +175,17 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {status.sourceStatuses.map((feed) => {
+            {sourceStatuses.length === 0 ? (
+              <div className="md:col-span-2 lg:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+                <p className="text-sm font-medium text-slate-900">Admin diagnostics unavailable</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Save a Function key to view per-feed health and operational details.
+                </p>
+                {status.adminInsightsError && (
+                  <p className="mt-2 text-xs text-red-600">{status.adminInsightsError}</p>
+                )}
+              </div>
+            ) : sourceStatuses.map((feed) => {
               const isSuspect = status.suspectFeeds?.includes(feed.id);
               const getHealthStatus = () => {
                 if (!feed.ok) return 'failed';

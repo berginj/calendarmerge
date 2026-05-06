@@ -115,7 +115,7 @@ export default function Feeds({
 
   // Get feed health from status
   const getFeedHealth = (feedId: string) => {
-    const feedStatus = status?.sourceStatuses.find(f => f.id === feedId);
+    const feedStatus = status?.sourceStatuses?.find(f => f.id === feedId);
     const isSuspect = status?.suspectFeeds?.includes(feedId);
 
     return {
@@ -158,7 +158,7 @@ export default function Feeds({
     return h.ok && !h.suspect;
   }).length;
   const suspectCount = status?.suspectFeeds?.length ?? 0;
-  const failedCount = status?.sourceStatuses.filter(f => !f.ok).length ?? 0;
+  const failedCount = status?.sourceStatuses?.filter(f => !f.ok).length ?? 0;
   const disabledCount = feeds.filter(f => f.enabled === false).length;
 
   return (

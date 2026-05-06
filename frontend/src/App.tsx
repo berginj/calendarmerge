@@ -64,6 +64,7 @@ function App() {
   const apiLinks: LinkItem[] = [
     { label: 'Ping', href: new URL('ping', apiBase).toString() },
     { label: 'Status API', href: new URL('status', apiBase).toString() },
+    { label: 'Admin Status API', href: new URL('status/internal', apiBase).toString() },
     { label: 'Settings API', href: new URL('settings', apiBase).toString() },
     { label: 'Feeds API', href: new URL('feeds', apiBase).toString() },
     { label: 'Diagnostic API', href: new URL('diagnostic', apiBase).toString() },

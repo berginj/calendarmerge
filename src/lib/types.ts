@@ -239,6 +239,8 @@ export type PublicServiceStatus = Pick<
   | "errorSummary"
 >;
 
+export type AdminServiceStatus = Omit<ServiceStatus, "eventSnapshots">;
+
 export interface RefreshResult {
   status: ServiceStatus;
   candidateEventCount: number;

@@ -1,3 +1,4 @@
+import "./functions/adminStatus";
 import "./functions/diagnostic";
 import "./functions/feedCreate";
 import "./functions/feedDelete";

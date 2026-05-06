@@ -166,6 +166,7 @@ function Settings() {
         <div className="settings-links">
           <a href={apiBaseDisplay} target="_blank" rel="noreferrer">{apiBaseDisplay}</a>
           <a href={new URL('status', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('status', apiBase).toString()}</a>
+          <a href={new URL('status/internal', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('status/internal', apiBase).toString()}</a>
           <a href={new URL('settings', apiBase).toString()} target="_blank" rel="noreferrer">{new URL('settings', apiBase).toString()}</a>
           <a href={publicBaseDisplay} target="_blank" rel="noreferrer">{publicBaseDisplay}</a>
           <a href={new URL('index.html', publicBase).toString()} target="_blank" rel="noreferrer">{new URL('index.html', publicBase).toString()}</a>

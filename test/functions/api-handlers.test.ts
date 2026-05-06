@@ -27,6 +27,12 @@ const refreshMocks = vi.hoisted(() => ({
   runRefresh: vi.fn(),
 }));
 
+const blobMocks = vi.hoisted(() => ({
+  store: {
+    readStatusForRefresh: vi.fn(),
+  },
+}));
+
 vi.mock("@azure/functions", () => ({
   app: {
     http: azureMocks.http,
@@ -53,6 +59,13 @@ vi.mock("../../src/lib/refresh", () => ({
   loadCurrentStatus: vi.fn(),
 }));
 
+vi.mock("../../src/lib/blobStore", () => ({
+  BlobStore: function BlobStore() {
+    return blobMocks.store;
+  },
+}));
+
+import { adminStatusHandler } from "../../src/functions/adminStatus";
 import { clearConfigCache } from "../../src/lib/config";
 import { createFeedHandler } from "../../src/functions/feedCreate";
 import { deleteFeedHandler } from "../../src/functions/feedDelete";
@@ -126,6 +139,7 @@ describe("HTTP API handlers", () => {
     settingsMocks.store.getSettings.mockReset();
     settingsMocks.store.updateSettings.mockReset();
     refreshMocks.runRefresh.mockReset();
+    blobMocks.store.readStatusForRefresh.mockReset();
   });
 
   afterEach(() => {
@@ -137,6 +151,13 @@ describe("HTTP API handlers", () => {
     expect(azureMocks.http).toHaveBeenCalledWith("listFeedsSimple", expect.objectContaining({
       authLevel: "function",
       route: "feeds-simple",
+    }));
+  });
+
+  it("registers admin status as protected", () => {
+    expect(azureMocks.http).toHaveBeenCalledWith("adminStatus", expect.objectContaining({
+      authLevel: "function",
+      route: "status/internal",
     }));
   });
 
@@ -158,6 +179,122 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.status).toBe("success");
     expect(response.jsonBody.data.count).toBe(1);
     expect(response.jsonBody.data.feeds[0].url).toContain("token=secret");
+  });
+
+  it("returns sanitized admin status diagnostics from internal status", async () => {
+    blobMocks.store.readStatusForRefresh.mockResolvedValue({
+      serviceName: "calendarmerge",
+      refreshId: "refresh-1",
+      operationalState: "degraded",
+      degradationReasons: ["1 feed(s) failed: Private Feed"],
+      state: "partial",
+      healthy: true,
+      lastAttemptedRefresh: "2026-05-06T00:00:00.000Z",
+      lastSuccessfulRefresh: "2026-05-06T00:00:00.000Z",
+      lastSuccessfulCheck: {},
+      checkAgeHours: {},
+      sourceFeedCount: 1,
+      mergedEventCount: 3,
+      gamesOnlyMergedEventCount: 1,
+      calendarPublished: true,
+      gamesOnlyCalendarPublished: true,
+      servedLastKnownGood: false,
+      sourceStatuses: [
+        {
+          id: "private-feed",
+          name: "Private Feed",
+          url: "https://calendar.example/private/basic.ics?token=secret",
+          ok: true,
+          attemptedAt: "2026-05-06T00:00:00.000Z",
+          durationMs: 10,
+          eventCount: 3,
+        },
+      ],
+      feedChangeAlerts: [
+        {
+          feedId: "private-feed",
+          feedName: "Private Feed",
+          change: "significant-drop",
+          previousCount: 10,
+          currentCount: 3,
+          percentChange: -70,
+          timestamp: "2026-05-06T00:00:00.000Z",
+          severity: "warning",
+        },
+      ],
+      suspectFeeds: ["private-feed"],
+      potentialDuplicates: [
+        {
+          summary: "Practice",
+          date: "2026-05-06",
+          confidence: "high",
+          instances: [
+            {
+              feedId: "private-feed",
+              feedName: "Private Feed",
+              time: "2026-05-06T12:00:00.000Z",
+              location: "Field 1",
+              uid: "event-1",
+            },
+          ],
+        },
+      ],
+      rescheduledEvents: [
+        {
+          uid: "event-1",
+          summary: "Practice",
+          feedId: "private-feed",
+          feedName: "Private Feed",
+          changes: {
+            time: {
+              from: "2026-05-06T12:00:00.000Z",
+              to: "2026-05-06T13:00:00.000Z",
+            },
+          },
+          detectedAt: "2026-05-06T00:00:00.000Z",
+        },
+      ],
+      cancelledEventsFiltered: 2,
+      eventSnapshots: {
+        "event-1": {
+          uid: "event-1",
+          summary: "Practice",
+          sourceId: "private-feed",
+          sourceName: "Private Feed",
+          startTime: "2026-05-06T13:00:00.000Z",
+          location: "Field 1",
+          capturedAt: "2026-05-06T00:00:00.000Z",
+        },
+      },
+      output: {},
+      errorSummary: [],
+    });
+
+    const response = await adminStatusHandler(request(), context);
+    const serialized = JSON.stringify(response.jsonBody);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.status).toBe("success");
+    expect(response.jsonBody.data.status.sourceStatuses).toHaveLength(1);
+    expect(response.jsonBody.data.status.sourceStatuses[0].url).toBe("https://calendar.example/[redacted]");
+    expect(response.jsonBody.data.status.feedChangeAlerts).toHaveLength(1);
+    expect(response.jsonBody.data.status.potentialDuplicates).toHaveLength(1);
+    expect(response.jsonBody.data.status.rescheduledEvents).toHaveLength(1);
+    expect(response.jsonBody.data.status).not.toHaveProperty("eventSnapshots");
+    expect(serialized).not.toContain("token=secret");
+    expect(serialized).not.toContain("private/basic.ics");
+  });
+
+  it("returns starting admin status when no stored status exists", async () => {
+    blobMocks.store.readStatusForRefresh.mockResolvedValue(null);
+
+    const response = await adminStatusHandler(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.status).toBe("success");
+    expect(response.jsonBody.data.status.serviceName).toBe("calendarmerge");
+    expect(response.jsonBody.data.status.sourceStatuses).toEqual([]);
+    expect(response.jsonBody.data.status).not.toHaveProperty("eventSnapshots");
   });
 
   it("creates feeds through the standard response envelope", async () => {
