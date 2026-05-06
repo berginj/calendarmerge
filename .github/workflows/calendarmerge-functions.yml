@@ -84,6 +84,15 @@ jobs:
             --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
             --account-key "${{ secrets.AZURE_STORAGE_KEY }}" \
             --container-name '$web' \
+            --name "games" \
+            --file "./public/games.html" \
+            --overwrite true \
+            --content-type "text/html; charset=utf-8"
+
+          az storage blob upload \
+            --account-name "${{ vars.AZ_STORAGE_ACCOUNT }}" \
+            --account-key "${{ secrets.AZURE_STORAGE_KEY }}" \
+            --container-name '$web' \
             --name "games/index.html" \
             --file "./public/games.html" \
             --overwrite true \

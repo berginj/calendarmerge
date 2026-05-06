@@ -266,6 +266,17 @@ Invoke-AzCli storage blob upload `
   --account-name $StorageAccount `
   --account-key $storageAccountKey `
   --container-name '$web' `
+  --name games `
+  --file (Join-Path $projectRoot "public/games.html") `
+  --overwrite true `
+  --content-type "text/html; charset=utf-8" `
+  --only-show-errors `
+  --output none | Out-Null
+
+Invoke-AzCli storage blob upload `
+  --account-name $StorageAccount `
+  --account-key $storageAccountKey `
+  --container-name '$web' `
   --name games/index.html `
   --file (Join-Path $projectRoot "public/games.html") `
   --overwrite true `

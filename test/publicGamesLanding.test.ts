@@ -26,18 +26,22 @@ describe("public games subscribe page", () => {
     const bootstrapScript = readFileSync("scripts/azure/bootstrap.ps1", "utf8");
 
     expect(workflow).toContain("--name \"games.html\"");
+    expect(workflow).toContain("--name \"games\"");
     expect(workflow).toContain("--name \"games/index.html\"");
     expect(workflow).toContain('--file "./public/games.html"');
     expect(deployScript).toContain("--name games.html");
+    expect(deployScript).toContain("--name games");
     expect(deployScript).toContain("--name games/index.html");
     expect(deployScript).toContain('"public/games.html"');
     expect(bootstrapScript).toContain("--name games.html");
+    expect(bootstrapScript).toContain("--name games");
     expect(bootstrapScript).toContain("--name games/index.html");
     expect(bootstrapScript).toContain('"public/games.html"');
   });
 
   it.each([
     "https://calendarmergeprod01.z13.web.core.windows.net/games.html",
+    "https://calendarmergeprod01.z13.web.core.windows.net/games",
     "https://calendarmergeprod01.z13.web.core.windows.net/games/",
   ])("rewrites the lone subscription action to a root webcal URL from %s", (pageUrl) => {
     const html = readFileSync("public/games.html", "utf8");

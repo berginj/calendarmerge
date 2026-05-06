@@ -85,6 +85,17 @@ try {
     --account-name $storageAccount `
     --account-key $storageKey `
     --container-name '$web' `
+    --name games `
+    --file (Join-Path $projectRoot "public/games.html") `
+    --overwrite true `
+    --content-type "text/html; charset=utf-8" `
+    --only-show-errors `
+    --output none
+
+  & az storage blob upload `
+    --account-name $storageAccount `
+    --account-key $storageKey `
+    --container-name '$web' `
     --name games/index.html `
     --file (Join-Path $projectRoot "public/games.html") `
     --overwrite true `
