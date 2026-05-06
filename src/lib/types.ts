@@ -22,6 +22,8 @@ export interface AppConfig {
   scheduleXFullBlobPath: string;
   scheduleXGamesBlobPath: string;
   statusBlobPath: string;
+  internalStatusContainer: string;
+  internalStatusBlobPath: string;
   refreshSchedule: string;
   fetchTimeoutMs: number;
   fetchRetryCount: number;

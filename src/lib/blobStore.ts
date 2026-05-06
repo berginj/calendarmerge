@@ -1,4 +1,4 @@
-import { BlobServiceClient } from "@azure/storage-blob";
+import { BlobServiceClient, type BlockBlobClient } from "@azure/storage-blob";
 import { DefaultAzureCredential } from "@azure/identity";
 
 import { AppConfig, ServiceStatus } from "./types";
@@ -27,13 +27,19 @@ export class BlobStore {
 
   async readStatus(): Promise<ServiceStatus | null> {
     const blobClient = this.getBlobClient(this.config.statusBlobPath);
-    if (!(await blobClient.exists())) {
-      return null;
-    }
+    return readStatusBlob(blobClient);
+  }
 
-    const response = await blobClient.download();
-    const body = await streamToString(response.readableStreamBody);
-    return JSON.parse(body) as ServiceStatus;
+  async readInternalStatus(): Promise<ServiceStatus | null> {
+    const blobClient = this.getBlobClient(
+      this.config.internalStatusBlobPath,
+      this.config.internalStatusContainer,
+    );
+    return readStatusBlob(blobClient);
+  }
+
+  async readStatusForRefresh(): Promise<ServiceStatus | null> {
+    return (await this.readInternalStatus()) ?? (await this.readStatus());
   }
 
   async writeCalendar(calendarText: string, blobPath: string = this.config.outputBlobPath): Promise<void> {
@@ -58,6 +64,11 @@ export class BlobStore {
   }
 
   async writeStatus(status: ServiceStatus): Promise<void> {
+    await this.writePublicStatus(status);
+    await this.writeInternalStatus(status);
+  }
+
+  async writePublicStatus(status: ServiceStatus): Promise<void> {
     await this.ensureContainer();
     await this.getBlobClient(this.config.statusBlobPath).uploadData(
       Buffer.from(`${JSON.stringify(buildPublicStatus(status), null, 2)}\n`, "utf8"),
@@ -69,15 +80,48 @@ export class BlobStore {
     );
   }
 
-  private async ensureContainer(): Promise<void> {
-    await this.serviceClient.getContainerClient(this.config.outputContainer).createIfNotExists();
+  async writeInternalStatus(status: ServiceStatus): Promise<void> {
+    await this.ensureContainer(this.config.internalStatusContainer);
+    await this.getBlobClient(
+      this.config.internalStatusBlobPath,
+      this.config.internalStatusContainer,
+    ).uploadData(
+      Buffer.from(`${JSON.stringify(status, null, 2)}\n`, "utf8"),
+      {
+        blobHTTPHeaders: {
+          blobContentType: "application/json; charset=utf-8",
+        },
+      },
+    );
   }
 
-  private getBlobClient(blobPath: string) {
+  private async ensureContainer(containerName: string = this.config.outputContainer): Promise<void> {
+    await this.serviceClient.getContainerClient(containerName).createIfNotExists();
+  }
+
+  private getBlobClient(blobPath: string, containerName: string = this.config.outputContainer) {
     return this.serviceClient
-      .getContainerClient(this.config.outputContainer)
+      .getContainerClient(containerName)
       .getBlockBlobClient(blobPath);
   }
+}
+
+async function readStatusBlob(blobClient: BlockBlobClient): Promise<ServiceStatus | null> {
+  if (!(await blobClient.exists())) {
+    return null;
+  }
+
+  const response = await blobClient.download();
+  const body = await streamToString(response.readableStreamBody);
+  return normalizeStatus(JSON.parse(body) as Partial<ServiceStatus>);
+}
+
+function normalizeStatus(status: Partial<ServiceStatus>): ServiceStatus {
+  return {
+    ...status,
+    sourceStatuses: status.sourceStatuses ?? [],
+    errorSummary: status.errorSummary ?? [],
+  } as ServiceStatus;
 }
 
 async function streamToString(stream: NodeJS.ReadableStream | null | undefined): Promise<string> {

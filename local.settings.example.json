@@ -12,8 +12,10 @@
     "SCHEDULE_X_FULL_BLOB_PATH": "schedule-x-full.json",
     "SCHEDULE_X_GAMES_BLOB_PATH": "schedule-x-games.json",
     "STATUS_BLOB_PATH": "status.json",
+    "INTERNAL_STATUS_CONTAINER": "calendarmerge-internal",
+    "INTERNAL_STATUS_BLOB_PATH": "status-internal.json",
     "ENABLE_TABLE_STORAGE": "false",
-    "REFRESH_SCHEDULE": "0 */15 * * * *",
+    "REFRESH_SCHEDULE": "0 */30 * * * *",
     "FETCH_TIMEOUT_MS": "10000",
     "FETCH_RETRY_COUNT": "2",
     "FETCH_RETRY_DELAY_MS": "750"

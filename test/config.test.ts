@@ -30,10 +30,36 @@ describe("Config", () => {
     expect(config.scheduleXFullBlobPath).toBe("schedule-x-full.json");
     expect(config.scheduleXGamesBlobPath).toBe("schedule-x-games.json");
     expect(config.statusBlobPath).toBe("status.json");
+    expect(config.internalStatusContainer).toBe("calendarmerge-internal");
+    expect(config.internalStatusBlobPath).toBe("status-internal.json");
     expect(config.refreshSchedule).toBe("0 */30 * * * *"); // Updated to 30 min based on platform research
     expect(config.fetchTimeoutMs).toBe(10000);
     expect(config.fetchRetryCount).toBe(2);
     expect(config.fetchRetryDelayMs).toBe(750);
+  });
+
+  it("should allow internal status storage overrides", () => {
+    const env = {
+      SOURCE_FEEDS_JSON: '[{"id":"test","name":"Test","url":"https://example.com/cal.ics"}]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      INTERNAL_STATUS_CONTAINER: "private-state",
+      INTERNAL_STATUS_BLOB_PATH: "diagnostics/status.json",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.internalStatusContainer).toBe("private-state");
+    expect(config.internalStatusBlobPath).toBe("diagnostics/status.json");
+  });
+
+  it("should reject invalid internal status container names", () => {
+    const env = {
+      SOURCE_FEEDS_JSON: '[{"id":"test","name":"Test","url":"https://example.com/cal.ics"}]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      INTERNAL_STATUS_CONTAINER: "$web",
+    };
+
+    expect(() => loadConfig(env)).toThrow("INTERNAL_STATUS_CONTAINER must be a valid Azure container name");
   });
 
   it("should throw error if SOURCE_FEEDS_JSON is missing", () => {

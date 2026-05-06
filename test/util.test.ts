@@ -23,6 +23,8 @@ describe("util", () => {
       scheduleXFullBlobPath: "schedule-x-full.json",
       scheduleXGamesBlobPath: "schedule-x-games.json",
       statusBlobPath: "status.json",
+      internalStatusContainer: "calendarmerge-internal",
+      internalStatusBlobPath: "status-internal.json",
       refreshSchedule: "0 */15 * * * *",
       fetchTimeoutMs: 10_000,
       fetchRetryCount: 2,

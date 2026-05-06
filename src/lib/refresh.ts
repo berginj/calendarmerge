@@ -293,12 +293,30 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   };
 
   try {
-    await store.writeStatus(status);
+    await store.writeInternalStatus(status);
+  } catch (error) {
+    const message = `Failed to write internal status: ${errorMessage(error)}`;
+    refreshLogger.setCategory("system").error("internal_status_write_failed", { error: message });
+    status.operationalState = status.operationalState === "failed" ? "failed" : "degraded";
+    status.healthy = status.operationalState !== "failed";
+    status.degradationReasons = [
+      ...(status.degradationReasons ?? []),
+      "Internal diagnostics failed to persist",
+    ];
+    status.errorSummary = [...status.errorSummary, message];
+  }
+
+  try {
+    await store.writePublicStatus(status);
   } catch (error) {
     const message = `Failed to write status.json: ${errorMessage(error)}`;
     refreshLogger.setCategory("system").error("status_write_failed", { error: message });
     status.healthy = false;
     status.operationalState = "failed";
+    status.degradationReasons = [
+      ...(status.degradationReasons ?? []),
+      "Public status failed to publish",
+    ];
     status.errorSummary = [...status.errorSummary, message];
   }
 
@@ -389,7 +407,7 @@ function generateFeedChangeAlerts(results: FeedRunResult[], timestamp: string): 
 
 async function safeReadStatus(store: BlobStore, logger: Logger, serviceName: string) {
   try {
-    return await store.readStatus();
+    return await store.readStatusForRefresh();
   } catch (error) {
     logger.warn("status_read_ignored", {
       serviceName,

@@ -26,7 +26,7 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 - `calendar-games.ics` - Games-only merged calendar feed
 - `schedule-x-full.json` - Read-only Schedule-X event payload for the full calendar
 - `schedule-x-games.json` - Read-only Schedule-X event payload for the games-only calendar
-- `status.json` - Service health, diagnostics, and change detection
+- `status.json` - Public service health and published output counts
 - `index.html` - Public read-only Schedule-X viewer
 - `manage/` - Feed management web UI
 
@@ -41,7 +41,8 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 - Azure Functions handles scheduled and manual refreshes.
 - Merge logic is implemented as pure TypeScript library code under `src/lib/`.
 - Azure Blob Storage stores the public outputs in `$web/`.
-- `status.json` is written on every run.
+- `status.json` is written on every run with public-safe health details.
+- Full refresh diagnostics are stored in a private internal status blob for change detection between runs.
 - `calendar.ics`, `calendar-games.ics`, `schedule-x-full.json`, and `schedule-x-games.json` are published together from the merged event set.
 - Public calendar artifacts are sanitized before publishing so attendees, organizers, contacts, and direct contact notes are not exposed.
 - `calendar.ics` is only replaced when all feeds succeed, or when there is no previous good calendar and at least one feed succeeds.
@@ -88,7 +89,9 @@ Supported settings:
 | `OUTPUT_GAMES_BLOB_PATH` | No | `calendar-games.ics` | Public merged games-only calendar path. |
 | `SCHEDULE_X_FULL_BLOB_PATH` | No | `schedule-x-full.json` | Public Schedule-X data for the full calendar. |
 | `SCHEDULE_X_GAMES_BLOB_PATH` | No | `schedule-x-games.json` | Public Schedule-X data for the games-only calendar. |
-| `STATUS_BLOB_PATH` | No | `status.json` | Diagnostics path. |
+| `STATUS_BLOB_PATH` | No | `status.json` | Public health/status path. |
+| `INTERNAL_STATUS_CONTAINER` | No | `calendarmerge-internal` | Private container for full refresh diagnostics. |
+| `INTERNAL_STATUS_BLOB_PATH` | No | `status-internal.json` | Private full refresh diagnostics path. |
 | `REFRESH_SCHEDULE` | No | `0 */30 * * * *` | Azure Functions NCRONTAB schedule (30 min default, safe for most platforms). |
 | `FETCH_TIMEOUT_MS` | No | `10000` | Per-request timeout. |
 | `FETCH_RETRY_COUNT` | No | `2` | Retry count after the initial attempt. |

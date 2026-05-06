@@ -16,6 +16,8 @@ export const DEFAULT_GAMES_OUTPUT_BLOB_PATH = "calendar-games.ics";
 export const DEFAULT_SCHEDULE_X_FULL_BLOB_PATH = "schedule-x-full.json";
 export const DEFAULT_SCHEDULE_X_GAMES_BLOB_PATH = "schedule-x-games.json";
 export const DEFAULT_STATUS_BLOB_PATH = "status.json";
+export const DEFAULT_INTERNAL_STATUS_CONTAINER = "calendarmerge-internal";
+export const DEFAULT_INTERNAL_STATUS_BLOB_PATH = "status-internal.json";
 // Updated from 15 to 30 minutes based on platform research (see PLATFORM_INTEGRATION_NOTES.md)
 // Most sports platforms (GameChanger, TeamSnap, etc.) refresh around 30-60 minutes
 export const DEFAULT_REFRESH_SCHEDULE = "0 */30 * * * *";
@@ -69,6 +71,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     env.SCHEDULE_X_GAMES_BLOB_PATH ?? DEFAULT_SCHEDULE_X_GAMES_BLOB_PATH,
   );
   const statusBlobPath = normalizeBlobPath(env.STATUS_BLOB_PATH ?? DEFAULT_STATUS_BLOB_PATH);
+  const internalStatusContainer = normalizeContainerName(
+    env.INTERNAL_STATUS_CONTAINER ?? DEFAULT_INTERNAL_STATUS_CONTAINER,
+    "INTERNAL_STATUS_CONTAINER",
+  );
+  const internalStatusBlobPath = normalizeBlobPath(
+    env.INTERNAL_STATUS_BLOB_PATH ?? DEFAULT_INTERNAL_STATUS_BLOB_PATH,
+  );
   const refreshSchedule = (env.REFRESH_SCHEDULE ?? DEFAULT_REFRESH_SCHEDULE).trim();
   const fetchTimeoutMs = parsePositiveInteger(
     env.FETCH_TIMEOUT_MS,
@@ -100,6 +109,8 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     scheduleXFullBlobPath,
     scheduleXGamesBlobPath,
     statusBlobPath,
+    internalStatusContainer,
+    internalStatusBlobPath,
     refreshSchedule,
     fetchTimeoutMs,
     fetchRetryCount,
@@ -241,6 +252,17 @@ function validateStorageAccountName(name: string): void {
       "OUTPUT_STORAGE_ACCOUNT must be a valid Azure storage account name (3-24 lowercase letters or digits).",
     );
   }
+}
+
+function normalizeContainerName(value: string, name: string): string {
+  const trimmed = value.trim();
+  if (!/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?$/.test(trimmed) || trimmed.includes("--")) {
+    throw new Error(
+      `${name} must be a valid Azure container name (3-63 lowercase letters, digits, or single hyphens).`,
+    );
+  }
+
+  return trimmed;
 }
 
 function validateSchedule(schedule: string): void {
