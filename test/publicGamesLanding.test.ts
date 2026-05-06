@@ -25,17 +25,14 @@ describe("public games subscribe page", () => {
     const deployScript = readFileSync("scripts/azure/deploy-functions.ps1", "utf8");
     const bootstrapScript = readFileSync("scripts/azure/bootstrap.ps1", "utf8");
 
-    expect(workflow).toContain("--name \"games.html\"");
-    expect(workflow).toContain("--name \"games\"");
-    expect(workflow).toContain("--name \"games/index.html\"");
+    expect(workflow).toContain('for games_alias in "games.html" "games" "games/index.html"; do');
+    expect(workflow).toContain('--name "$games_alias"');
     expect(workflow).toContain('--file "./public/games.html"');
-    expect(deployScript).toContain("--name games.html");
-    expect(deployScript).toContain("--name games");
-    expect(deployScript).toContain("--name games/index.html");
+    expect(deployScript).toContain('foreach ($gamesBlobName in @("games.html", "games", "games/index.html"))');
+    expect(deployScript).toContain("--name $gamesBlobName");
     expect(deployScript).toContain('"public/games.html"');
-    expect(bootstrapScript).toContain("--name games.html");
-    expect(bootstrapScript).toContain("--name games");
-    expect(bootstrapScript).toContain("--name games/index.html");
+    expect(bootstrapScript).toContain('foreach ($gamesBlobName in @("games.html", "games", "games/index.html"))');
+    expect(bootstrapScript).toContain("--name $gamesBlobName");
     expect(bootstrapScript).toContain('"public/games.html"');
   });
 

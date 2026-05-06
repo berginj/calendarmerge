@@ -70,38 +70,18 @@ try {
     --only-show-errors `
     --output none
 
-  & az storage blob upload `
-    --account-name $storageAccount `
-    --account-key $storageKey `
-    --container-name '$web' `
-    --name games.html `
-    --file (Join-Path $projectRoot "public/games.html") `
-    --overwrite true `
-    --content-type "text/html; charset=utf-8" `
-    --only-show-errors `
-    --output none
-
-  & az storage blob upload `
-    --account-name $storageAccount `
-    --account-key $storageKey `
-    --container-name '$web' `
-    --name games `
-    --file (Join-Path $projectRoot "public/games.html") `
-    --overwrite true `
-    --content-type "text/html; charset=utf-8" `
-    --only-show-errors `
-    --output none
-
-  & az storage blob upload `
-    --account-name $storageAccount `
-    --account-key $storageKey `
-    --container-name '$web' `
-    --name games/index.html `
-    --file (Join-Path $projectRoot "public/games.html") `
-    --overwrite true `
-    --content-type "text/html; charset=utf-8" `
-    --only-show-errors `
-    --output none
+  foreach ($gamesBlobName in @("games.html", "games", "games/index.html")) {
+    & az storage blob upload `
+      --account-name $storageAccount `
+      --account-key $storageKey `
+      --container-name '$web' `
+      --name $gamesBlobName `
+      --file (Join-Path $projectRoot "public/games.html") `
+      --overwrite true `
+      --content-type "text/html; charset=utf-8" `
+      --only-show-errors `
+      --output none
+  }
 } finally {
   Pop-Location
 }
