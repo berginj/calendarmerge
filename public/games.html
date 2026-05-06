@@ -4,6 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sports games calendar</title>
+    <meta
+      name="description"
+      content="Subscribe to the games-only calendar feed."
+    />
+    <meta property="og:title" content="Sports games calendar" />
+    <meta property="og:description" content="Subscribe to the games-only calendar feed." />
+    <meta name="theme-color" content="#0f6b4a" />
     <style>
       :root {
         color-scheme: light;
@@ -141,16 +148,25 @@
           class="subscribe"
           href="./calendar-games.ics"
           data-ics-path="calendar-games.ics"
+          aria-label="Subscribe to the games calendar ICS feed"
         >Subscribe to games calendar</a>
       </section>
     </main>
 
     <script>
       const subscribeLink = document.getElementById("subscribe-link");
-      const icsPath = subscribeLink?.dataset.icsPath || "calendar-games.ics";
-      const icsUrl = new URL(icsPath, window.location.href);
-      icsUrl.protocol = "webcal:";
-      subscribeLink.href = icsUrl.toString();
+      if (subscribeLink) {
+        subscribeLink.href = buildSubscribeUrl(
+          window.location.href,
+          subscribeLink.dataset.icsPath || "calendar-games.ics",
+        );
+      }
+
+      function buildSubscribeUrl(pageUrl, icsPath) {
+        const url = new URL(icsPath, pageUrl);
+
+        return `webcal://${url.host}${url.pathname}${url.search}${url.hash}`;
+      }
     </script>
   </body>
 </html>

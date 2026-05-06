@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import vm from "node:vm";
 
 import { describe, expect, it } from "vitest";
 
@@ -10,7 +11,7 @@ describe("public games subscribe page", () => {
     expect(anchorCount).toBe(1);
     expect(html).toContain('href="./calendar-games.ics"');
     expect(html).toContain('data-ics-path="calendar-games.ics"');
-    expect(html).toContain('icsUrl.protocol = "webcal:"');
+    expect(html).toContain("webcal://${url.host}${url.pathname}${url.search}${url.hash}");
     expect(html).not.toContain("calendar.ics");
     expect(html).not.toContain("schedule-x-full.json");
     expect(html).not.toContain("schedule-x-games.json");
@@ -31,4 +32,39 @@ describe("public games subscribe page", () => {
     expect(bootstrapScript).toContain("--name games.html");
     expect(bootstrapScript).toContain('"public/games.html"');
   });
+
+  it("rewrites the lone subscription action to a webcal URL for the current host", () => {
+    const html = readFileSync("public/games.html", "utf8");
+    const script = extractInlineScript(html);
+    const link = {
+      dataset: { icsPath: "calendar-games.ics" },
+      href: "",
+    };
+    const context = vm.createContext({
+      URL,
+      window: {
+        location: {
+          href: "https://calendarmergeprod01.z13.web.core.windows.net/games.html",
+        },
+      },
+      document: {
+        getElementById(id: string) {
+          return id === "subscribe-link" ? link : null;
+        },
+      },
+    });
+
+    vm.runInContext(script, context);
+
+    expect(link.href).toBe("webcal://calendarmergeprod01.z13.web.core.windows.net/calendar-games.ics");
+  });
 });
+
+function extractInlineScript(html: string): string {
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  const subscriptionScript = scripts.find((script) => script.includes("buildSubscribeUrl"));
+
+  expect(subscriptionScript).toBeTruthy();
+
+  return subscriptionScript!;
+}
