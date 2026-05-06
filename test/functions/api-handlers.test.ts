@@ -145,7 +145,8 @@ describe("HTTP API handlers", () => {
 
     expect(response.status).toBe(200);
     expect(response.jsonBody.status).toBe("success");
-    expect(response.jsonBody.data.feeds[0].url).toBe("https://example.com/cal.ics");
+    expect(response.jsonBody.data.feeds[0].url).toBe("https://example.com/[redacted]");
+    expect(JSON.stringify(response.jsonBody)).not.toContain("cal.ics");
     expect(JSON.stringify(response.jsonBody)).not.toContain("token=secret");
     expect(JSON.stringify(response.jsonBody)).not.toContain("stack");
   });

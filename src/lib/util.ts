@@ -241,7 +241,7 @@ export function buildOutputPaths(config: AppConfig): OutputPaths {
 export function redactFeedUrl(input: string): string {
   try {
     const parsed = new URL(normalizeFeedUrl(input));
-    return `${parsed.origin}${parsed.pathname || "/"}`;
+    return `${parsed.origin}/[redacted]`;
   } catch {
     return "[redacted]";
   }

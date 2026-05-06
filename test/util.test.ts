@@ -47,9 +47,19 @@ describe("util", () => {
     );
   });
 
-  it("should redact feed URL query strings", () => {
+  it("should redact feed URL paths and query strings", () => {
     expect(redactFeedUrl("https://example.com/ical_feed?token=secret&user=abc")).toBe(
-      "https://example.com/ical_feed",
+      "https://example.com/[redacted]",
     );
+  });
+
+  it("should redact private Google calendar tokens embedded in URL paths", () => {
+    const redacted = redactFeedUrl(
+      "https://calendar.google.com/calendar/ical/person%40example.com/private-token/basic.ics",
+    );
+
+    expect(redacted).toBe("https://calendar.google.com/[redacted]");
+    expect(redacted).not.toContain("person");
+    expect(redacted).not.toContain("private-token");
   });
 });

@@ -397,9 +397,11 @@
         gamesButton.setAttribute("aria-pressed", String(mode === "games"));
 
         const sx = window.SXCalendar;
+        const selectedDate = getInitialCalendarDate(currentEvents);
         const calendar = sx.createCalendar({
           locale: "en-US",
           timezone: "UTC",
+          selectedDate,
           isResponsive: true,
           views: [sx.viewMonthGrid, sx.viewWeek, sx.viewDay, sx.viewMonthAgenda, sx.viewList],
           events: currentEvents,
@@ -420,6 +422,16 @@
             }.`,
           );
         }
+      }
+
+      function getInitialCalendarDate(events) {
+        const today = new Date().toISOString().slice(0, 10);
+        const dates = events
+          .map((event) => (typeof event.start === "string" ? event.start.slice(0, 10) : ""))
+          .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+          .sort();
+
+        return dates.find((date) => date >= today) || dates[0] || today;
       }
 
       function normalizeDatasetEvents(events) {
