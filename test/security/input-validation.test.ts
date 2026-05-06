@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeBlobPath } from "../../src/lib/util";
+import { MAX_FEED_ID_LENGTH, normalizeBlobPath, validateFeedId } from "../../src/lib/util";
 import { parseIcsCalendar } from "../../src/lib/ics";
 import { SourceFeedConfig } from "../../src/lib/types";
 
@@ -83,11 +83,10 @@ END:VCALENDAR`;
 
   describe("Feed ID Validation", () => {
     it("should accept valid feed IDs", () => {
-      // Pattern from feedCreate.ts validation
       const validIds = ["test", "school-calendar", "athletics123", "a", "a-b-c-123"];
 
       for (const id of validIds) {
-        expect(/^[a-z0-9-]+$/.test(id)).toBe(true);
+        expect(() => validateFeedId(id)).not.toThrow();
       }
     });
 
@@ -102,17 +101,16 @@ END:VCALENDAR`;
       ];
 
       for (const id of invalidIds) {
-        expect(/^[a-z0-9-]+$/.test(id)).toBe(false);
+        expect(() => validateFeedId(id)).toThrow();
       }
     });
 
-    it("FUTURE: should enforce maximum length", () => {
-      // Currently no max length enforced - future enhancement
-      const veryLongId = "a".repeat(1000);
-      expect(/^[a-z0-9-]+$/.test(veryLongId)).toBe(true); // Passes regex
+    it("should enforce maximum length", () => {
+      expect(() => validateFeedId("a".repeat(MAX_FEED_ID_LENGTH))).not.toThrow();
 
-      // Recommendation: Add max length check (e.g., 255 chars)
-      // expect(veryLongId.length).toBeLessThanOrEqual(255);
+      expect(() => validateFeedId("a".repeat(MAX_FEED_ID_LENGTH + 1))).toThrow(
+        `${MAX_FEED_ID_LENGTH} characters or fewer`,
+      );
     });
   });
 });

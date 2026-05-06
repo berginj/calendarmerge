@@ -38,6 +38,19 @@ describe("TableStore", () => {
     expect(feedId).toBe("test-calendar");
   });
 
+  it("should keep generated feed IDs within the supported length", () => {
+    const feedId = TableStore.generateFeedId(`https://example.com/${"calendar-".repeat(80)}.ics?token=secret`);
+
+    expect(feedId.length).toBeLessThanOrEqual(255);
+    expect(feedId).toMatch(/-[a-f0-9]{8}$/);
+  });
+
+  it("should keep generated non-URL feed IDs within the supported length", () => {
+    const feedId = TableStore.generateFeedId("Calendar ".repeat(100));
+
+    expect(feedId.length).toBeLessThanOrEqual(255);
+  });
+
   it("should treat missing enabled values as enabled when listing feeds", async () => {
     async function* listEntities() {
       yield {

@@ -179,6 +179,20 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.data.feed.url).toContain("token=abc");
   });
 
+  it("rejects oversized custom feed IDs", async () => {
+    const response = await createFeedHandler(request({
+      id: "a".repeat(256),
+      name: "School",
+      url: "https://example.com/school.ics",
+    }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.details).toContain("255 characters or fewer");
+    expect(tableMocks.store.getFeed).not.toHaveBeenCalled();
+    expect(tableMocks.store.createFeed).not.toHaveBeenCalled();
+  });
+
   it("preserves tokenized URLs on name-only feed updates", async () => {
     const existing = {
       partitionKey: "default",

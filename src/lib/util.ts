@@ -4,6 +4,9 @@ import { isIP } from "node:net";
 
 import { AppConfig, OutputPaths } from "./types";
 
+export const MAX_FEED_ID_LENGTH = 255;
+const FEED_ID_PATTERN = /^[a-z0-9-]+$/;
+
 export function sha256Hex(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
@@ -26,6 +29,20 @@ export function slugifyId(input: string): string {
     .replace(/-{2,}/g, "-");
 
   return slug || "feed";
+}
+
+export function validateFeedId(input: string): void {
+  if (!input.trim()) {
+    throw new Error("Feed ID must be a non-empty string");
+  }
+
+  if (input.length > MAX_FEED_ID_LENGTH) {
+    throw new Error(`Feed ID must be ${MAX_FEED_ID_LENGTH} characters or fewer`);
+  }
+
+  if (!FEED_ID_PATTERN.test(input)) {
+    throw new Error("Feed ID must contain only lowercase letters, numbers, and hyphens");
+  }
 }
 
 export function normalizeBlobPath(input: string): string {
@@ -193,7 +210,7 @@ export function deriveFeedIdFromUrl(input: string, fallbackIndex?: number): stri
   const parsed = new URL(normalizeFeedUrl(input));
   const pathSegments = parsed.pathname.split("/").filter(Boolean);
   const pathTail = pathSegments[pathSegments.length - 1];
-  const baseId = slugifyId(`${parsed.hostname}-${pathTail ?? fallbackIndex ?? 1}`);
+  const baseId = truncateFeedId(slugifyId(`${parsed.hostname}-${pathTail ?? fallbackIndex ?? 1}`));
   const needsDisambiguation =
     !pathTail || pathSegments.length > 1 || Boolean(parsed.search) || Boolean(parsed.hash);
 
@@ -201,7 +218,9 @@ export function deriveFeedIdFromUrl(input: string, fallbackIndex?: number): stri
     return baseId;
   }
 
-  return slugifyId(`${baseId}-${sha256Hex(parsed.toString()).slice(0, 8)}`);
+  const hash = sha256Hex(parsed.toString()).slice(0, 8);
+  const prefix = truncateFeedId(baseId, MAX_FEED_ID_LENGTH - hash.length - 1);
+  return `${prefix}-${hash}`;
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -280,4 +299,12 @@ export function looksLikeConnectionString(value: string): boolean {
 
 function joinUrlPath(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+export function truncateFeedId(input: string, maxLength = MAX_FEED_ID_LENGTH): string {
+  if (input.length <= maxLength) {
+    return input;
+  }
+
+  return input.slice(0, maxLength).replace(/-+$/g, "") || "feed";
 }

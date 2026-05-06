@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, validateFeedId } from "../lib/util";
 import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
 
 app.http("createFeed", {
@@ -139,8 +139,12 @@ function validateFeedInput(input: unknown): { valid: boolean; errors: string[] }
   if (body.id !== undefined) {
     if (typeof body.id !== "string" || !body.id.trim()) {
       errors.push("Feed ID must be a non-empty string if provided");
-    } else if (!/^[a-z0-9-]+$/.test(body.id)) {
-      errors.push("Feed ID must contain only lowercase letters, numbers, and hyphens");
+    } else {
+      try {
+        validateFeedId(body.id);
+      } catch (error) {
+        errors.push(errorMessage(error));
+      }
     }
   }
 
