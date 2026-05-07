@@ -4,7 +4,8 @@ import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { validateFeed } from "../lib/feedValidation";
 import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, redactFeedUrl } from "../lib/util";
-import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse, ValidationResult } from "../lib/api-types";
+import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResponse } from "../lib/httpValidation";
 
 app.http("updateFeed", {
   methods: ["PUT"],
@@ -34,23 +35,18 @@ export async function updateFeedHandler(
       );
     }
 
-    const body = (await request.json()) as UpdateFeedRequest;
+    const parsed = await parseJsonObjectRequest(request);
+    if (!parsed.valid) {
+      logger.warn("feed_update_invalid_json", { feedId, errors: parsed.errors });
+      return validationErrorResponse(requestId, parsed.message, parsed.errors, parsed.code);
+    }
 
-    // Validate input
-    const validation = validateUpdateInput(body);
+    const validation = validateUpdateInput(parsed.data);
     if (!validation.valid) {
       logger.warn("feed_update_validation_failed", { feedId, errors: validation.errors });
-
-      return toHttpResponse(
-        createErrorResponse(
-          requestId,
-          ERROR_CODES.VALIDATION_ERROR,
-          "Validation failed",
-          validation.errors.join("; "),
-          { body: validation.errors },
-        ),
-      );
+      return validationErrorResponse(requestId, "Validation failed", validation.errors);
     }
+    const body = validation.data;
 
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
@@ -168,45 +164,46 @@ export async function updateFeedHandler(
   }
 }
 
-function validateUpdateInput(input: unknown): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!input || typeof input !== "object") {
-    errors.push("Request body must be a JSON object");
-    return { valid: false, errors };
-  }
-
-  const body = input as Partial<UpdateFeedRequest>;
+function validateUpdateInput(input: Record<string, unknown>): ValidationResult<UpdateFeedRequest> {
+  const errors: Record<string, string[]> = {};
 
   // At least one field must be provided
-  if (body.name === undefined && body.url === undefined && body.enabled === undefined) {
-    errors.push("At least one field (name, url, or enabled) must be provided");
+  if (input.name === undefined && input.url === undefined && input.enabled === undefined) {
+    fieldError(errors, "body", "At least one field (name, url, or enabled) must be provided");
   }
 
   // Validate name if provided
-  if (body.name !== undefined) {
-    if (typeof body.name !== "string" || !body.name.trim()) {
-      errors.push("Feed name must be a non-empty string if provided");
+  if (input.name !== undefined) {
+    if (typeof input.name !== "string" || !input.name.trim()) {
+      fieldError(errors, "name", "Feed name must be a non-empty string if provided");
     }
   }
 
   // Validate URL if provided
-  if (body.url !== undefined) {
-    if (typeof body.url !== "string" || !body.url.trim()) {
-      errors.push("Feed URL must be a non-empty string if provided");
+  if (input.url !== undefined) {
+    if (typeof input.url !== "string" || !input.url.trim()) {
+      fieldError(errors, "url", "Feed URL must be a non-empty string if provided");
     } else {
       try {
-        normalizeFeedUrl(body.url);
+        normalizeFeedUrl(input.url);
       } catch (error) {
-        errors.push(errorMessage(error));
+        fieldError(errors, "url", errorMessage(error));
       }
     }
   }
 
   // Validate enabled if provided
-  if (body.enabled !== undefined && typeof body.enabled !== "boolean") {
-    errors.push("enabled must be a boolean if provided");
+  if (input.enabled !== undefined && typeof input.enabled !== "boolean") {
+    fieldError(errors, "enabled", "enabled must be a boolean if provided");
   }
 
-  return { valid: errors.length === 0, errors };
+  if (Object.keys(errors).length > 0) {
+    return invalid(errors);
+  }
+
+  return valid({
+    name: typeof input.name === "string" ? input.name : undefined,
+    url: typeof input.url === "string" ? input.url : undefined,
+    enabled: typeof input.enabled === "boolean" ? input.enabled : undefined,
+  });
 }

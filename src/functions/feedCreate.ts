@@ -3,7 +3,8 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, validateFeedId } from "../lib/util";
-import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse } from "../lib/api-types";
+import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse, ValidationResult } from "../lib/api-types";
+import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResponse } from "../lib/httpValidation";
 
 app.http("createFeed", {
   methods: ["POST"],
@@ -26,23 +27,18 @@ export async function createFeedHandler(
   const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
 
   try {
-    const body = (await request.json()) as CreateFeedRequest;
+    const parsed = await parseJsonObjectRequest(request);
+    if (!parsed.valid) {
+      logger.warn("feed_create_invalid_json", { requestId, errors: parsed.errors });
+      return validationErrorResponse(requestId, parsed.message, parsed.errors, parsed.code);
+    }
 
-    // Validate input
-    const validation = validateFeedInput(body);
+    const validation = validateFeedInput(parsed.data);
     if (!validation.valid) {
       logger.warn("feed_create_validation_failed", { requestId, errors: validation.errors });
-
-      return toHttpResponse(
-        createErrorResponse(
-          requestId,
-          ERROR_CODES.VALIDATION_ERROR,
-          "Validation failed",
-          validation.errors.join("; "),
-          { body: validation.errors },
-        ),
-      );
+      return validationErrorResponse(requestId, "Validation failed", validation.errors);
     }
+    const body = validation.data;
 
     const config = getConfig();
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
@@ -109,44 +105,45 @@ export async function createFeedHandler(
   }
 }
 
-function validateFeedInput(input: unknown): { valid: boolean; errors: string[] } {
-  const errors: string[] = [];
-
-  if (!input || typeof input !== "object") {
-    errors.push("Request body must be a JSON object");
-    return { valid: false, errors };
-  }
-
-  const body = input as Partial<CreateFeedRequest>;
+function validateFeedInput(input: Record<string, unknown>): ValidationResult<CreateFeedRequest> {
+  const errors: Record<string, string[]> = {};
 
   // Validate name
-  if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
-    errors.push("Feed name is required and must be a non-empty string");
+  if (!input.name || typeof input.name !== "string" || !input.name.trim()) {
+    fieldError(errors, "name", "Feed name is required and must be a non-empty string");
   }
 
   // Validate URL
-  if (!body.url || typeof body.url !== "string" || !body.url.trim()) {
-    errors.push("Feed URL is required and must be a non-empty string");
+  if (!input.url || typeof input.url !== "string" || !input.url.trim()) {
+    fieldError(errors, "url", "Feed URL is required and must be a non-empty string");
   } else {
     try {
-      normalizeFeedUrl(body.url);
+      normalizeFeedUrl(input.url);
     } catch (error) {
-      errors.push(errorMessage(error));
+      fieldError(errors, "url", errorMessage(error));
     }
   }
 
   // Validate ID if provided
-  if (body.id !== undefined) {
-    if (typeof body.id !== "string" || !body.id.trim()) {
-      errors.push("Feed ID must be a non-empty string if provided");
+  if (input.id !== undefined) {
+    if (typeof input.id !== "string" || !input.id.trim()) {
+      fieldError(errors, "id", "Feed ID must be a non-empty string if provided");
     } else {
       try {
-        validateFeedId(body.id);
+        validateFeedId(input.id);
       } catch (error) {
-        errors.push(errorMessage(error));
+        fieldError(errors, "id", errorMessage(error));
       }
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  if (Object.keys(errors).length > 0) {
+    return invalid(errors);
+  }
+
+  return valid({
+    id: typeof input.id === "string" ? input.id.trim() : undefined,
+    name: (input.name as string).trim(),
+    url: input.url as string,
+  });
 }

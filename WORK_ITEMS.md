@@ -125,7 +125,7 @@ Definition of done:
 
 Priority: P1
 
-Status: Not started. Manual refresh failed-response status was corrected to `503`; shared validation cleanup remains.
+Status: Complete in implementation slice 2026-05-07.
 
 Problem:
 Handlers still use ad hoc validation and cast request JSON before validating.

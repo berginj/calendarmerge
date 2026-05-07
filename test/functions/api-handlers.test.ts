@@ -86,6 +86,13 @@ function request(body: unknown = undefined, params: Record<string, string> = {})
   } as unknown as HttpRequest;
 }
 
+function malformedJsonRequest(params: Record<string, string> = {}): HttpRequest {
+  return {
+    json: vi.fn().mockRejectedValue(new Error("Unexpected token")),
+    params,
+  } as unknown as HttpRequest;
+}
+
 function refreshResult(state: "success" | "partial" | "failed") {
   return {
     status: {
@@ -330,6 +337,35 @@ describe("HTTP API handlers", () => {
     expect(tableMocks.store.createFeed).not.toHaveBeenCalled();
   });
 
+  it("returns field-specific validation errors for feed creation", async () => {
+    const response = await createFeedHandler(request({
+      name: "",
+      url: "not-a-url",
+      id: "Invalid ID",
+    }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("VALIDATION_ERROR");
+    expect(response.jsonBody.error.validationErrors).toEqual(expect.objectContaining({
+      name: ["Feed name is required and must be a non-empty string"],
+      url: expect.arrayContaining([expect.stringContaining("valid URL")]),
+      id: expect.arrayContaining([expect.any(String)]),
+    }));
+    expect(response.jsonBody.error.validationErrors).not.toHaveProperty("body");
+    expect(tableMocks.store.createFeed).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid request for malformed feed creation JSON", async () => {
+    const response = await createFeedHandler(malformedJsonRequest(), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("INVALID_REQUEST");
+    expect(response.jsonBody.error.validationErrors.body[0]).toContain("Request body must be valid JSON");
+    expect(tableMocks.store.createFeed).not.toHaveBeenCalled();
+  });
+
   it("preserves tokenized URLs on name-only feed updates", async () => {
     const existing = {
       partitionKey: "default",
@@ -352,6 +388,31 @@ describe("HTTP API handlers", () => {
     expect(response.status).toBe(200);
     expect(tableMocks.store.updateFeed).toHaveBeenCalledWith("school", { name: "New School" });
     expect(response.jsonBody.data.feed.url).toBe(existing.url);
+  });
+
+  it("returns field-specific validation errors for feed updates", async () => {
+    const response = await updateFeedHandler(request({
+      name: "",
+      enabled: "true",
+    }, { feedId: "school" }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.validationErrors).toEqual(expect.objectContaining({
+      name: ["Feed name must be a non-empty string if provided"],
+      enabled: ["enabled must be a boolean if provided"],
+    }));
+    expect(tableMocks.store.getFeed).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid request for malformed feed update JSON", async () => {
+    const response = await updateFeedHandler(malformedJsonRequest({ feedId: "school" }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("INVALID_REQUEST");
+    expect(response.jsonBody.error.validationErrors.body[0]).toContain("Request body must be valid JSON");
+    expect(tableMocks.store.getFeed).not.toHaveBeenCalled();
   });
 
   it("soft-deletes feeds through the standard response envelope", async () => {
@@ -391,6 +452,26 @@ describe("HTTP API handlers", () => {
     expect(getResponse.jsonBody.data.settings.refreshSchedule).toBe("hourly");
     expect(updateResponse.jsonBody.status).toBe("success");
     expect(updateResponse.jsonBody.data.settings.refreshSchedule).toBe("manual-only");
+  });
+
+  it("returns field-specific validation errors for settings updates", async () => {
+    const response = await updateSettingsHandler(request({ refreshSchedule: "daily" }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("VALIDATION_ERROR");
+    expect(response.jsonBody.error.validationErrors.refreshSchedule[0]).toContain("Valid options");
+    expect(settingsMocks.store.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it("returns invalid request for malformed settings JSON", async () => {
+    const response = await updateSettingsHandler(malformedJsonRequest(), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.code).toBe("INVALID_REQUEST");
+    expect(response.jsonBody.error.validationErrors.body[0]).toContain("Request body must be valid JSON");
+    expect(settingsMocks.store.updateSettings).not.toHaveBeenCalled();
   });
 
   it("returns manual refresh success through the standard response envelope", async () => {
