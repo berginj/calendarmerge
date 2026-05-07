@@ -150,6 +150,8 @@ Definition of done:
 
 Priority: P1
 
+Status: Complete in implementation slice 2026-05-07.
+
 Problem:
 CI builds the React management UI but does not test behavior. This allows UI/data-contract mismatches to slip through.
 
