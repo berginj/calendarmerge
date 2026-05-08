@@ -22,7 +22,19 @@ function getStoredFunctionsKey(): string {
   }
 
   try {
-    return window.sessionStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim() || '';
+    const sessionKey = window.sessionStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim();
+    if (sessionKey) {
+      return sessionKey;
+    }
+
+    const legacyLocalKey = window.localStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim();
+    if (legacyLocalKey) {
+      window.sessionStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, legacyLocalKey);
+      window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+      return legacyLocalKey;
+    }
+
+    return '';
   } catch {
     return '';
   }
@@ -57,6 +69,7 @@ export function clearFunctionsKey(): void {
   }
 
   window.sessionStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
+  window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
 }
 
 async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {

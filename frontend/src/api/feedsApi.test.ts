@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { clearFunctionsKey, saveFunctionsKey, triggerManualRefresh } from './feedsApi';
+import { clearFunctionsKey, listFeeds, loadSavedFunctionsKey, saveFunctionsKey, triggerManualRefresh } from './feedsApi';
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -74,5 +74,25 @@ describe('manual refresh API client', () => {
 
     await expect(triggerManualRefresh()).rejects.toThrow('Admin function key is missing or invalid');
   });
-});
 
+  it('migrates legacy localStorage function keys into sessionStorage', async () => {
+    window.localStorage.setItem('calendarmerge_functions_key', 'legacy-key');
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: {
+        feeds: [],
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    expect(loadSavedFunctionsKey()).toBe('legacy-key');
+    expect(window.localStorage.getItem('calendarmerge_functions_key')).toBeNull();
+    expect(window.sessionStorage.getItem('calendarmerge_functions_key')).toBe('legacy-key');
+
+    await listFeeds();
+
+    const headers = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(headers.get('x-functions-key')).toBe('legacy-key');
+  });
+});
