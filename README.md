@@ -338,6 +338,8 @@ Invoke-WebRequest `
   -Headers @{"x-functions-key" = $refreshKey}
 ```
 
+Manual refresh is limited to one successful refresh every 30 seconds. The cooldown is stored in Azure Table Storage (`ManualRefreshRateLimits`) so it applies across Function App instances, and failed refresh attempts do not start the cooldown. A rate-limited request returns the standard error envelope with `RATE_LIMIT_EXCEEDED` and a `Retry-After` header.
+
 ## Testing
 
 **Test Coverage: 80 tests across 8 test files**

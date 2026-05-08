@@ -175,11 +175,11 @@ const VITE_FUNCTIONS_KEY = import.meta.env.VITE_FUNCTIONS_KEY;  // ❌ In bundle
 
 ---
 
-### 6. No Rate Limiting on Refresh Endpoint ⚠️ CRITICAL
+### 6. No Rate Limiting on Refresh Endpoint ✅ ADDRESSED
 
-**Location:** `manualRefresh.ts` (no rate limiting code)
+**Location:** `manualRefresh.ts`, `manualRefreshRateLimit.ts`
 
-**Issue:**
+**Original issue:**
 ```typescript
 // Anyone with function key can call unlimited times
 await runRefresh(logger, "manual");  // ❌ No rate check
@@ -190,31 +190,24 @@ await runRefresh(logger, "manual");  // ❌ No rate check
 - Cost explosion (multiple feed fetches)
 - Resource exhaustion
 
-**Fix:**
+**Implemented fix:**
 ```typescript
 const REFRESH_COOLDOWN_MS = 30000; // 30 seconds
-let lastRefreshTime = 0;
 
 async function manualRefreshHandler(...) {
-  const now = Date.now();
-  if (now - lastRefreshTime < REFRESH_COOLDOWN_MS) {
-    return {
-      status: 429,
-      jsonBody: {
-        error: 'TOO_MANY_REQUESTS',
-        message: 'Please wait 30 seconds between refreshes',
-        retryAfter: Math.ceil((lastRefreshTime + REFRESH_COOLDOWN_MS - now) / 1000),
-      },
-    };
+  const rateLimit = await rateLimitStore.check(scopes, REFRESH_COOLDOWN_MS);
+  if (!rateLimit.allowed) {
+    return RATE_LIMIT_EXCEEDED with Retry-After;
   }
 
-  lastRefreshTime = now;
-  // ... proceed with refresh
+  const result = await runRefresh(logger, "manual");
+  if (result.status.state !== "failed") {
+    await rateLimitStore.recordSuccess(scopes);
+  }
 }
 ```
 
-**Priority:** P0 - Fix before production
-**Effort:** 1 hour
+**Status:** Implemented with Azure Table Storage durable state. The service uses a global refresh scope and a hashed Function-key scope when available. Failed refresh attempts do not start the cooldown.
 
 ---
 
@@ -710,24 +703,24 @@ $feeds.data.feeds[0].url  # Should be https://example.com/cal.ics, not with ?tok
 - Streaming parser that aborts mid-download
 - Would require significant refactoring of ICS parser
 
-### Issue #4: Rate Limiting - IMPROVED
+### Issue #4: Rate Limiting - DURABLE
 
 **Fixes Applied:**
-- Timestamp now updates AFTER successful refresh (not before)
+- Cooldown state now lives in Azure Table Storage (`ManualRefreshRateLimits`)
+- Global service scope applies across Function App instances
+- Hashed Function-key scope is tracked when the key is available to the handler
+- Timestamp now updates AFTER successful or partial refresh, not before
 - Allows immediate retry after failures
-- Added documentation of multi-instance limitation
 - Relies on activeRefresh promise as primary protection
 
 **Acknowledged Limitations:**
-- In-memory cooldown only works on single instance
-- Multiple Azure Function instances bypass it
-- Global users share cooldown on one worker
+- `activeRefresh` is still per Function instance; simultaneous starts on different instances can still begin before any successful refresh records cooldown state
+- Per-feed cooldown remains future work
 
 **Current Protection:**
 - activeRefresh promise prevents concurrent refreshes (primary)
-- In-memory cooldown adds defense-in-depth (secondary)
-- Combined approach provides reasonable protection
+- Durable Table Storage cooldown limits rapid sequential calls across instances
+- Rate-limited responses return `RATE_LIMIT_EXCEEDED` with `Retry-After`
 
 **For Production Scale:**
-- Consider Azure API Management for true distributed rate limiting
-- Or use Table Storage to track cooldowns globally
+- Consider Azure API Management if stronger edge-level throttling or caller identity controls are needed

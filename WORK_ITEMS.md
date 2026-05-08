@@ -177,6 +177,8 @@ Definition of done:
 
 Priority: P2
 
+Status: Complete in implementation slice 2026-05-07.
+
 Problem:
 Manual refresh cooldown is in-memory per Function instance. It does not enforce rate limits across scale-out and is not per caller/feed.
 

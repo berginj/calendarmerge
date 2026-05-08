@@ -74,6 +74,7 @@ interface ResponseMetadata {
 | 400 | Bad Request | Client error - validation failed, malformed input |
 | 404 | Not Found | Resource doesn't exist |
 | 409 | Conflict | Resource already exists, duplicate ID |
+| 429 | Too Many Requests | Rate limit exceeded; include `Retry-After` |
 | 500 | Internal Server Error | Server-side error, unhandled exception |
 | 503 | Service Unavailable | Downstream dependency failed (storage, etc.) |
 
@@ -166,6 +167,21 @@ interface ResponseMetadata {
 }
 ```
 
+```typescript
+// Rate Limited
+{
+  "requestId": "...",
+  "status": "error",
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Please wait before refreshing again",
+    "details": "Manual refresh is limited to once every 30 seconds. Retry in 21 seconds."
+  }
+}
+```
+
+`POST /api/refresh` MUST use durable Azure Table Storage cooldown state for the global service scope and, when the Function key is available to the handler, a hashed function-key scope. It MUST update cooldown state only after a successful or partial refresh, so failed refresh attempts remain immediately retryable. Rate-limited responses MUST include a `Retry-After` header.
+
 **GET /api/status/internal - Protected Admin Status**
 ```typescript
 // Success
@@ -203,6 +219,7 @@ export const ERROR_CODES = {
   INVALID_REQUEST: "INVALID_REQUEST",             // 400 - Malformed request
   NOT_FOUND: "NOT_FOUND",                         // 404 - Resource not found
   CONFLICT: "CONFLICT",                           // 409 - Resource already exists
+  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",     // 429 - Too many requests
 
   // Server Errors (5xx)
   INTERNAL_ERROR: "INTERNAL_ERROR",               // 500 - Unhandled exception

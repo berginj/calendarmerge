@@ -1,7 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString, sha256Hex } from "../lib/util";
 import {
   createErrorResponse,
   createPartialSuccessResponse,
@@ -17,19 +18,14 @@ app.http("manualRefresh", {
   handler: manualRefreshHandler,
 });
 
-// SECURITY: Basic rate limiting to prevent DoS attacks
-// LIMITATION: This is in-memory per-instance, not durable across scale-out
-// Primary protection is the activeRefresh promise in refresh.ts (prevents concurrent refreshes)
-// This adds defense-in-depth by limiting rapid sequential calls on same instance
 const REFRESH_COOLDOWN_MS = 30000;
-let lastSuccessfulRefreshTime = 0;
 
 export function resetManualRefreshCooldownForTest(): void {
-  lastSuccessfulRefreshTime = 0;
+  // Retained for existing tests. Durable cooldown state lives in Azure Table Storage.
 }
 
 export async function manualRefreshHandler(
-  _request: HttpRequest,
+  request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
   const requestId = generateId();
@@ -37,48 +33,47 @@ export async function manualRefreshHandler(
 
   logger.info("manual_refresh_requested", { requestId });
 
-  // NOTE: Concurrent refreshes are already prevented by activeRefresh promise in refresh.ts
-  // This cooldown is additional protection against rapid sequential calls
-  // LIMITATION: Only effective on single instance, does not work across scale-out
-  const now = Date.now();
-  const timeSinceLastRefresh = now - lastSuccessfulRefreshTime;
-
-  if (lastSuccessfulRefreshTime > 0 && timeSinceLastRefresh < REFRESH_COOLDOWN_MS) {
-    const retryAfterSeconds = Math.ceil((REFRESH_COOLDOWN_MS - timeSinceLastRefresh) / 1000);
-
-    logger.warn("manual_refresh_rate_limited", {
-      requestId,
-      timeSinceLastMs: timeSinceLastRefresh,
-      retryAfterSeconds,
-      note: "In-memory cooldown - may not apply across instances",
-    });
-
-    const response = toHttpResponse(
-      createErrorResponse(
-        requestId,
-        ERROR_CODES.RATE_LIMIT_EXCEEDED,
-        "Please wait before refreshing again",
-        `Manual refresh is limited to once every 30 seconds. Retry in ${retryAfterSeconds} seconds.`,
-      ),
-    );
-
-    return {
-      ...response,
-      headers: { "Retry-After": retryAfterSeconds.toString() },
-    };
-  }
-
-  // NOTE: We intentionally do NOT update timestamp here - only after successful refresh
-  // This allows immediate retry after failures
-
   try {
+    const config = getConfig();
+    const connectionString = getStorageConnectionString(config.outputStorageAccount);
+    const rateLimitScopes = buildRateLimitScopes(request);
+    const { ManualRefreshRateLimitStore } = await import("../lib/manualRefreshRateLimit");
+    const rateLimitStore = new ManualRefreshRateLimitStore(connectionString);
+    const rateLimit = await rateLimitStore.check(rateLimitScopes, REFRESH_COOLDOWN_MS);
+
+    if (!rateLimit.allowed) {
+      const retryAfterSeconds = rateLimit.retryAfterSeconds ?? Math.ceil(REFRESH_COOLDOWN_MS / 1000);
+
+      logger.warn("manual_refresh_rate_limited", {
+        requestId,
+        retryAfterSeconds,
+        scopes: rateLimitScopes.map((scope) => scope.rowKey),
+      });
+
+      const response = toHttpResponse(
+        createErrorResponse(
+          requestId,
+          ERROR_CODES.RATE_LIMIT_EXCEEDED,
+          "Please wait before refreshing again",
+          `Manual refresh is limited to once every 30 seconds. Retry in ${retryAfterSeconds} seconds.`,
+        ),
+      );
+
+      return {
+        ...response,
+        headers: { "Retry-After": retryAfterSeconds.toString() },
+      };
+    }
+
+    // NOTE: We intentionally do NOT update timestamp here - only after successful refresh.
+    // This allows immediate retry after failed refresh attempts.
     const { runRefresh } = await import("../lib/refresh");
     const result = await runRefresh(logger, "manual");
 
     // Update cooldown timestamp only after a non-failed refresh result.
     // Failed refresh attempts should be immediately retryable.
     if (result.status.state !== "failed") {
-      lastSuccessfulRefreshTime = Date.now();
+      await rateLimitStore.recordSuccess(rateLimitScopes);
     }
 
     logger.info("manual_refresh_completed", {
@@ -160,4 +155,18 @@ export async function manualRefreshHandler(
       ),
     );
   }
+}
+
+function buildRateLimitScopes(request: HttpRequest) {
+  const scopes = [{ partitionKey: "manual-refresh", rowKey: "global" }];
+  const functionKey = request.headers?.get("x-functions-key") ?? request.query?.get("code");
+
+  if (functionKey?.trim()) {
+    scopes.push({
+      partitionKey: "manual-refresh",
+      rowKey: `function-key-${sha256Hex(functionKey.trim()).slice(0, 16)}`,
+    });
+  }
+
+  return scopes;
 }

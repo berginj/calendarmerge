@@ -27,6 +27,13 @@ const refreshMocks = vi.hoisted(() => ({
   runRefresh: vi.fn(),
 }));
 
+const rateLimitMocks = vi.hoisted(() => ({
+  store: {
+    check: vi.fn(),
+    recordSuccess: vi.fn(),
+  },
+}));
+
 const blobMocks = vi.hoisted(() => ({
   store: {
     readStatusForRefresh: vi.fn(),
@@ -57,6 +64,12 @@ vi.mock("../../src/lib/settingsStore", () => ({
 vi.mock("../../src/lib/refresh", () => ({
   runRefresh: refreshMocks.runRefresh,
   loadCurrentStatus: vi.fn(),
+}));
+
+vi.mock("../../src/lib/manualRefreshRateLimit", () => ({
+  ManualRefreshRateLimitStore: function ManualRefreshRateLimitStore() {
+    return rateLimitMocks.store;
+  },
 }));
 
 vi.mock("../../src/lib/blobStore", () => ({
@@ -146,6 +159,8 @@ describe("HTTP API handlers", () => {
     settingsMocks.store.getSettings.mockReset();
     settingsMocks.store.updateSettings.mockReset();
     refreshMocks.runRefresh.mockReset();
+    rateLimitMocks.store.check.mockReset().mockResolvedValue({ allowed: true });
+    rateLimitMocks.store.recordSuccess.mockReset().mockResolvedValue(undefined);
     blobMocks.store.readStatusForRefresh.mockReset();
   });
 
@@ -492,6 +507,7 @@ describe("HTTP API handlers", () => {
       healthy: true,
     }));
     expect(response.jsonBody.metadata).toEqual({ refreshId: "refresh-1" });
+    expect(rateLimitMocks.store.recordSuccess).toHaveBeenCalledTimes(1);
   });
 
   it("returns manual refresh partial success through the standard response envelope", async () => {
@@ -520,9 +536,14 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.status).toBe("error");
     expect(response.jsonBody.error.code).toBe("SERVICE_UNAVAILABLE");
     expect(response.jsonBody.error.message).toBe("Refresh failed");
+    expect(rateLimitMocks.store.recordSuccess).not.toHaveBeenCalled();
   });
 
-  it("rate limits manual refresh only after a non-failed refresh result", async () => {
+  it("rate limits manual refresh through durable storage after a non-failed refresh result", async () => {
+    rateLimitMocks.store.check
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce({ allowed: false, retryAfterSeconds: 21 });
     refreshMocks.runRefresh
       .mockResolvedValueOnce(refreshResult("failed"))
       .mockResolvedValueOnce(refreshResult("success"))
@@ -537,7 +558,8 @@ describe("HTTP API handlers", () => {
     expect(rateLimited.status).toBe(429);
     expect(rateLimited.jsonBody.status).toBe("error");
     expect(rateLimited.jsonBody.error.code).toBe("RATE_LIMIT_EXCEEDED");
-    expect(rateLimited.headers).toEqual(expect.objectContaining({ "Retry-After": expect.any(String) }));
+    expect(rateLimited.headers).toEqual(expect.objectContaining({ "Retry-After": "21" }));
     expect(refreshMocks.runRefresh).toHaveBeenCalledTimes(2);
+    expect(rateLimitMocks.store.recordSuccess).toHaveBeenCalledTimes(1);
   });
 });
