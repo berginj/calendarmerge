@@ -1,16 +1,18 @@
 import { Dialog, DialogContent } from './ui/Dialog';
-import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, X } from 'lucide-react';
+import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Search, X } from 'lucide-react';
 import { clsx } from 'clsx';
+
+type View = 'dashboard' | 'feeds' | 'insights' | 'changes' | 'settings';
 
 interface MobileMenuProps {
   open: boolean;
   onClose: () => void;
-  currentView: 'dashboard' | 'feeds' | 'changes' | 'settings';
-  onViewChange: (view: 'dashboard' | 'feeds' | 'changes' | 'settings') => void;
+  currentView: View;
+  onViewChange: (view: View) => void;
 }
 
 export default function MobileMenu({ open, onClose, currentView, onViewChange }: MobileMenuProps) {
-  const handleViewChange = (view: 'dashboard' | 'feeds' | 'changes' | 'settings') => {
+  const handleViewChange = (view: View) => {
     onViewChange(view);
     onClose();
   };
@@ -54,6 +56,19 @@ export default function MobileMenu({ open, onClose, currentView, onViewChange }:
             >
               <Rss className="h-5 w-5" />
               <span>Feeds</span>
+            </button>
+
+            <button
+              onClick={() => handleViewChange('insights')}
+              className={clsx(
+                'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors',
+                currentView === 'insights'
+                  ? 'bg-primary-50 text-primary-700 font-medium'
+                  : 'text-slate-700 hover:bg-slate-50'
+              )}
+            >
+              <Search className="h-5 w-5" />
+              <span>Insights</span>
             </button>
 
             <button

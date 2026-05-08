@@ -19,12 +19,13 @@ import { useManualRefresh } from './hooks/useManualRefresh';
 import Dashboard from './views/Dashboard';
 import Changes from './views/Changes';
 import Feeds from './views/Feeds';
+import Insights from './views/Insights';
 import Settings from './components/Settings';
-import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Menu, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Menu, HelpCircle, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import './App.css';
 
-type View = 'dashboard' | 'feeds' | 'changes' | 'settings';
+type View = 'dashboard' | 'feeds' | 'insights' | 'changes' | 'settings';
 
 interface LinkItem {
   label: string;
@@ -236,6 +237,13 @@ function App() {
                 Feeds
               </button>
               <button
+                className={clsx('nav-button', currentView === 'insights' && 'active')}
+                onClick={() => setCurrentView('insights')}
+              >
+                <Search className="h-4 w-4" />
+                Insights
+              </button>
+              <button
                 className={clsx('nav-button', currentView === 'changes' && 'active')}
                 onClick={() => setCurrentView('changes')}
               >
@@ -357,6 +365,8 @@ function App() {
             setError={setError}
           />
         )}
+
+        {currentView === 'insights' && <Insights />}
 
         {currentView === 'changes' && <Changes />}
 

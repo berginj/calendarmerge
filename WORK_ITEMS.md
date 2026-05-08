@@ -204,6 +204,8 @@ Definition of done:
 
 Priority: P2
 
+Status: Complete in implementation slice 2026-05-07.
+
 Problem:
 The backend detects useful operational conditions, but the management UI should present them as actionable operator workflows rather than raw lists.
 
