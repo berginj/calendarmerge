@@ -45,6 +45,10 @@ describe("eventFilter", () => {
   it("should treat opponent-style summaries as game-like", () => {
     expect(isGameLikeEvent(createMockEvent({ summary: "Tigers vs. Wolves" }))).toBe(true);
     expect(isGameLikeEvent(createMockEvent({ summary: "Tigers @ Wolves" }))).toBe(true);
+    expect(isGameLikeEvent(createMockEvent({ summary: "Arlington Tigers vs Falls Church Wolves" }))).toBe(true);
+    expect(isGameLikeEvent(createMockEvent({ summary: "Arlington Tigers @ Falls Church Wolves" }))).toBe(true);
+    expect(isGameLikeEvent(createMockEvent({ summary: "Arlington Tigers v Falls Church Wolves" }))).toBe(true);
+    expect(isGameLikeEvent(createMockEvent({ summary: "Arlington Tigers versus Falls Church Wolves" }))).toBe(true);
   });
 
   it("should treat provider descriptions with event type markers as game-like", () => {
