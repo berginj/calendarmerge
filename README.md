@@ -97,6 +97,10 @@ Supported settings:
 | `FETCH_TIMEOUT_MS` | No | `10000` | Per-request timeout. |
 | `FETCH_RETRY_COUNT` | No | `2` | Retry count after the initial attempt. |
 | `FETCH_RETRY_DELAY_MS` | No | `750` | Base retry backoff in milliseconds. |
+| `ALERT_WEBHOOK_URL` | No | none | HTTPS webhook URL for operational alerts. When unset, alert delivery is disabled. |
+| `ALERT_STALE_HOURS` | No | `2` | Calendar age threshold for stale-calendar alerts. |
+| `ALERT_CONSECUTIVE_FAILURE_THRESHOLD` | No | `3` | Consecutive feed failures required before repeated-failure alerts. |
+| `ALERT_DEDUPE_COOLDOWN_MINUTES` | No | `360` | Dedupe cooldown for identical operational alerts. |
 | `SERVICE_NAME` | No | `calendarmerge` | Included in logs and `status.json`. |
 
 Example `SOURCE_FEEDS_JSON`:
@@ -386,6 +390,13 @@ npm run test:watch  # Watch mode for development
 - Feed event count monitoring (0-event alerts, significant drops/increases)
 - Potential duplicate flagging with confidence levels
 - LeagueApps reschedule marker handling
+
+**Webhook Alerts:**
+- Set `ALERT_WEBHOOK_URL` to enable JSON webhook delivery for operational events
+- Triggers include failed service state, stale calendars, events-to-zero, significant feed drops, reschedules, and repeated feed failures
+- Payloads include `serviceName`, `refreshId`, `operationalState`, `statusUrl`, and actionable alert details
+- Dedupe state is stored in Azure Table Storage (`AlertDedupe`) so identical alerts are not sent every refresh
+- Tune thresholds with `ALERT_STALE_HOURS`, `ALERT_CONSECUTIVE_FAILURE_THRESHOLD`, and `ALERT_DEDUPE_COOLDOWN_MINUTES`
 
 **API Tracking:**
 - Request ID on all API calls for tracing

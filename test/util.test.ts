@@ -29,6 +29,9 @@ describe("util", () => {
       fetchTimeoutMs: 10_000,
       fetchRetryCount: 2,
       fetchRetryDelayMs: 750,
+      alertStaleHours: 2,
+      alertConsecutiveFailureThreshold: 3,
+      alertDedupeCooldownMinutes: 360,
     });
 
     expect(output.blobBaseUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net");

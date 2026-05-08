@@ -24,6 +24,9 @@ export const DEFAULT_REFRESH_SCHEDULE = "0 */30 * * * *";
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export const DEFAULT_FETCH_RETRY_COUNT = 2;
 export const DEFAULT_FETCH_RETRY_DELAY_MS = 750;
+export const DEFAULT_ALERT_STALE_HOURS = 2;
+export const DEFAULT_ALERT_CONSECUTIVE_FAILURE_THRESHOLD = 3;
+export const DEFAULT_ALERT_DEDUPE_COOLDOWN_MINUTES = 360;
 
 type RawSourceFeed =
   | string
@@ -94,6 +97,22 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     DEFAULT_FETCH_RETRY_DELAY_MS,
     "FETCH_RETRY_DELAY_MS",
   );
+  const alertWebhookUrl = normalizeOptionalUrl(env.ALERT_WEBHOOK_URL, "ALERT_WEBHOOK_URL");
+  const alertStaleHours = parsePositiveNumber(
+    env.ALERT_STALE_HOURS,
+    DEFAULT_ALERT_STALE_HOURS,
+    "ALERT_STALE_HOURS",
+  );
+  const alertConsecutiveFailureThreshold = parsePositiveInteger(
+    env.ALERT_CONSECUTIVE_FAILURE_THRESHOLD,
+    DEFAULT_ALERT_CONSECUTIVE_FAILURE_THRESHOLD,
+    "ALERT_CONSECUTIVE_FAILURE_THRESHOLD",
+  );
+  const alertDedupeCooldownMinutes = parsePositiveInteger(
+    env.ALERT_DEDUPE_COOLDOWN_MINUTES,
+    DEFAULT_ALERT_DEDUPE_COOLDOWN_MINUTES,
+    "ALERT_DEDUPE_COOLDOWN_MINUTES",
+  );
 
   validateStorageAccountName(outputStorageAccount);
   validateSchedule(refreshSchedule);
@@ -115,6 +134,10 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     fetchTimeoutMs,
     fetchRetryCount,
     fetchRetryDelayMs,
+    alertWebhookUrl,
+    alertStaleHours,
+    alertConsecutiveFailureThreshold,
+    alertDedupeCooldownMinutes,
   };
 }
 
@@ -233,6 +256,19 @@ function parsePositiveInteger(rawValue: string | undefined, fallback: number, na
   return value;
 }
 
+function parsePositiveNumber(rawValue: string | undefined, fallback: number, name: string): number {
+  if (!rawValue?.trim()) {
+    return fallback;
+  }
+
+  const value = Number.parseFloat(rawValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${name} must be a positive number.`);
+  }
+
+  return value;
+}
+
 function parseNonNegativeInteger(rawValue: string | undefined, fallback: number, name: string): number {
   if (!rawValue?.trim()) {
     return fallback;
@@ -252,6 +288,26 @@ function validateStorageAccountName(name: string): void {
       "OUTPUT_STORAGE_ACCOUNT must be a valid Azure storage account name (3-24 lowercase letters or digits).",
     );
   }
+}
+
+function normalizeOptionalUrl(value: string | undefined, name: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`${name} must be a valid absolute URL.`);
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error(`${name} must use https.`);
+  }
+
+  return parsed.toString();
 }
 
 function normalizeContainerName(value: string, name: string): string {

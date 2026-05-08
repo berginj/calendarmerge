@@ -320,6 +320,9 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
     status.errorSummary = [...status.errorSummary, message];
   }
 
+  const { deliverOperationalAlerts } = await import("./alertDelivery");
+  await deliverOperationalAlerts(status, config, refreshLogger.setCategory("system"));
+
   refreshLogger.info("refresh_finished", {
     reason,
     state,

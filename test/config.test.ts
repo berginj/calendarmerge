@@ -36,6 +36,38 @@ describe("Config", () => {
     expect(config.fetchTimeoutMs).toBe(10000);
     expect(config.fetchRetryCount).toBe(2);
     expect(config.fetchRetryDelayMs).toBe(750);
+    expect(config.alertWebhookUrl).toBeUndefined();
+    expect(config.alertStaleHours).toBe(2);
+    expect(config.alertConsecutiveFailureThreshold).toBe(3);
+    expect(config.alertDedupeCooldownMinutes).toBe(360);
+  });
+
+  it("should parse optional alert delivery settings", () => {
+    const env = {
+      SOURCE_FEEDS_JSON: '[{"id":"test","name":"Test","url":"https://example.com/cal.ics"}]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      ALERT_WEBHOOK_URL: "https://hooks.example.com/calendarmerge",
+      ALERT_STALE_HOURS: "4.5",
+      ALERT_CONSECUTIVE_FAILURE_THRESHOLD: "5",
+      ALERT_DEDUPE_COOLDOWN_MINUTES: "30",
+    };
+
+    const config = loadConfig(env);
+
+    expect(config.alertWebhookUrl).toBe("https://hooks.example.com/calendarmerge");
+    expect(config.alertStaleHours).toBe(4.5);
+    expect(config.alertConsecutiveFailureThreshold).toBe(5);
+    expect(config.alertDedupeCooldownMinutes).toBe(30);
+  });
+
+  it("should require alert webhooks to use https", () => {
+    const env = {
+      SOURCE_FEEDS_JSON: '[{"id":"test","name":"Test","url":"https://example.com/cal.ics"}]',
+      OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      ALERT_WEBHOOK_URL: "http://hooks.example.com/calendarmerge",
+    };
+
+    expect(() => loadConfig(env)).toThrow("ALERT_WEBHOOK_URL must use https");
   });
 
   it("should allow internal status storage overrides", () => {

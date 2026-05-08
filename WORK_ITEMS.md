@@ -233,6 +233,8 @@ Definition of done:
 
 Priority: P2
 
+Status: Complete in implementation slice 2026-05-07.
+
 Problem:
 The system detects degraded states and schedule changes, but it does not actively notify users/operators.
 

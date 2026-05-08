@@ -72,6 +72,9 @@ const config: AppConfig = {
   fetchTimeoutMs: 10_000,
   fetchRetryCount: 2,
   fetchRetryDelayMs: 750,
+  alertStaleHours: 2,
+  alertConsecutiveFailureThreshold: 3,
+  alertDedupeCooldownMinutes: 360,
 };
 
 function serviceStatus(): ServiceStatus {

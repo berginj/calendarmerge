@@ -28,6 +28,10 @@ export interface AppConfig {
   fetchTimeoutMs: number;
   fetchRetryCount: number;
   fetchRetryDelayMs: number;
+  alertWebhookUrl?: string;
+  alertStaleHours: number;
+  alertConsecutiveFailureThreshold: number;
+  alertDedupeCooldownMinutes: number;
 }
 
 export interface IcsProperty {
