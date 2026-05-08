@@ -1,13 +1,11 @@
 import { useState } from 'react';
 
+import { normalizeFeedUrl, validateFeedUrl } from '../lib/feedInput';
+
 interface FeedFormProps {
   onSubmit: (feed: { name: string; url: string }) => Promise<void>;
   onCancel: () => void;
   initialValues?: { name: string; url: string };
-}
-
-function normalizeFeedUrl(urlValue: string): string {
-  return urlValue.trim().replace(/^webcals?:\/\//i, 'https://');
 }
 
 function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
@@ -16,35 +14,9 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
 
-  const validateUrl = (urlValue: string): string | null => {
-    const trimmed = normalizeFeedUrl(urlValue);
-
-    if (!trimmed) {
-      return 'Please enter a calendar feed URL.';
-    }
-
-    // Check for Google Calendar web UI URLs (common mistake)
-    if (trimmed.includes('calendar.google.com/calendar/u/') || trimmed.includes('?cid=')) {
-      return 'This looks like a Google Calendar web URL. You need the ICS feed URL instead. Go to calendar settings → "Integrate calendar" → copy the "Secret address in iCal format"';
-    }
-
-    // Basic URL validation
-    try {
-      const parsed = new URL(trimmed);
-
-      if (!['http:', 'https:'].includes(parsed.protocol)) {
-        return 'Please enter a valid URL starting with https:// or webcal://';
-      }
-    } catch {
-      return 'Please enter a valid URL starting with https:// or webcal://';
-    }
-
-    return null;
-  };
-
   const handleUrlChange = (value: string) => {
     setUrl(value);
-    setUrlError(validateUrl(value));
+    setUrlError(validateFeedUrl(value));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,7 +27,7 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
     }
 
     // Final validation before submit
-    const error = validateUrl(url);
+    const error = validateFeedUrl(url);
     if (error) {
       setUrlError(error);
       return;

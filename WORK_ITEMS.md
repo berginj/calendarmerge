@@ -334,6 +334,31 @@ Definition of done:
 - `.gitignore`, docs, and CI reflect the chosen policy.
 - No recurring stale-build ambiguity remains.
 
+## WI-013: Improve Calendar Feed Onboarding
+
+Priority: P1
+
+Status: Complete in implementation slice 2026-05-08.
+
+Problem:
+Adding calendars one at a time makes initial setup slow, and the UI does not clearly explain where to find subscription links from common sports and calendar providers.
+
+Scope:
+- Replace the single-add setup flow with a bulk setup form that accepts multiple calendar subscription URLs at once.
+- Support common paste formats, including `Name | URL`, `Name, URL`, `Name URL`, and URL-only lines.
+- Normalize `webcal://` and `webcals://` links to HTTPS before saving.
+- Add provider-specific guidance for GameChanger, TeamSnap, TeamSideline, and Google Calendar.
+- Keep edit-in-place behavior for existing feeds.
+- Document the workflow in README.
+
+Definition of done:
+- Operators can add several feeds from `/manage/` in one setup pass.
+- The UI previews valid lines and shows line-level errors before submit.
+- Partial create failures are reported without losing successful creates.
+- Provider guidance links to official help or support pages.
+- Frontend tests cover bulk parsing and the setup panel.
+- Frontend build and tests pass.
+
 ## Recommended Sequencing
 
 1. WI-001

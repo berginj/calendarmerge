@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { SourceFeedConfig } from './types';
+import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from './types';
 import {
   clearFunctionsKey,
   createFeed,
@@ -116,17 +116,48 @@ function App() {
     setError(null);
   };
 
-  const handleCreate = async (feed: { name: string; url: string }) => {
+  const handleCreateMany = async (newFeeds: NewSourceFeedInput[]): Promise<BulkFeedCreateResult> => {
+    const created: SourceFeedConfig[] = [];
+    const failed: BulkFeedCreateResult['failed'] = [];
+
     try {
       setError(null);
-      await createFeed(feed);
+
+      for (const feed of newFeeds) {
+        try {
+          const createdFeed = await createFeed(feed);
+          created.push(createdFeed);
+        } catch (err) {
+          failed.push({
+            feed,
+            error: err instanceof Error ? err.message : 'Failed to create feed',
+          });
+        }
+      }
+
       await loadFeeds();
-      toast.success('Feed created successfully', `${feed.name} has been added`);
+
+      if (failed.length === 0) {
+        toast.success(
+          newFeeds.length === 1 ? 'Feed created successfully' : `${created.length} feeds created successfully`,
+          newFeeds.length === 1 ? `${newFeeds[0].name} has been added` : 'New calendars will be included on the next refresh',
+        );
+      } else if (created.length > 0) {
+        const message = `${created.length} added; ${failed.length} failed. Review the setup panel for details.`;
+        setError(message);
+        toast.warning('Some feeds were not created', message);
+      } else {
+        const message = failed[0]?.error ?? 'Failed to create feeds';
+        setError(message);
+        toast.error('Failed to create feeds', message);
+      }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to create feed';
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create feeds';
       setError(errorMsg);
-      toast.error('Failed to create feed', errorMsg);
+      toast.error('Failed to create feeds', errorMsg);
     }
+
+    return { created, failed };
   };
 
   const handleUpdate = async (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => {
@@ -361,7 +392,7 @@ function App() {
             hasConfiguredAdminKey={hasConfiguredAdminKey}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
-            onCreate={handleCreate}
+            onCreateMany={handleCreateMany}
             setError={setError}
           />
         )}

@@ -7,8 +7,9 @@ import Badge from '../components/ui/Badge';
 import Switch from '../components/ui/Switch';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/DropdownMenu';
 import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, Calendar } from 'lucide-react';
-import { SourceFeedConfig } from '../types';
+import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from '../types';
 import FeedForm from '../components/FeedForm';
+import BulkFeedForm from '../components/BulkFeedForm';
 import { clsx } from 'clsx';
 
 interface EnhancedFeedsProps {
@@ -18,7 +19,7 @@ interface EnhancedFeedsProps {
   hasConfiguredAdminKey: boolean;
   onUpdate: (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
-  onCreate: (feed: { name: string; url: string }) => Promise<void>;
+  onCreateMany: (feeds: NewSourceFeedInput[]) => Promise<BulkFeedCreateResult>;
   setError: (error: string | null) => void;
 }
 
@@ -29,7 +30,7 @@ export default function Feeds({
   hasConfiguredAdminKey,
   onUpdate,
   onDelete,
-  onCreate,
+  onCreateMany,
   setError,
 }: EnhancedFeedsProps) {
   const [showForm, setShowForm] = useState(false);
@@ -39,12 +40,22 @@ export default function Feeds({
   const { data: status } = useServiceStatus();
   const { refresh, isRefreshing } = useManualRefresh();
 
-  const handleCreate = async (feed: { name: string; url: string }) => {
+  const handleCreateMany = async (newFeeds: NewSourceFeedInput[]) => {
     try {
-      await onCreate(feed);
-      setShowForm(false);
+      const result = await onCreateMany(newFeeds);
+      if (result.failed.length === 0) {
+        setShowForm(false);
+      }
+      return result;
     } catch (err) {
       // Error already handled by parent
+      return {
+        created: [],
+        failed: newFeeds.map((feed) => ({
+          feed,
+          error: err instanceof Error ? err.message : 'Failed to create feed',
+        })),
+      };
     }
   };
 
@@ -196,7 +207,7 @@ export default function Feeds({
             size="md"
           >
             <Plus className="h-4 w-4" />
-            Add Feed
+            Add Calendars
           </Button>
         </div>
       </div>
@@ -287,12 +298,12 @@ export default function Feeds({
         </div>
       )}
 
-      {/* Feed form */}
+      {/* Feed setup form */}
       {showForm && hasConfiguredAdminKey && (
         <Card>
           <CardContent className="p-6">
-            <FeedForm
-              onSubmit={handleCreate}
+            <BulkFeedForm
+              onSubmit={handleCreateMany}
               onCancel={() => setShowForm(false)}
             />
           </CardContent>
@@ -327,7 +338,7 @@ export default function Feeds({
               <>
                 <Calendar className="h-12 w-12 text-slate-400 mx-auto mb-3" />
                 <p className="text-slate-600">No calendar feeds configured yet.</p>
-                <p className="text-slate-600 mt-2">Click "Add Feed" to get started.</p>
+                <p className="text-slate-600 mt-2">Click "Add Calendars" to paste one or more subscription links.</p>
               </>
             ) : (
               <>
