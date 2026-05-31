@@ -1,0 +1,4 @@
+interface:
+  display_name: "CalendarMerge"
+  short_description: "Work on the CalendarMerge Azure Functions app"
+  default_prompt: "Use $calendarmerge to inspect, modify, test, or deploy the CalendarMerge app."
