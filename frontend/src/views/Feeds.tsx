@@ -6,7 +6,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Switch from '../components/ui/Switch';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/DropdownMenu';
-import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, Calendar } from 'lucide-react';
+import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, Calendar, CircleOff } from 'lucide-react';
 import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from '../types';
 import FeedForm from '../components/FeedForm';
 import BulkFeedForm from '../components/BulkFeedForm';
@@ -110,15 +110,15 @@ export default function Feeds({
   };
 
   const handleBulkDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedFeeds.size} feed(s)?`)) {
+    if (!confirm(`Disable ${selectedFeeds.size} feed(s)? They will remain visible for restore for 15 days.`)) {
       return;
     }
 
     for (const feedId of Array.from(selectedFeeds)) {
       try {
-        await onDelete(feedId);
+        await onUpdate(feedId, { enabled: false });
       } catch (err) {
-        console.error(`Failed to delete ${feedId}`, err);
+        console.error(`Failed to disable ${feedId}`, err);
       }
     }
     setSelectedFeeds(new Set());
@@ -155,9 +155,9 @@ export default function Feeds({
     if (filter !== 'all') {
       const health = getFeedHealth(feed.id);
 
-      if (filter === 'healthy' && (!health.ok || health.suspect)) return false;
+      if (filter === 'healthy' && (feed.enabled === false || !health.ok || health.suspect)) return false;
       if (filter === 'suspect' && !health.suspect) return false;
-      if (filter === 'failed' && health.ok) return false;
+      if (filter === 'failed' && (feed.enabled === false || health.ok)) return false;
       if (filter === 'disabled' && feed.enabled !== false) return false;
     }
 
@@ -166,10 +166,11 @@ export default function Feeds({
 
   const healthyCount = feeds.filter(f => {
     const h = getFeedHealth(f.id);
-    return h.ok && !h.suspect;
+    return f.enabled !== false && h.ok && !h.suspect;
   }).length;
   const suspectCount = status?.suspectFeeds?.length ?? 0;
-  const failedCount = status?.sourceStatuses?.filter(f => !f.ok).length ?? 0;
+  const activeFeedIds = new Set(feeds.filter(f => f.enabled !== false).map(f => f.id));
+  const failedCount = status?.sourceStatuses?.filter(f => activeFeedIds.has(f.id) && !f.ok).length ?? 0;
   const disabledCount = feeds.filter(f => f.enabled === false).length;
 
   return (
@@ -237,7 +238,7 @@ export default function Feeds({
               </Button>
               <Button onClick={handleBulkDelete} variant="danger" size="sm">
                 <Trash className="h-4 w-4" />
-                Delete
+                Disable
               </Button>
             </div>
           )}
@@ -408,6 +409,18 @@ function FilterChip({
   );
 }
 
+function formatRestoreDate(value?: string): string {
+  if (!value) {
+    return '15 days after disable';
+  }
+
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch {
+    return value;
+  }
+}
+
 // Enhanced feed card component
 function EnhancedFeedCard({
   feed,
@@ -448,12 +461,17 @@ function EnhancedFeedCard({
   }
 
   const getHealthIcon = () => {
+    if (feed.enabled === false) return <CircleOff className="h-5 w-5 text-slate-500" />;
     if (!feedHealth.ok) return <XCircle className="h-5 w-5 text-red-600" />;
     if (feedHealth.suspect) return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
     return <CheckCircle className="h-5 w-5 text-green-600" />;
   };
 
   const getHealthBadge = () => {
+    if (feed.enabled === false) {
+      return <Badge variant="neutral">Disabled</Badge>;
+    }
+
     if (!feedHealth.ok) {
       return (
         <Badge variant="error">
@@ -468,7 +486,7 @@ function EnhancedFeedCard({
   };
 
   return (
-    <Card className={clsx(selected && 'ring-2 ring-primary-500')}>
+    <Card className={clsx(selected && 'ring-2 ring-primary-500', feed.enabled === false && 'bg-slate-50')}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4 flex-1">
@@ -494,6 +512,11 @@ function EnhancedFeedCard({
 
               <p className="text-sm text-slate-600 truncate mb-1">{feed.url}</p>
               <p className="text-xs text-slate-500">ID: {feed.id}</p>
+              {feed.enabled === false && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Restore available until {formatRestoreDate(feed.restoreAvailableUntil)}
+                </p>
+              )}
 
               {/* Event count change indicator */}
               {feedHealth.previousEventCount !== undefined &&
@@ -539,7 +562,7 @@ function EnhancedFeedCard({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => onDelete(feed.id)}>
                   <Trash className="h-4 w-4" />
-                  Delete
+                  Disable for 15 days
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

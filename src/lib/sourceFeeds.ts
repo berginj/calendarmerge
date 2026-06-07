@@ -50,3 +50,37 @@ export async function loadSourceFeeds(
 
   return enabledFeeds;
 }
+
+export async function loadManageableSourceFeeds(
+  config: AppConfig,
+  logger?: Logger,
+): Promise<SourceFeedConfig[]> {
+  if (!isTableStorageEnabled()) {
+    return config.sourceFeeds;
+  }
+
+  try {
+    const tableStore = new TableStore(getStorageConnectionString(config.outputStorageAccount));
+    const feeds = await tableStore.listFeeds("default", { includeDisabled: true });
+
+    if (feeds.length > 0) {
+      logger?.info("manageable_feeds_loaded_from_table", { count: feeds.length });
+      return feeds;
+    }
+
+    if (config.sourceFeeds.length > 0) {
+      logger?.warn("manageable_table_storage_empty_fallback_to_json");
+      return config.sourceFeeds;
+    }
+
+    logger?.warn("manageable_table_storage_empty_no_fallback");
+    return [];
+  } catch (error) {
+    if (config.sourceFeeds.length > 0) {
+      logger?.error("manageable_table_storage_load_failed_fallback_to_json", { error: errorMessage(error) });
+      return config.sourceFeeds;
+    }
+
+    throw error;
+  }
+}

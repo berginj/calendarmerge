@@ -6,6 +6,14 @@
 
 ---
 
+## Current 1.0 Status (2026-06-06)
+
+This document includes historical findings from the original audit. Current implementation uses `x-functions-key` headers and stores the admin Function key in `sessionStorage`, with legacy `localStorage` keys migrated and removed on first use. This is accepted for the 1.0 operator workflow.
+
+Remaining planned work is tracked as `WI-014` in `WORK_ITEMS.md`: replace browser-held Function keys with real admin authentication so Function keys are no longer exposed to browser users.
+
+---
+
 ## Executive Summary
 
 A comprehensive security review identified **30 security issues** across authentication, data exposure, input validation, and infrastructure.

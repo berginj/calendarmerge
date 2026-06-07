@@ -5,10 +5,11 @@ import { fetchFeed } from "./fetchFeeds";
 import { Logger } from "./log";
 import { mergeFeedEvents } from "./merge";
 import { buildPublicCalendarArtifacts } from "./publicCalendars";
+import { DEFAULT_SETTINGS, AppSettings } from "./settingsStore";
 import { loadSourceFeeds } from "./sourceFeeds";
 import { buildStartingStatus } from "./status";
 import { AppConfig, EventSnapshot, FeedChangeAlert, FeedRunResult, RefreshResult, ServiceStatus, SourceFeedConfig } from "./types";
-import { buildOutputPaths, errorMessage, generateId } from "./util";
+import { buildOutputPaths, errorMessage, generateId, getStorageConnectionString } from "./util";
 
 let activeRefresh: Promise<RefreshResult> | undefined;
 
@@ -58,6 +59,7 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   const refreshLogger = logger.withContext(refreshId).setCategory("refresh");
 
   const previousStatus = await safeReadStatus(store, refreshLogger, config.serviceName);
+  const settings = await safeReadSettings(config, refreshLogger);
   const sourceFeeds = await loadSourceFeeds(config, refreshLogger);
   const sourceResults = await Promise.all(sourceFeeds.map((source) => fetchFeed(source, config, refreshLogger.setCategory("feed"))));
 
@@ -144,7 +146,7 @@ async function executeRefresh(logger: Logger, reason: string): Promise<RefreshRe
   // Build public artifacts to get cancelled event count
   const generatedAt = new Date();
   const publicArtifacts = candidateEvents.length > 0
-    ? buildPublicCalendarArtifacts(candidateEvents, config.serviceName, generatedAt)
+    ? buildPublicCalendarArtifacts(candidateEvents, config.serviceName, generatedAt, settings.gameFilter)
     : null;
   const cancelledEventsFiltered = publicArtifacts?.cancelledEventsFiltered ?? 0;
 
@@ -430,5 +432,19 @@ async function safeCalendarExists(store: BlobStore, logger: Logger): Promise<boo
     });
 
     return false;
+  }
+}
+
+async function safeReadSettings(config: AppConfig, logger: Logger): Promise<AppSettings> {
+  try {
+    const { SettingsStore } = await import("./settingsStore");
+    const store = new SettingsStore(getStorageConnectionString(config.outputStorageAccount));
+    return await store.getSettings();
+  } catch (error) {
+    logger.warn("settings_read_ignored", {
+      error: errorMessage(error),
+    });
+
+    return DEFAULT_SETTINGS;
   }
 }

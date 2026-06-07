@@ -7,15 +7,15 @@ After each successful merge, it also publishes a read-only Schedule-X calendar v
 ## Features
 
 **Web UI for Feed Management:**
-- Add, edit, and delete calendar feed sources
-- Enable/disable feeds without deletion
+- Add, edit, disable, and restore calendar feed sources
+- Disabled feeds remain visible and reversible for 15 days
 - Feed validation on URL changes
 - React-based management interface
 - Feeds stored in Azure Table Storage
 - Accessible at `https://<storage>.z13.web.core.windows.net/manage/`
 
 **Backend Services:**
-- Timer-triggered refresh job (every 30 minutes by default)
+- Timer-triggered refresh job (every 4 hours by default)
 - HTTP manual refresh endpoint
 - HTTP health/status endpoint
 - REST API for feed management (GET/POST/PUT/DELETE)
@@ -70,7 +70,7 @@ The app reads configuration from Azure Functions app settings or `local.settings
 - Feeds can be managed via the web UI (stored in Azure Table Storage)
 - Or configured via `SOURCE_FEEDS_JSON` environment variable (legacy mode)
 - Set `ENABLE_TABLE_STORAGE=true` to load feeds from Table Storage
-- Write actions in the UI require a Function key; the browser stores it locally after you enter it
+- Write actions in the UI require a Function key; the browser stores it in sessionStorage after you enter it
 
 Required:
 
@@ -93,7 +93,7 @@ Supported settings:
 | `STATUS_BLOB_PATH` | No | `status.json` | Public health/status path. |
 | `INTERNAL_STATUS_CONTAINER` | No | `calendarmerge-internal` | Private container for full refresh diagnostics. |
 | `INTERNAL_STATUS_BLOB_PATH` | No | `status-internal.json` | Private full refresh diagnostics path. |
-| `REFRESH_SCHEDULE` | No | `0 */30 * * * *` | Azure Functions NCRONTAB schedule (30 min default, safe for most platforms). |
+| `REFRESH_SCHEDULE` | No | `0 */5 * * * *` | Azure Functions timer wake-up schedule. The app settings table controls the effective refresh cadence, defaulting to every 4 hours. |
 | `FETCH_TIMEOUT_MS` | No | `10000` | Per-request timeout. |
 | `FETCH_RETRY_COUNT` | No | `2` | Retry count after the initial attempt. |
 | `FETCH_RETRY_DELAY_MS` | No | `750` | Base retry backoff in milliseconds. |
@@ -300,7 +300,7 @@ See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md) for detailed instructions
 
 **Note:** Secrets are auto-created by Azure or via setup script
 
-When using the management UI against protected write endpoints, retrieve a Function key and enter it into the UI before creating, updating, or deleting feeds.
+When using the management UI against protected write endpoints, retrieve a Function key and enter it into the UI before creating, updating, disabling, restoring, or previewing feed rules.
 
 ## Public URLs
 
@@ -353,6 +353,7 @@ Function endpoints:
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds` - Create feed (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/{id}` - Update/Delete feed (PUT/DELETE)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings` - Update refresh settings (PUT)
+- `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings/game-filter/preview` - Preview games-only filter rules (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/diagnostic` - Deployment diagnostics (GET)
 
 Manual refresh uses Function auth. Retrieve a key and invoke it like this:
@@ -456,6 +457,8 @@ az storage blob upload-batch `
   --auth-mode login `
   --overwrite
 ```
+
+`frontend/build/` is generated output and is intentionally not tracked in git.
 
 ## Rollback And Troubleshooting
 

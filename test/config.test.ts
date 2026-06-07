@@ -32,7 +32,7 @@ describe("Config", () => {
     expect(config.statusBlobPath).toBe("status.json");
     expect(config.internalStatusContainer).toBe("calendarmerge-internal");
     expect(config.internalStatusBlobPath).toBe("status-internal.json");
-    expect(config.refreshSchedule).toBe("0 */30 * * * *"); // Updated to 30 min based on platform research
+    expect(config.refreshSchedule).toBe("0 */5 * * * *");
     expect(config.fetchTimeoutMs).toBe(10000);
     expect(config.fetchRetryCount).toBe(2);
     expect(config.fetchRetryDelayMs).toBe(750);

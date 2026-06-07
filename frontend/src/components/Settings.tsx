@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { AppSettings, getSettings, updateSettings } from '../api/feedsApi';
+import {
+  AppSettings,
+  GameFilterPreview,
+  GameFilterRules,
+  getSettings,
+  previewGameFilter,
+  updateSettings,
+} from '../api/feedsApi';
 
 function toDirectoryUrl(path: string, origin: string): URL {
   const normalizedPath = path.endsWith('/') ? path : `${path}/`;
@@ -8,8 +15,11 @@ function toDirectoryUrl(path: string, origin: string): URL {
 
 function Settings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [gameFilterDraft, setGameFilterDraft] = useState<GameFilterRules | null>(null);
+  const [gameFilterPreview, setGameFilterPreview] = useState<GameFilterPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const apiBase = toDirectoryUrl(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
@@ -27,6 +37,7 @@ function Settings() {
       setError(null);
       const fetchedSettings = await getSettings();
       setSettings(fetchedSettings);
+      setGameFilterDraft(fetchedSettings.gameFilter);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings');
     } finally {
@@ -54,25 +65,74 @@ function Settings() {
     }
   };
 
+  const handleGameFilterChange = (field: keyof GameFilterRules, value: string) => {
+    if (!gameFilterDraft) return;
+
+    setGameFilterDraft({
+      ...gameFilterDraft,
+      [field]: linesToList(value),
+    });
+    setGameFilterPreview(null);
+  };
+
+  const handleSaveGameFilter = async () => {
+    if (!gameFilterDraft) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      const updated = await updateSettings({ gameFilter: gameFilterDraft });
+      setSettings(updated);
+      setGameFilterDraft(updated.gameFilter);
+      setSuccessMessage('Game filter rules saved.');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save game filter rules');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePreviewGameFilter = async () => {
+    if (!gameFilterDraft) return;
+
+    try {
+      setPreviewing(true);
+      setError(null);
+      setGameFilterPreview(await previewGameFilter(gameFilterDraft));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to preview game filter rules');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   const scheduleOptions: Array<{
     value: AppSettings['refreshSchedule'];
     label: string;
     description: string;
   }> = [
     {
-      value: 'every-15-min',
-      label: 'Every 15 Minutes',
-      description: 'Most responsive - calendars update quickly (default)',
+      value: 'every-4-hours',
+      label: 'Every 4 Hours',
+      description: 'Default release cadence for family and team calendars',
     },
     {
       value: 'hourly',
       label: 'Every Hour',
-      description: 'Balanced - updates every hour, all day',
+      description: 'More responsive, higher provider traffic',
     },
     {
       value: 'every-2-hours',
       label: 'Every 2 Hours',
-      description: 'Less frequent - updates every 2 hours',
+      description: 'Moderate provider traffic',
+    },
+    {
+      value: 'every-15-min',
+      label: 'Every 15 Minutes',
+      description: 'High-frequency option for short periods',
     },
     {
       value: 'business-hours',
@@ -84,6 +144,19 @@ function Settings() {
       label: 'Manual Only',
       description: 'Automatic updates disabled - refresh manually',
     },
+  ];
+  const gameFilterFields: Array<{
+    field: keyof GameFilterRules;
+    label: string;
+    rows: number;
+  }> = [
+    { field: 'forceIncludeFeedIds', label: 'Always Include Feed IDs', rows: 3 },
+    { field: 'forceExcludeFeedIds', label: 'Always Exclude Feed IDs', rows: 3 },
+    { field: 'includeKeywords', label: 'Include Keywords', rows: 4 },
+    { field: 'excludeKeywords', label: 'Exclude Keywords', rows: 3 },
+    { field: 'includeRegex', label: 'Include Regex', rows: 4 },
+    { field: 'excludeRegex', label: 'Exclude Regex', rows: 3 },
+    { field: 'teamAliases', label: 'Team Aliases', rows: 3 },
   ];
 
   if (loading) {
@@ -174,12 +247,68 @@ function Settings() {
         </div>
       </div>
 
+      {gameFilterDraft && (
+        <div className="settings-section">
+          <h3>Games-Only Rules</h3>
+          <div className="game-filter-grid">
+            {gameFilterFields.map((field) => (
+              <label key={field.field} className="game-filter-field">
+                <span>{field.label}</span>
+                <textarea
+                  value={listToLines(gameFilterDraft[field.field])}
+                  onChange={(event) => handleGameFilterChange(field.field, event.target.value)}
+                  rows={field.rows}
+                  disabled={saving || previewing}
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="settings-actions">
+            <button className="btn-secondary" type="button" onClick={handlePreviewGameFilter} disabled={saving || previewing}>
+              {previewing ? 'Previewing...' : 'Preview Matches'}
+            </button>
+            <button className="btn-primary" type="button" onClick={handleSaveGameFilter} disabled={saving || previewing}>
+              {saving ? 'Saving...' : 'Save Rules'}
+            </button>
+          </div>
+
+          {gameFilterPreview && (
+            <div className="game-filter-preview">
+              <div>
+                <strong>{gameFilterPreview.matchedGameCount}</strong>
+                <span>Matched games</span>
+              </div>
+              <div>
+                <strong>{gameFilterPreview.excludedEventCount}</strong>
+                <span>Excluded events</span>
+              </div>
+              <div>
+                <strong>{gameFilterPreview.failedFeedCount}</strong>
+                <span>Failed feeds</span>
+              </div>
+              {gameFilterPreview.matchedSamples.length > 0 && (
+                <div className="game-filter-samples">
+                  <span>Matched samples</span>
+                  <ul>
+                    {gameFilterPreview.matchedSamples.slice(0, 5).map((event) => (
+                      <li key={`${event.sourceName}-${event.start}-${event.title}`}>
+                        {event.title} - {event.sourceName}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="settings-info">
         <h4>About Refresh Schedules</h4>
         <ul>
           <li>
-            <strong>Every 15 Minutes (Recommended):</strong> Best for frequently changing
-            calendars like school or sports schedules. Near real-time updates.
+            <strong>Every 4 Hours:</strong> Default cadence for normal family and team calendar updates.
           </li>
           <li>
             <strong>Hourly:</strong> Good balance between responsiveness and efficiency.
@@ -204,3 +333,14 @@ function Settings() {
 }
 
 export default Settings;
+
+function linesToList(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listToLines(value: string[]): string {
+  return value.join('\n');
+}

@@ -89,4 +89,44 @@ describe("eventFilter", () => {
 
     expect(applyEventFilter([game, practice], "games-only")).toEqual([game]);
   });
+
+  it("should apply configured include, exclude, feed, and alias rules", () => {
+    const forcedFeed = createMockEvent({
+      sourceId: "league-feed",
+      identityKey: "league",
+      mergedUid: "league",
+      summary: "Open Gym",
+    });
+    const excludedFeed = createMockEvent({
+      sourceId: "practice-feed",
+      identityKey: "practice-feed",
+      mergedUid: "practice-feed",
+      summary: "Game vs Tigers",
+    });
+    const aliasMatch = createMockEvent({
+      identityKey: "alias",
+      mergedUid: "alias",
+      summary: "Arlington Reds @ Wolves",
+    });
+    const excludedKeyword = createMockEvent({
+      identityKey: "tryout",
+      mergedUid: "tryout",
+      summary: "Game tryout",
+    });
+
+    expect(applyEventFilter([
+      forcedFeed,
+      excludedFeed,
+      aliasMatch,
+      excludedKeyword,
+    ], "games-only", {
+      forceIncludeFeedIds: ["league-feed"],
+      forceExcludeFeedIds: ["practice-feed"],
+      includeKeywords: [],
+      excludeKeywords: ["tryout"],
+      includeRegex: [],
+      excludeRegex: [],
+      teamAliases: ["Arlington Reds"],
+    })).toEqual([forcedFeed, aliasMatch]);
+  });
 });

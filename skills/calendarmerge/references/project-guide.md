@@ -107,7 +107,7 @@ Local endpoints:
 - Use `src/lib/types.ts` and existing interfaces where possible; avoid breaking required fields.
 - For public calendar output, check both ICS and Schedule-X JSON paths.
 - For games-only behavior, update both full-calendar and games-only code paths and tests.
-- For management UI feed writes, remember browser requests require a Function key stored locally by the UI.
+- For management UI feed writes, remember browser requests require a Function key stored in sessionStorage by the UI until WI-014 replaces this with real admin auth.
 - For deployment scripts, be careful with Azure names, GitHub secrets, federated credentials, and role assignments.
 
 ## Common Files By Task

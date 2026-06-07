@@ -424,7 +424,7 @@ GameChanger states Google can take up to 24 hours to sync changes made in GameCh
 Recommendation:
 
 ```text
-Default polling: every 30 minutes
+Default polling: every 4 hours for 1.0; shorter intervals only by explicit operator setting
 Manual refresh: allow, but rate-limit per user/feed
 Do not poll faster than 15 minutes automatically
 ```

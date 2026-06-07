@@ -423,13 +423,13 @@ status
 │ Event Count: 25 (↑ from 22)                        │
 │ Consecutive Failures: 0                             │
 │ Detected Platform: GameChanger                      │
-│ Polling Interval: 30 minutes                        │
+│ Polling Interval: 4 hours                           │
 └─────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────┐
 │ Feed: Athletics                                      │
 │ Status: ⚠️ Suspect (0 events)                       │
-│ Last Check: 30 minutes ago                          │
+│ Last Check: 4 hours ago                             │
 │ Event Count: 0 (↓ from 20) -100%                   │
 │ Alert: events-to-zero                               │
 │ Consecutive Failures: 0                             │
@@ -1184,7 +1184,7 @@ az functionapp config appsettings set `
   --name $env:AZ_FUNCTIONAPP_NAME `
   --settings SOURCE_FEEDS_JSON='[{"id":"test","name":"Invalid","url":"https://invalid.example.com/404.ics"}]'
 
-# Wait for next refresh (30 minutes)
+# Wait for next refresh (4 hours by default)
 # Or trigger manual refresh
 ```
 

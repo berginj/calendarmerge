@@ -73,6 +73,63 @@ END:VCALENDAR`,
     expect(artifacts.gamesScheduleX.events[0]?.title).toBe("Game vs Tigers");
   });
 
+  it("uses provider description markers before stripping public descriptions", () => {
+    const events = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:game-1
+DTSTART:20260512T170000Z
+DTEND:20260512T180000Z
+SUMMARY:Saturday event
+DESCRIPTION:Event Type: Game\\nOpponent: Tigers
+LOCATION:Field 4
+END:VEVENT
+END:VCALENDAR`,
+      source("athletics", "Athletics"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts(events, "calendarmerge");
+
+    expect(artifacts.gamesScheduleX.events).toHaveLength(1);
+    expect(artifacts.gamesCalendarText).toContain("Saturday event");
+    expect(artifacts.gamesCalendarText).not.toContain("DESCRIPTION");
+  });
+
+  it("applies configured games-only filter rules to published artifacts", () => {
+    const events = parseIcsCalendar(
+      `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:practice-1
+DTSTART:20260512T170000Z
+DTEND:20260512T180000Z
+SUMMARY:Team Practice
+LOCATION:Field 4
+END:VEVENT
+BEGIN:VEVENT
+UID:tryout-1
+DTSTART:20260512T190000Z
+DTEND:20260512T200000Z
+SUMMARY:Game Tryout
+LOCATION:Field 4
+END:VEVENT
+END:VCALENDAR`,
+      source("athletics", "Athletics"),
+    );
+
+    const artifacts = buildPublicCalendarArtifacts(events, "calendarmerge", new Date(), {
+      forceIncludeFeedIds: ["athletics"],
+      forceExcludeFeedIds: [],
+      includeKeywords: [],
+      excludeKeywords: ["tryout"],
+      includeRegex: [],
+      excludeRegex: [],
+      teamAliases: [],
+    });
+
+    expect(artifacts.gamesScheduleX.events).toHaveLength(1);
+    expect(artifacts.gamesScheduleX.events[0]?.title).toBe("Team Practice");
+  });
+
   it("normalizes schedule-x ids and guarantees timed events end after they start", () => {
     const [event] = parseIcsCalendar(
       `BEGIN:VCALENDAR

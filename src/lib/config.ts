@@ -18,9 +18,8 @@ export const DEFAULT_SCHEDULE_X_GAMES_BLOB_PATH = "schedule-x-games.json";
 export const DEFAULT_STATUS_BLOB_PATH = "status.json";
 export const DEFAULT_INTERNAL_STATUS_CONTAINER = "calendarmerge-internal";
 export const DEFAULT_INTERNAL_STATUS_BLOB_PATH = "status-internal.json";
-// Updated from 15 to 30 minutes based on platform research (see PLATFORM_INTEGRATION_NOTES.md)
-// Most sports platforms (GameChanger, TeamSnap, etc.) refresh around 30-60 minutes
-export const DEFAULT_REFRESH_SCHEDULE = "0 */30 * * * *";
+// Timer wake-up cadence. The effective refresh cadence is controlled by AppSettings.
+export const DEFAULT_REFRESH_SCHEDULE = "0 */5 * * * *";
 export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export const DEFAULT_FETCH_RETRY_COUNT = 2;
 export const DEFAULT_FETCH_RETRY_DELAY_MS = 750;

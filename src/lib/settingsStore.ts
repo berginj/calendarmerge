@@ -2,10 +2,13 @@ import { TableClient } from "@azure/data-tables";
 import { DefaultAzureCredential } from "@azure/identity";
 import { DateTime } from "luxon";
 
+import { DEFAULT_GAME_FILTER_RULES, normalizeGameFilterRules } from "./eventFilter";
+import { GameFilterRules, RefreshSchedule } from "./types";
 import { looksLikeConnectionString } from "./util";
 
 export interface AppSettings {
-  refreshSchedule: "every-15-min" | "hourly" | "every-2-hours" | "business-hours" | "manual-only";
+  refreshSchedule: RefreshSchedule;
+  gameFilter: GameFilterRules;
   lastUpdated: string;
 }
 
@@ -13,6 +16,7 @@ interface SettingsEntity {
   partitionKey: string;
   rowKey: string;
   refreshSchedule: string;
+  gameFilterJson?: string;
   lastUpdated: string;
 }
 
@@ -20,7 +24,8 @@ const SETTINGS_PARTITION_KEY = "app-settings";
 const SETTINGS_ROW_KEY = "default";
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  refreshSchedule: "every-15-min",
+  refreshSchedule: "every-4-hours",
+  gameFilter: DEFAULT_GAME_FILTER_RULES,
   lastUpdated: new Date().toISOString(),
 };
 
@@ -58,6 +63,7 @@ export class SettingsStore {
 
       return {
         refreshSchedule: normalizeRefreshSchedule(entity.refreshSchedule),
+        gameFilter: parseGameFilterJson(entity.gameFilterJson),
         lastUpdated: entity.lastUpdated,
       };
     } catch (error: unknown) {
@@ -73,6 +79,9 @@ export class SettingsStore {
     const updated: AppSettings = {
       ...current,
       ...settings,
+      gameFilter: settings.gameFilter
+        ? normalizeGameFilterRules(settings.gameFilter)
+        : current.gameFilter,
       lastUpdated: new Date().toISOString(),
     };
 
@@ -84,6 +93,7 @@ export class SettingsStore {
       partitionKey: SETTINGS_PARTITION_KEY,
       rowKey: SETTINGS_ROW_KEY,
       refreshSchedule: settings.refreshSchedule,
+      gameFilterJson: JSON.stringify(normalizeGameFilterRules(settings.gameFilter)),
       lastUpdated: settings.lastUpdated,
     };
 
@@ -116,6 +126,8 @@ export class SettingsStore {
         return minutesSinceLastRefresh >= 60;
       case "every-2-hours":
         return minutesSinceLastRefresh >= 120;
+      case "every-4-hours":
+        return minutesSinceLastRefresh >= 240;
       case "business-hours": {
         const easternNow = DateTime.fromJSDate(now).setZone("America/New_York");
         const isBusinessDay = easternNow.weekday >= 1 && easternNow.weekday <= 5;
@@ -137,11 +149,24 @@ function normalizeRefreshSchedule(value: string | undefined): AppSettings["refre
   switch (value) {
     case "hourly":
     case "every-2-hours":
+    case "every-4-hours":
     case "business-hours":
     case "manual-only":
     case "every-15-min":
       return value;
     default:
       return DEFAULT_SETTINGS.refreshSchedule;
+  }
+}
+
+function parseGameFilterJson(value: string | undefined): GameFilterRules {
+  if (!value?.trim()) {
+    return normalizeGameFilterRules(DEFAULT_GAME_FILTER_RULES);
+  }
+
+  try {
+    return normalizeGameFilterRules(JSON.parse(value) as Partial<GameFilterRules>);
+  } catch {
+    return normalizeGameFilterRules(DEFAULT_GAME_FILTER_RULES);
   }
 }

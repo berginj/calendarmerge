@@ -182,7 +182,7 @@ function App() {
   };
 
   const handleDelete = async (feedId: string) => {
-    if (!confirm('Are you sure you want to delete this feed?')) {
+    if (!confirm('Disable this feed? It will remain visible for restore for 15 days.')) {
       return;
     }
 
@@ -190,7 +190,7 @@ function App() {
       setError(null);
       await deleteFeed(feedId);
       await loadFeeds();
-      toast.success('Feed deleted successfully');
+      toast.success('Feed disabled for 15 days');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete feed';
       setError(errorMsg);

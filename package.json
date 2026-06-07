@@ -1,6 +1,6 @@
 {
   "name": "calendarmerge",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Azure Functions ICS calendar aggregator that publishes merged output to Azure Blob Storage.",
   "main": "dist/src/index.js",

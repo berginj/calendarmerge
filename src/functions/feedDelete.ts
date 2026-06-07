@@ -42,13 +42,13 @@ export async function deleteFeedHandler(
       );
     }
 
-    // Soft delete (set enabled=false)
+    // Soft delete (set enabled=false) so users can restore it from the UI for 15 days.
     await store.softDeleteFeed(feedId);
 
     logger.info("feed_deleted", { requestId, feedId });
 
     return toHttpResponse(
-      createSuccessResponse(requestId, { feedId }, "Feed deleted successfully"),
+      createSuccessResponse(requestId, { feedId }, "Feed disabled for 15 days"),
     );
   } catch (error) {
     logger.error("feed_delete_failed", { requestId, error: errorMessage(error) });

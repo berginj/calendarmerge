@@ -1,6 +1,6 @@
 import { applyEventFilter } from "./eventFilter";
 import { isCancelledEvent, isLeagueAppsRescheduleMarker } from "./eventSnapshot";
-import { ParsedEvent } from "./types";
+import { GameFilterRules, ParsedEvent } from "./types";
 import { serializeCalendar } from "./ics";
 
 const PUBLIC_STRIP_PROPERTY_NAMES = new Set([
@@ -46,13 +46,14 @@ export function buildPublicCalendarArtifacts(
   events: ParsedEvent[],
   serviceName: string,
   generatedAt = new Date(),
+  gameFilterRules?: Partial<GameFilterRules>,
 ): PublicCalendarArtifacts {
   // Filter out cancelled events and LeagueApps reschedule markers
   const cancelledCount = events.filter((e) => isCancelledEvent(e) || isLeagueAppsRescheduleMarker(e)).length;
   const activeEvents = events.filter((e) => !isCancelledEvent(e) && !isLeagueAppsRescheduleMarker(e));
 
   const publicEvents = activeEvents.map(toPublicEvent);
-  const publicGamesEvents = applyEventFilter(publicEvents, "games-only");
+  const publicGamesEvents = applyEventFilter(activeEvents, "games-only", gameFilterRules).map(toPublicEvent);
   const generatedAtIso = generatedAt.toISOString();
 
   return {

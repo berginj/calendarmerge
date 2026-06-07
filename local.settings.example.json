@@ -15,7 +15,7 @@
     "INTERNAL_STATUS_CONTAINER": "calendarmerge-internal",
     "INTERNAL_STATUS_BLOB_PATH": "status-internal.json",
     "ENABLE_TABLE_STORAGE": "false",
-    "REFRESH_SCHEDULE": "0 */30 * * * *",
+    "REFRESH_SCHEDULE": "0 */5 * * * *",
     "FETCH_TIMEOUT_MS": "10000",
     "FETCH_RETRY_COUNT": "2",
     "FETCH_RETRY_DELAY_MS": "750"

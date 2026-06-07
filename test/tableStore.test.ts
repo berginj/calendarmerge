@@ -90,4 +90,61 @@ describe("TableStore", () => {
       },
     ]);
   });
+
+  it("lists disabled feeds only for the reversible restore window when requested", async () => {
+    const disabledAt = "2026-01-01T00:00:00.000Z";
+    async function* listEntities() {
+      yield {
+        partitionKey: "default",
+        rowKey: "active-feed",
+        id: "active-feed",
+        name: "Active Feed",
+        url: "https://example.com/active.ics",
+        enabled: true,
+        createdAt: disabledAt,
+        updatedAt: disabledAt,
+      };
+      yield {
+        partitionKey: "default",
+        rowKey: "recent-disabled-feed",
+        id: "recent-disabled-feed",
+        name: "Recent Disabled Feed",
+        url: "https://example.com/recent-disabled.ics",
+        enabled: false,
+        disabledAt,
+        restoreAvailableUntil: "2026-01-16T00:00:00.000Z",
+        createdAt: disabledAt,
+        updatedAt: disabledAt,
+      };
+      yield {
+        partitionKey: "default",
+        rowKey: "expired-disabled-feed",
+        id: "expired-disabled-feed",
+        name: "Expired Disabled Feed",
+        url: "https://example.com/expired-disabled.ics",
+        enabled: false,
+        disabledAt: "2025-12-01T00:00:00.000Z",
+        restoreAvailableUntil: "2025-12-16T00:00:00.000Z",
+        createdAt: "2025-12-01T00:00:00.000Z",
+        updatedAt: "2025-12-01T00:00:00.000Z",
+      };
+    }
+
+    const store = new TableStore("teststorage");
+    (store as unknown as { tableClient: { listEntities: () => AsyncGenerator<unknown> } }).tableClient = {
+      listEntities,
+    };
+
+    const feeds = await store.listFeeds("default", {
+      includeDisabled: true,
+      now: new Date("2026-01-10T00:00:00.000Z"),
+    });
+
+    expect(feeds.map((feed) => feed.id)).toEqual(["active-feed", "recent-disabled-feed"]);
+    expect(feeds[1]).toEqual(expect.objectContaining({
+      enabled: false,
+      disabledAt,
+      restoreAvailableUntil: "2026-01-16T00:00:00.000Z",
+    }));
+  });
 });

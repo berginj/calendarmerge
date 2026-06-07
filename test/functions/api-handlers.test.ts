@@ -12,6 +12,7 @@ const tableMocks = vi.hoisted(() => ({
     createFeed: vi.fn(),
     updateFeed: vi.fn(),
     softDeleteFeed: vi.fn(),
+    listFeeds: vi.fn(),
   },
   generateFeedId: vi.fn(),
 }));
@@ -88,6 +89,7 @@ import { manualRefreshHandler, resetManualRefreshCooldownForTest } from "../../s
 import { getSettingsHandler } from "../../src/functions/settingsGet";
 import { updateSettingsHandler } from "../../src/functions/settingsUpdate";
 import { updateFeedHandler } from "../../src/functions/feedUpdate";
+import { previewGameFilterHandler } from "../../src/functions/gameFilterPreview";
 
 const originalEnv = { ...process.env };
 const context = { log: vi.fn() } as unknown as InvocationContext & { log: ReturnType<typeof vi.fn> };
@@ -154,6 +156,7 @@ describe("HTTP API handlers", () => {
     tableMocks.store.createFeed.mockReset();
     tableMocks.store.updateFeed.mockReset();
     tableMocks.store.softDeleteFeed.mockReset();
+    tableMocks.store.listFeeds.mockReset();
     tableMocks.generateFeedId.mockReset().mockReturnValue("generated-feed");
 
     settingsMocks.store.getSettings.mockReset();
@@ -201,6 +204,37 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.status).toBe("success");
     expect(response.jsonBody.data.count).toBe(1);
     expect(response.jsonBody.data.feeds[0].url).toContain("token=secret");
+  });
+
+  it("returns disabled feeds from the authenticated management list while table storage is enabled", async () => {
+    process.env.ENABLE_TABLE_STORAGE = "true";
+    clearConfigCache();
+    tableMocks.store.listFeeds.mockResolvedValue([
+      {
+        id: "active",
+        name: "Active",
+        url: "https://example.com/active.ics?token=secret",
+        enabled: true,
+      },
+      {
+        id: "disabled",
+        name: "Disabled",
+        url: "https://example.com/disabled.ics?token=secret",
+        enabled: false,
+        disabledAt: "2026-05-06T00:00:00.000Z",
+        restoreAvailableUntil: "2026-05-21T00:00:00.000Z",
+      },
+    ]);
+
+    const response = await listFeedsHandler(request(), context);
+
+    expect(response.status).toBe(200);
+    expect(tableMocks.store.listFeeds).toHaveBeenCalledWith("default", { includeDisabled: true });
+    expect(response.jsonBody.data.count).toBe(2);
+    expect(response.jsonBody.data.feeds[1]).toEqual(expect.objectContaining({
+      enabled: false,
+      restoreAvailableUntil: "2026-05-21T00:00:00.000Z",
+    }));
   });
 
   it("returns sanitized admin status diagnostics from internal status", async () => {
@@ -477,6 +511,43 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.error.code).toBe("VALIDATION_ERROR");
     expect(response.jsonBody.error.validationErrors.refreshSchedule[0]).toContain("Valid options");
     expect(settingsMocks.store.updateSettings).not.toHaveBeenCalled();
+  });
+
+  it("accepts the four-hour refresh schedule and game filter settings", async () => {
+    settingsMocks.store.updateSettings.mockImplementation(async (updates) => ({
+      refreshSchedule: updates.refreshSchedule,
+      gameFilter: updates.gameFilter,
+      lastUpdated: "2026-05-06T00:01:00.000Z",
+    }));
+
+    const response = await updateSettingsHandler(request({
+      refreshSchedule: "every-4-hours",
+      gameFilter: {
+        forceIncludeFeedIds: ["league"],
+        forceExcludeFeedIds: [],
+        includeKeywords: ["fixture"],
+        excludeKeywords: ["tryout"],
+        includeRegex: ["vs\\.?"],
+        excludeRegex: [],
+        teamAliases: ["Arlington"],
+      },
+    }), context);
+
+    expect(response.status).toBe(200);
+    expect(response.jsonBody.data.settings.refreshSchedule).toBe("every-4-hours");
+    expect(response.jsonBody.data.settings.gameFilter.forceIncludeFeedIds).toEqual(["league"]);
+  });
+
+  it("rejects invalid game filter preview regex", async () => {
+    const response = await previewGameFilterHandler(request({
+      gameFilter: {
+        includeRegex: ["["],
+      },
+    }), context);
+
+    expect(response.status).toBe(400);
+    expect(response.jsonBody.status).toBe("error");
+    expect(response.jsonBody.error.validationErrors.gameFilter[0]).toContain("Invalid regex");
   });
 
   it("returns invalid request for malformed settings JSON", async () => {

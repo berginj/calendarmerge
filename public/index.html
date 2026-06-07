@@ -268,8 +268,8 @@
         <aside class="panel">
           <h2>Selected event</h2>
           <p class="meta">
-            Select an event to view its time, source calendar, and full location text. All times are shown in UTC in
-            this public viewer.
+            Select an event to view its time, source calendar, and full location text. Times use this browser's
+            local timezone in this public viewer.
           </p>
           <div id="details" class="detail-card">
             <h3>No event selected</h3>
@@ -307,6 +307,7 @@
       let currentMode = "full";
       let currentEvents = [];
       let calendarApp = null;
+      const browserTimeZone = getBrowserTimeZone();
 
       const calendarRoot = document.getElementById("calendar");
       const details = document.getElementById("details");
@@ -386,7 +387,7 @@
           return;
         }
 
-        const normalized = normalizeDatasetEvents(dataset.events);
+        const normalized = normalizeDatasetEvents(dataset.events, dataset.timezone || "UTC");
         currentEvents = normalized.events;
         details.innerHTML = `
           <h3>${mode === "full" ? "Full calendar loaded" : "Games calendar loaded"}</h3>
@@ -410,7 +411,7 @@
         const defaultView = getInitialView(mode, sx, views);
         const calendarConfig = {
           locale: "en-US",
-          timezone: "UTC",
+          timezone: browserTimeZone,
           defaultView,
           selectedDate,
           isResponsive: true,
@@ -467,12 +468,12 @@
         return mode === "games" ? dates[dates.length - 1] || today : dates[0] || today;
       }
 
-      function normalizeDatasetEvents(events) {
+      function normalizeDatasetEvents(events, sourceTimezone) {
         const normalized = [];
         let skippedCount = 0;
 
         for (const rawEvent of Array.isArray(events) ? events : []) {
-          const event = normalizeEvent(rawEvent);
+          const event = normalizeEvent(rawEvent, sourceTimezone);
           if (!event) {
             skippedCount += 1;
             continue;
@@ -484,13 +485,15 @@
         return { events: normalized, skippedCount };
       }
 
-      function normalizeEvent(rawEvent) {
+      function normalizeEvent(rawEvent, sourceTimezone) {
         if (!rawEvent || typeof rawEvent !== "object") {
           return null;
         }
 
-        const start = typeof rawEvent.start === "string" ? rawEvent.start.trim() : "";
-        const rawEnd = typeof rawEvent.end === "string" ? rawEvent.end.trim() : start;
+        const rawStart = typeof rawEvent.start === "string" ? rawEvent.start.trim() : "";
+        const rawEndValue = typeof rawEvent.end === "string" ? rawEvent.end.trim() : rawStart;
+        const start = toBrowserScheduleXTime(rawStart, sourceTimezone);
+        const rawEnd = toBrowserScheduleXTime(rawEndValue, sourceTimezone);
         const id = rawEvent.id == null ? "" : String(rawEvent.id).trim();
         if (!id || !isSupportedScheduleXTime(start)) {
           return null;
@@ -540,8 +543,8 @@
           return end < start ? start : end;
         }
 
-        const startDate = new Date(start.replace(" ", "T") + "Z");
-        const endDate = new Date(end.replace(" ", "T") + "Z");
+        const startDate = parseLocalScheduleXDateTime(start);
+        const endDate = parseLocalScheduleXDateTime(end);
         if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
           return null;
         }
@@ -550,7 +553,7 @@
           return end;
         }
 
-        return new Date(startDate.getTime() + 60_000).toISOString().slice(0, 16).replace("T", " ");
+        return formatDateTimeForScheduleX(new Date(startDate.getTime() + 60_000));
       }
 
       function sanitizeCalendarId(value) {
@@ -623,7 +626,75 @@
           return start === end ? start : `${start} to ${end}`;
         }
 
-        return start === end ? `${start} UTC` : `${start} UTC to ${end} UTC`;
+        const label = getLocalTimeZoneLabel();
+        const formattedStart = formatScheduleXDisplayTime(start);
+        const formattedEnd = formatScheduleXDisplayTime(end);
+
+        return formattedStart === formattedEnd
+          ? `${formattedStart} ${label}`
+          : `${formattedStart} ${label} to ${formattedEnd} ${label}`;
+      }
+
+      function getBrowserTimeZone() {
+        try {
+          return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        } catch {
+          return "UTC";
+        }
+      }
+
+      function getLocalTimeZoneLabel() {
+        try {
+          const parts = new Intl.DateTimeFormat(undefined, {
+            timeZoneName: "short",
+          }).formatToParts(new Date());
+          return parts.find((part) => part.type === "timeZoneName")?.value || browserTimeZone;
+        } catch {
+          return browserTimeZone;
+        }
+      }
+
+      function toBrowserScheduleXTime(value, sourceTimezone) {
+        if (!isSupportedScheduleXTime(value) || /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return value;
+        }
+
+        if (String(sourceTimezone).toUpperCase() !== "UTC") {
+          return value;
+        }
+
+        const date = new Date(value.replace(" ", "T") + "Z");
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+
+        return formatDateTimeForScheduleX(date);
+      }
+
+      function formatScheduleXDisplayTime(value) {
+        const date = parseLocalScheduleXDateTime(value);
+        if (Number.isNaN(date.getTime())) {
+          return value;
+        }
+
+        return date.toLocaleString(undefined, {
+          dateStyle: "medium",
+          timeStyle: "short",
+        });
+      }
+
+      function parseLocalScheduleXDateTime(value) {
+        return new Date(value.replace(" ", "T"));
+      }
+
+      function formatDateTimeForScheduleX(date) {
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+          date.getMinutes(),
+        )}`;
+      }
+
+      function pad(value) {
+        return String(value).padStart(2, "0");
       }
 
       function setStatus(message, isError = false) {

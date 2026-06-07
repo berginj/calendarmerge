@@ -33,11 +33,11 @@ This guide walks through deploying the Phase 1 and Phase 2 enhancements to an ex
 - **Action:** Update monitors to check `operationalState` instead
 
 **3. Default Refresh Schedule Changed**
-- **Old:** Every 15 minutes
-- **New:** Every 30 minutes
+- **Old:** Every 30 minutes
+- **New:** Every 4 hours effective cadence
 - **Impact:** Calendars update less frequently
-- **Rationale:** Platform research shows 30 min is safer for rate limiting
-- **Action:** None required (or override with REFRESH_SCHEDULE env var)
+- **Rationale:** 1.0 defaults optimize for stable family/team calendar workflows and provider-friendly polling
+- **Action:** Use the management UI Settings page for a shorter cadence when needed. `REFRESH_SCHEDULE` only controls the timer wake-up cadence.
 
 ### Phase 2 - No Breaking Changes
 
@@ -290,37 +290,25 @@ Invoke-RestMethod -Method POST `
 
 If you just want to revert the refresh schedule:
 
-```powershell
-# Restore 15-minute schedule
-az functionapp config appsettings set `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --settings REFRESH_SCHEDULE="0 */15 * * * *"
-```
+Use the management UI Settings page to select a different effective refresh cadence. `REFRESH_SCHEDULE` is only the Function timer wake-up cadence and should normally remain `0 */5 * * * *`.
 
 ---
 
 ## Configuration Changes
 
-### Optional: Override Refresh Schedule
+### Optional: Override Timer Wake-Up Schedule
 
-If 30 minutes is too long for your use case:
+The default timer wake-up schedule is every 5 minutes so the app can honor settings such as hourly, every 2 hours, every 4 hours, or manual only. The effective refresh cadence is controlled by the Settings API and management UI.
 
 ```powershell
-# Set to 15 minutes (aggressive)
+# Restore the default wake-up cadence
 az functionapp config appsettings set `
   --resource-group $env:AZ_RESOURCE_GROUP `
   --name $env:AZ_FUNCTIONAPP_NAME `
-  --settings REFRESH_SCHEDULE="0 */15 * * * *"
-
-# Set to hourly (conservative)
-az functionapp config appsettings set `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --settings REFRESH_SCHEDULE="0 0 * * * *"
+  --settings REFRESH_SCHEDULE="0 */5 * * * *"
 ```
 
-**Note:** Timer function runs every 5 minutes but checks settings. Actual refresh interval controlled by Settings API or timer schedule.
+**Note:** Increasing `REFRESH_SCHEDULE` can prevent shorter settings from running on time.
 
 ---
 

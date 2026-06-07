@@ -143,6 +143,8 @@ export async function updateFeedHandler(
             name: updated.name,
             url: updated.url, // Full URL returned (protected by function auth)
             enabled: updated.enabled,
+            disabledAt: updated.enabled === false ? updated.disabledAt : undefined,
+            restoreAvailableUntil: updated.enabled === false ? updated.restoreAvailableUntil : undefined,
           },
           validated: validationResult !== undefined,
           validationDetails: validationResult ? {

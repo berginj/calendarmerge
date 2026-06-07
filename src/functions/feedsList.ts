@@ -21,8 +21,8 @@ export async function listFeedsHandler(
 
   try {
     const config = getConfig();
-    const { loadSourceFeeds } = await import("../lib/sourceFeeds");
-    const feeds = await loadSourceFeeds(config, logger);
+    const { loadManageableSourceFeeds } = await import("../lib/sourceFeeds");
+    const feeds = await loadManageableSourceFeeds(config, logger);
 
     // SECURITY NOTE: Feed URLs are NOT redacted in this authenticated endpoint
     // Rationale: Users with valid function keys need to see their own feed URLs to edit them

@@ -308,12 +308,30 @@ describe("API response contracts", () => {
     expect(createSuccessResponse("request-4", { feedId: "school" }).data).toEqual({ feedId: "school" });
     expect(createSuccessResponse("request-5", {
       settings: {
-        refreshSchedule: "hourly",
+        refreshSchedule: "every-4-hours",
+        gameFilter: {
+          forceIncludeFeedIds: [],
+          forceExcludeFeedIds: [],
+          includeKeywords: ["game"],
+          excludeKeywords: [],
+          includeRegex: [],
+          excludeRegex: [],
+          teamAliases: [],
+        },
         lastUpdated: "2026-05-06T00:00:00.000Z",
       },
     }).data).toEqual({
       settings: {
-        refreshSchedule: "hourly",
+        refreshSchedule: "every-4-hours",
+        gameFilter: {
+          forceIncludeFeedIds: [],
+          forceExcludeFeedIds: [],
+          includeKeywords: ["game"],
+          excludeKeywords: [],
+          includeRegex: [],
+          excludeRegex: [],
+          teamAliases: [],
+        },
         lastUpdated: "2026-05-06T00:00:00.000Z",
       },
     });

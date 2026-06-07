@@ -903,13 +903,13 @@ logger.info("feed_fetching", {
 
 | Platform | Minimum Interval | Recommended | Rationale |
 |----------|------------------|-------------|-----------|
-| GameChanger | 15 minutes | 30 minutes | No documented limits |
+| GameChanger | 15 minutes | 4 hours default; shorter only by explicit setting or manual refresh | No documented limits; downstream calendar clients may lag significantly |
 | TeamSnap | 30 minutes | 60 minutes | 6-month window suggests slow updates |
 | SportsEngine | 30 minutes | 30 minutes | Backend refreshes every 30 min |
 | LeagueApps | 60 minutes | 120 minutes | Google updates once daily |
-| Other | 15 minutes | 30 minutes | Conservative default |
+| Other | 15 minutes | 4 hours default | Conservative default for family/team calendars |
 
-**Default MUST be 30 minutes** (current setting - do not change without research)
+**Default effective refresh cadence MUST be 4 hours** for 1.0. The Azure Functions timer may wake more frequently to evaluate settings; it MUST NOT publish more often than the selected app setting allows.
 
 ### LeagueApps Special Handling Contract
 

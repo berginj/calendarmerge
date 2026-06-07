@@ -3,6 +3,8 @@ export interface SourceFeedConfig {
   name: string;
   url: string;
   enabled?: boolean;
+  disabledAt?: string;
+  restoreAvailableUntil?: string;
 }
 
 export interface NewSourceFeedInput {

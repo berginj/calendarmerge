@@ -1,13 +1,13 @@
 import { app, InvocationContext, Timer } from "@azure/functions";
 
 import { BlobStore } from "../lib/blobStore";
-import { getConfig } from "../lib/config";
+import { DEFAULT_REFRESH_SCHEDULE, getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { getStorageConnectionString } from "../lib/util";
 
-// Timer runs every 5 minutes, but actual refresh depends on user settings
+// Timer wakes frequently, but actual refresh depends on AppSettings.
 app.timer("scheduledRefresh", {
-  schedule: "0 */5 * * * *",
+  schedule: process.env.REFRESH_SCHEDULE?.trim() || DEFAULT_REFRESH_SCHEDULE,
   handler: scheduledRefreshHandler,
 });
 

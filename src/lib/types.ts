@@ -3,12 +3,31 @@ export type OperationalState = "healthy" | "degraded" | "failed";
 export type PublishedEventFilter = "all-events" | "games-only";
 export type FeedChangeType = "events-to-zero" | "zero-to-events" | "significant-drop" | "significant-increase";
 export type AlertSeverity = "info" | "warning" | "error";
+export type RefreshSchedule =
+  | "every-15-min"
+  | "hourly"
+  | "every-2-hours"
+  | "every-4-hours"
+  | "business-hours"
+  | "manual-only";
+
+export interface GameFilterRules {
+  forceIncludeFeedIds: string[];
+  forceExcludeFeedIds: string[];
+  includeKeywords: string[];
+  excludeKeywords: string[];
+  includeRegex: string[];
+  excludeRegex: string[];
+  teamAliases: string[];
+}
 
 export interface SourceFeedConfig {
   id: string;
   name: string;
   url: string;
   enabled?: boolean;
+  disabledAt?: string;
+  restoreAvailableUntil?: string;
 }
 
 export interface AppConfig {

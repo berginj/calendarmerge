@@ -43,7 +43,7 @@ Definition of done:
 
 Priority: P0
 
-Status: In progress. Admin status fetching and guarded UI states are implemented; frontend runtime tests and live `/manage/` verification remain.
+Status: In progress. Admin status fetching, guarded UI states, and frontend runtime tests are implemented; live `/manage/` verification after deployment remains.
 
 Problem:
 The management UI currently fetches public `status.json`, but dashboard and changes views expect fields that are no longer public.
@@ -265,6 +265,8 @@ Definition of done:
 
 Priority: P2
 
+Status: Complete in implementation slice 2026-06-06.
+
 Problem:
 Games-only filtering is currently heuristic. Users need control when provider summaries/categories do not match the heuristic.
 
@@ -285,6 +287,11 @@ Definition of done:
 - Preview shows matched and excluded counts before saving.
 - Tests cover include, exclude, alias, and default heuristic paths.
 - Published `calendar-games.ics` and `schedule-x-games.json` reflect configured rules.
+
+Implementation notes:
+- Global games-only rules are stored in app settings and edited from the management UI.
+- `POST /api/settings/game-filter/preview` fetches current feeds and returns matched/excluded counts without publishing artifacts.
+- The default heuristic remains active through default include keywords and regex patterns.
 
 ## WI-011: Clean Up Historical Documentation
 
@@ -316,18 +323,15 @@ Definition of done:
 
 Priority: P3
 
+Status: Complete in implementation slice 2026-06-06. Generated `frontend/build/` assets are ignored and no longer tracked.
+
 Problem:
-The repo tracks `frontend/build` assets, but CI builds and deploys the frontend from source. Tracked build artifacts create churn and can become stale.
+The repo previously tracked `frontend/build` assets while CI built and deployed the frontend from source. Tracked build artifacts created churn and could become stale.
 
 Scope:
-- Decide whether `frontend/build` should remain tracked.
-- If not tracked:
-  - add `frontend/build/` to `.gitignore`
-  - remove tracked build files
-  - update deployment docs to clarify CI builds assets
-- If tracked:
-  - document when contributors must rebuild and commit assets
-  - add a CI check that built assets match source if needed
+- `frontend/build/` is listed in `.gitignore`.
+- Previously tracked build files are removed from git.
+- Deployment docs clarify that CI/source builds generate frontend assets.
 
 Definition of done:
 - Repository policy for frontend build artifacts is explicit.
@@ -359,6 +363,28 @@ Definition of done:
 - Frontend tests cover bulk parsing and the setup panel.
 - Frontend build and tests pass.
 
+## WI-014: Replace Function Key UI Auth With Real Admin Auth
+
+Priority: P1
+
+Status: Pending after 1.0.
+
+Problem:
+The management UI currently accepts an Azure Function key and stores it in browser sessionStorage. This is acceptable for the 1.0 operator workflow, but it is not a long-term admin authentication model.
+
+Scope:
+- Choose an admin auth provider, such as Microsoft Entra ID / Easy Auth or a small backend-mediated auth flow.
+- Stop exposing Function keys to browser users.
+- Keep protected endpoints using header-based auth or replace with authenticated identity checks.
+- Document key rotation and emergency access while the migration is in progress.
+- Add tests for unauthenticated, expired-session, and authorized admin flows.
+
+Definition of done:
+- Admin users can manage feeds and settings without handling Function keys.
+- Function keys are no longer stored in browser storage.
+- Protected admin endpoints reject anonymous browser calls.
+- Security docs and deployment docs describe the new auth model.
+
 ## Recommended Sequencing
 
 1. WI-001
@@ -369,3 +395,4 @@ Definition of done:
 6. WI-006
 7. WI-007 through WI-010 in product priority order
 8. WI-011 and WI-012 as cleanup work
+9. WI-014 as the first post-1.0 security hardening item

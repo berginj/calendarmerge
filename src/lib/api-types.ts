@@ -7,7 +7,7 @@
  * See DESIGN_CONTRACTS.md for the authoritative API response format specification.
  */
 
-import { SourceFeedConfig, ServiceStatus, FeedStatus, OutputPaths } from "./types";
+import { SourceFeedConfig, ServiceStatus, FeedStatus, OutputPaths, GameFilterRules, RefreshSchedule } from "./types";
 
 // ============================================================================
 // Standard Response Envelopes
@@ -113,7 +113,8 @@ export interface UpdateFeedRequest {
  * PUT /api/settings
  */
 export interface UpdateSettingsRequest {
-  refreshSchedule?: "every-15-min" | "hourly" | "every-2-hours" | "business-hours" | "manual-only";
+  refreshSchedule?: RefreshSchedule;
+  gameFilter?: Partial<GameFilterRules>;
 }
 
 // ============================================================================
@@ -168,7 +169,9 @@ export interface FeedUpdateResponseData {
  */
 export interface SettingsResponseData {
   settings: {
-    refreshSchedule: string;
+    refreshSchedule: RefreshSchedule;
+    gameFilter: GameFilterRules;
+    lastUpdated: string;
   };
 }
 

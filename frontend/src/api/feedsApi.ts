@@ -211,8 +211,41 @@ export async function triggerManualRefresh(): Promise<unknown> {
   );
 }
 
+export interface GameFilterRules {
+  forceIncludeFeedIds: string[];
+  forceExcludeFeedIds: string[];
+  includeKeywords: string[];
+  excludeKeywords: string[];
+  includeRegex: string[];
+  excludeRegex: string[];
+  teamAliases: string[];
+}
+
+export type RefreshSchedule =
+  | 'every-15-min'
+  | 'hourly'
+  | 'every-2-hours'
+  | 'every-4-hours'
+  | 'business-hours'
+  | 'manual-only';
+
+export interface GameFilterPreview {
+  sourceFeedCount: number;
+  fetchedFeedCount: number;
+  failedFeedCount: number;
+  candidateEventCount: number;
+  publicEventCount: number;
+  matchedGameCount: number;
+  excludedEventCount: number;
+  cancelledEventsFiltered: number;
+  failedFeeds: Array<{ id: string; name: string; error: string }>;
+  matchedSamples: Array<{ title: string; start: string; sourceName: string; location?: string }>;
+  excludedSamples: Array<{ title: string; start: string; sourceName: string; location?: string }>;
+}
+
 export interface AppSettings {
-  refreshSchedule: 'every-15-min' | 'hourly' | 'every-2-hours' | 'business-hours' | 'manual-only';
+  refreshSchedule: RefreshSchedule;
+  gameFilter: GameFilterRules;
   lastUpdated: string;
 }
 
@@ -242,4 +275,18 @@ export async function updateSettings(
   );
 
   return data.settings;
+}
+
+export async function previewGameFilter(gameFilter: GameFilterRules): Promise<GameFilterPreview> {
+  const data = await requestJson<{ preview: GameFilterPreview }>(
+    '/settings/game-filter/preview',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameFilter }),
+    },
+    true,
+  );
+
+  return data.preview;
 }
