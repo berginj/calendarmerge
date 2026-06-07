@@ -2,6 +2,8 @@
 
 This document captures the main concerns found while reviewing the recent UI and security commits, with file pointers, concrete risk descriptions, and suggested areas to investigate. It is intended as a constructive follow-up, not a rejection of the overall direction.
 
+Historical note: this review has been superseded by the current implementation and backlog. Keep it as an audit trail, not an active task list.
+
 Request for review by the other developer:
 Please review the concerns below, especially the edit-flow regression around redacted feed URLs and the SSRF/DoS hardening claims. Those areas appear to need a second pass before the recent changes should be treated as fully production-safe.
 

@@ -4,6 +4,8 @@
 **Review Document:** concerns.md (commit 7b57a23)
 **Response Commit:** 5c5ca9a
 
+Historical note: this response is preserved for audit history. Active planning and remaining work now live in `WORK_ITEMS.md` and the current design/security docs.
+
 ---
 
 ## Summary
@@ -512,7 +514,7 @@ it('should enforce 30s cooldown after successful refresh', async () => {
 2. ✅ Document limitations honestly
 3. ✅ Consider UX implications of security measures
 4. ✅ Use defense-in-depth, not single perfect solution
-5. ⚠️ Add security-specific tests (still TODO)
+5. ⚠️ Add security-specific tests (still pending at the time)
 
 ---
 

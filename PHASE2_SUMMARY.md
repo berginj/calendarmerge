@@ -5,6 +5,8 @@
 **Tests:** 62/62 passing (+18 new tests)
 **Build:** Clean (no errors)
 
+Historical note: this document captures the Phase 2 state at the time of completion. It is preserved for reference; current remaining work and active priorities live in `WORK_ITEMS.md`.
+
 ---
 
 ## Phase 2A: Feed Management - Implemented ✅
@@ -640,9 +642,9 @@ From REQUIREMENTS_CLARIFICATION.md:
 
 ---
 
-## Next Steps - Phase 3
+## Next Steps - Phase 3 at the time
 
-**Remaining Items:**
+**Remaining items at the time:**
 1. Build log viewing UI in management portal
 2. Create integration tests for failure scenarios
 3. Add contract tests for API responses

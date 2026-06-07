@@ -3,6 +3,8 @@
 **Date:** 2026-04-27
 **Context:** The backend now provides rich diagnostic data (operational state, reschedules, duplicates, feed health) that isn't yet surfaced in the UI.
 
+Historical note: this is an idea document from an earlier design pass. The current UI work and remaining priorities are tracked in `WORK_ITEMS.md` and the live frontend implementation.
+
 ---
 
 ## Executive Summary

@@ -6,6 +6,8 @@
 **Tests:** 80/80 passing
 **Build:** Clean
 
+Historical note: this file records the implementation story as it stood when written. It is useful for audit history, but the current backlog and active planning live in `WORK_ITEMS.md`.
+
 ---
 
 ## Executive Summary
@@ -126,7 +128,7 @@ Transformed a basic calendar merge service into a production-ready, enterprise-g
    - Prevents showing both old and new events
    - Follows platform documented behavior
 
-### Phase 3: Request Tracking & Integration Tests (3 tasks)
+### Phase 3: Request Tracking & Integration Tests (historical planning item)
 
 1. **Request ID Tracking**
    - UUID per API request
@@ -562,7 +564,7 @@ From REQUIREMENTS_CLARIFICATION.md:
 - 18 new tests
 - 3 documentation files
 
-### Commit 3: Phase 3+4 (Pending)
+### Commit 3: Phase 3+4 (historical planning item)
 - Request ID tracking
 - Integration tests
 - Monitoring guide
@@ -571,7 +573,7 @@ From REQUIREMENTS_CLARIFICATION.md:
 
 ---
 
-## Next Steps (Future Enhancements)
+## Next Steps (Future Enhancements at the time)
 
 ### Short Term (Optional)
 1. Log viewing UI in management portal
@@ -842,7 +844,7 @@ This implementation represents a complete transformation of a basic calendar mer
 - Check DEPLOYMENT_GUIDE.md for deployment questions
 - Review STATE_MACHINE.md for understanding system behavior
 
-**For future enhancements:**
+**For future enhancements at the time:**
 - See "Next Steps" section above
 - Review Phase 3/4 optional items
 - Consider user feedback after deployment

@@ -5,6 +5,8 @@
 **Tests:** 44/44 passing
 **Build:** Clean (no errors)
 
+Historical note: this is a snapshot of the Phase 1 implementation state at the time it was written. Later phases and current priorities are tracked elsewhere, primarily in `WORK_ITEMS.md`.
+
 ---
 
 ## Changes Implemented
@@ -247,7 +249,7 @@ Logging format extended but old format still parseable. `refreshId` and `categor
 - ✅ Games filtering
 - ✅ Schedule-X generation
 
-**Missing (Phase 2):**
+**Missing at the time:**
 - ⏳ Operational state transition tests
 - ⏳ Feed change detection tests
 - ⏳ Reschedule detection tests
@@ -275,27 +277,27 @@ Logging format extended but old format still parseable. `refreshId` and `categor
 
 ---
 
-## Phase 2 Preparation (Structures Ready)
+## Phase 2 Preparation (Structures Ready at the time)
 
 The following features have type definitions ready but not yet implemented:
 
 1. **Feed Change Detection**
    - `FeedChangeAlert` interface defined
    - `suspectFeeds` field in status
-   - Detection logic TODO
+   - Detection logic was scheduled for Phase 2
 
 2. **Reschedule Tracking**
    - `RescheduledEvent` interface defined
    - 7-day window specified in requirements
-   - Detection logic TODO
+   - Detection logic was scheduled for Phase 2
 
 3. **Enable/Disable Feeds**
    - `enabled` field on `SourceFeedConfig`
-   - Filter logic TODO
+   - Filter logic was scheduled for Phase 2
 
 4. **Feed Validation on Update**
    - API structure ready
-   - Validation function TODO
+   - Validation function was scheduled for Phase 2
 
 ---
 
@@ -322,7 +324,7 @@ Update monitoring to check:
 
 ---
 
-## Next Steps (Phase 2-4)
+## Next Steps (Phase 2-4 at the time)
 
 ### Phase 2: Feed Management
 - Add enable/disable capability
@@ -399,7 +401,7 @@ From REQUIREMENTS_CLARIFICATION.md:
 
 **Phase 1 Score: 5/8 complete** (62.5%)
 
-Remaining items are Phase 3-4 deliverables.
+At the time of this snapshot, the remaining items were Phase 3-4 deliverables.
 
 ---
 

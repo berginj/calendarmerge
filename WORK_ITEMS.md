@@ -297,6 +297,8 @@ Implementation notes:
 
 Priority: P3
 
+Status: Complete in implementation slice 2026-06-06.
+
 Problem:
 Several older docs still contain stale TODOs or old "not done" statements. That creates noise during reviews and can send future work in the wrong direction.
 
@@ -394,5 +396,5 @@ Definition of done:
 5. WI-005
 6. WI-006
 7. WI-007 through WI-010 in product priority order
-8. WI-011 and WI-012 as cleanup work
+8. WI-011 complete; WI-012 as cleanup work
 9. WI-014 as the first post-1.0 security hardening item

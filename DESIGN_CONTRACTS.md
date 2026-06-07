@@ -1052,9 +1052,9 @@ test/
 ├── integration/       # Multi-component tests
 │   └── refresh-scenarios.test.ts
 ├── contract/          # API contract tests
-│   └── api-responses.test.ts (TODO)
+│   └── api-responses.test.ts
 └── e2e/              # Full workflow tests
-    └── end-to-end.test.ts (TODO)
+    └── end-to-end.test.ts (planned)
 ```
 
 ### Test Naming
