@@ -24,7 +24,7 @@ export default function Changes() {
             <Bell className="h-12 w-12 text-slate-400 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-slate-900 mb-1">Admin insights unavailable</h3>
             <p className="text-sm text-slate-600">
-              Save a Function key to view reschedules, duplicates, and feed alerts.
+              Sign in with an admin access code to view reschedules, duplicates, and feed alerts.
             </p>
             {status.adminInsightsError && (
               <p className="text-xs text-red-600 mt-2">{status.adminInsightsError}</p>

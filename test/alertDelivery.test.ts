@@ -45,6 +45,9 @@ function config(overrides: Partial<AppConfig> = {}): AppConfig {
     alertStaleHours: 2,
     alertConsecutiveFailureThreshold: 3,
     alertDedupeCooldownMinutes: 360,
+    adminAccessCode: "test-admin-code",
+    adminSessionTtlHours: 12,
+    adminCookieSecure: false,
     ...overrides,
   };
 }

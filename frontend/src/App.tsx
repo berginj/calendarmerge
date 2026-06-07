@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from './types';
 import {
-  clearFunctionsKey,
   createFeed,
   deleteFeed,
+  getAdminSession,
   listFeeds,
-  loadSavedFunctionsKey,
-  saveFunctionsKey,
+  loginAdminSession,
+  logoutAdminSession,
   updateFeed,
 } from './api/feedsApi';
 import ServiceHealthBanner from './components/ServiceHealthBanner';
@@ -42,16 +43,15 @@ function App() {
   const [feeds, setFeeds] = useState<SourceFeedConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [adminKey, setAdminKey] = useState(() => loadSavedFunctionsKey());
+  const [adminAccessCode, setAdminAccessCode] = useState('');
+  const [hasAdminSession, setHasAdminSession] = useState(false);
   const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
+  const queryClient = useQueryClient();
   const { toast, toasts, removeToast } = useToast();
   const { refresh: manualRefresh } = useManualRefresh();
-
-  const savedAdminKey = loadSavedFunctionsKey();
-  const hasConfiguredAdminKey = savedAdminKey.trim().length > 0;
   const apiBase = toDirectoryUrl(import.meta.env.VITE_API_BASE || '/api', window.location.origin);
   const publicBase = new URL('../', window.location.href);
   const publicLinks: LinkItem[] = [
@@ -75,45 +75,77 @@ function App() {
   const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
 
   const loadFeeds = async () => {
+    if (!hasAdminSession) {
+      setFeeds([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const fetchedFeeds = await listFeeds();
       setFeeds(fetchedFeeds);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load feeds');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load feeds';
+      setError(errorMessage);
+      if (errorMessage.toLowerCase().includes('session')) {
+        setHasAdminSession(false);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!hasConfiguredAdminKey) {
-      setFeeds([]);
-      setLoading(false);
+    void getAdminSession()
+      .then((session) => {
+        setHasAdminSession(session.authenticated);
+        setLoading(!session.authenticated);
+      })
+      .catch(() => {
+        setHasAdminSession(false);
+        setLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    void loadFeeds();
+  }, [hasAdminSession]);
+
+  const handleSaveAdminKey = () => {
+    const trimmed = adminAccessCode.trim();
+    if (!trimmed) {
+      setAdminKeyMessage('Enter an admin access code to sign in.');
       return;
     }
 
-    void loadFeeds();
-  }, [hasConfiguredAdminKey]);
-
-  const handleSaveAdminKey = () => {
-    const trimmed = adminKey.trim();
-    saveFunctionsKey(trimmed);
-    setAdminKey(trimmed);
-    setAdminKeyMessage(trimmed ? 'Admin key saved in this browser.' : 'Admin key cleared.');
-    if (trimmed) {
-      void loadFeeds();
-    }
+    void loginAdminSession(trimmed)
+      .then(() => {
+        setHasAdminSession(true);
+        setAdminAccessCode('');
+        setAdminKeyMessage('Admin session started.');
+        void queryClient.invalidateQueries({ queryKey: ['serviceStatus'] });
+        void loadFeeds();
+      })
+      .catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : 'Failed to start admin session';
+        setAdminKeyMessage(errorMsg);
+        setHasAdminSession(false);
+      });
   };
 
   const handleClearAdminKey = () => {
-    clearFunctionsKey();
-    setAdminKey('');
-    setAdminKeyMessage('Admin key cleared.');
-    setFeeds([]);
-    setLoading(false);
-    setError(null);
+    void logoutAdminSession()
+      .finally(() => {
+        setHasAdminSession(false);
+        setAdminAccessCode('');
+        setAdminKeyMessage('Admin session cleared.');
+        setFeeds([]);
+        setLoading(false);
+        setError(null);
+        void queryClient.invalidateQueries({ queryKey: ['serviceStatus'] });
+      });
   };
 
   const handleCreateMany = async (newFeeds: NewSourceFeedInput[]): Promise<BulkFeedCreateResult> => {
@@ -200,11 +232,11 @@ function App() {
 
   // Keyboard shortcuts
   useKeyboardShortcut('cmd+r', () => {
-    if (hasConfiguredAdminKey) {
+    if (hasAdminSession) {
       manualRefresh();
       toast.info('Manual refresh triggered');
     }
-  }, [hasConfiguredAdminKey]);
+  }, [hasAdminSession]);
 
   useKeyboardShortcut('cmd+k', () => {
     setCurrentView('feeds');
@@ -306,28 +338,28 @@ function App() {
             />
 
         <div className="admin-key-panel">
-          <label htmlFor="admin-key">Admin Function Key</label>
+          <label htmlFor="admin-key">Admin Access Code</label>
           <div className="admin-key-controls">
-            <input
-              id="admin-key"
-              type="password"
-              value={adminKey}
-              onChange={(event) => setAdminKey(event.target.value)}
-              placeholder="Enter function key for write access"
-              autoComplete="off"
-            />
-            <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
-              Save Key
-            </button>
-            <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
-              Clear
-            </button>
-          </div>
+              <input
+                id="admin-key"
+                type="password"
+                value={adminAccessCode}
+                onChange={(event) => setAdminAccessCode(event.target.value)}
+                placeholder="Enter admin access code"
+                autoComplete="off"
+              />
+              <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
+                Sign In
+              </button>
+              <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
+                Sign Out
+              </button>
+            </div>
           <p className="admin-key-help">
-            Feed URLs, feed changes, and settings updates require a Function key.
-            {hasConfiguredAdminKey
-              ? ' Admin access is configured for this browser.'
-              : ' Enter a key to load and manage feed URLs.'}
+            Feed URLs, feed changes, and settings updates require an authenticated admin session.
+            {hasAdminSession
+              ? ' Admin access is active for this browser.'
+              : ' Enter your admin access code to load and manage feeds.'}
           </p>
           {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
         </div>
@@ -371,9 +403,9 @@ function App() {
                   </a>
                 ))}
               </div>
-              {!hasConfiguredAdminKey && (
+              {!hasAdminSession && (
                 <p className="admin-key-help">
-                  Protected endpoints require clients to send the Function key in the x-functions-key header.
+                  Protected endpoints require an authenticated admin session.
                 </p>
               )}
             </section>
@@ -385,14 +417,14 @@ function App() {
         {currentView === 'dashboard' && <Dashboard />}
 
         {currentView === 'feeds' && (
-          <Feeds
-            feeds={feeds}
-            loading={loading}
-            error={error}
-            hasConfiguredAdminKey={hasConfiguredAdminKey}
-            onUpdate={handleUpdate}
-            onDelete={handleDelete}
-            onCreateMany={handleCreateMany}
+            <Feeds
+              feeds={feeds}
+              loading={loading}
+              error={error}
+              hasAdminSession={hasAdminSession}
+              onUpdate={handleUpdate}
+              onDelete={handleDelete}
+              onCreateMany={handleCreateMany}
             setError={setError}
           />
         )}

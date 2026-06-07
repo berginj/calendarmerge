@@ -1,21 +1,26 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { createSuccessResponse, toHttpResponse } from "../lib/api-types";
 import { generateId } from "../lib/util";
 
 // Diagnostic endpoint to test config loading
 app.http("diagnostic", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "diagnostic",
   handler: diagnosticHandler,
 });
 
 export async function diagnosticHandler(
-  _request: HttpRequest,
-  _context: InvocationContext,
+  request: HttpRequest,
+  context: InvocationContext,
 ): Promise<HttpResponseInit> {
   const requestId = generateId();
+  const config = await import("../lib/config").then(({ getConfig }) => getConfig());
+  if (!verifyAdminSession(request, config)) {
+    return buildAdminUnauthorizedResponse(requestId);
+  }
   const diagnostics = {
     timestamp: new Date().toISOString(),
     nodeVersion: process.version,

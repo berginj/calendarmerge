@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HttpRequest, InvocationContext } from "@azure/functions";
+import { createAdminSessionCookieValue } from "../../src/lib/adminSession";
 
 const azureMocks = vi.hoisted(() => ({
   http: vi.fn(),
@@ -80,6 +81,7 @@ vi.mock("../../src/lib/blobStore", () => ({
 }));
 
 import { adminStatusHandler } from "../../src/functions/adminStatus";
+import { adminSessionHandler } from "../../src/functions/adminSession";
 import { clearConfigCache } from "../../src/lib/config";
 import { createFeedHandler } from "../../src/functions/feedCreate";
 import { deleteFeedHandler } from "../../src/functions/feedDelete";
@@ -94,17 +96,41 @@ import { previewGameFilterHandler } from "../../src/functions/gameFilterPreview"
 const originalEnv = { ...process.env };
 const context = { log: vi.fn() } as unknown as InvocationContext & { log: ReturnType<typeof vi.fn> };
 
-function request(body: unknown = undefined, params: Record<string, string> = {}): HttpRequest {
+function request(
+  body: unknown = undefined,
+  params: Record<string, string> = {},
+  method = "GET",
+): HttpRequest {
+  const cookieValue = createAdminSessionCookieValue({
+    adminAccessCode: "test-admin-code",
+    adminSessionTtlHours: 12,
+    adminCookieSecure: false,
+  } as never);
+
   return {
+    method,
     json: vi.fn().mockResolvedValue(body),
     params,
+    headers: new Headers({
+      cookie: `calendarmerge_admin_session=${cookieValue}`,
+    }),
   } as unknown as HttpRequest;
 }
 
-function malformedJsonRequest(params: Record<string, string> = {}): HttpRequest {
+function malformedJsonRequest(params: Record<string, string> = {}, method = "GET"): HttpRequest {
+  const cookieValue = createAdminSessionCookieValue({
+    adminAccessCode: "test-admin-code",
+    adminSessionTtlHours: 12,
+    adminCookieSecure: false,
+  } as never);
+
   return {
+    method,
     json: vi.fn().mockRejectedValue(new Error("Unexpected token")),
     params,
+    headers: new Headers({
+      cookie: `calendarmerge_admin_session=${cookieValue}`,
+    }),
   } as unknown as HttpRequest;
 }
 
@@ -147,6 +173,9 @@ describe("HTTP API handlers", () => {
       ...originalEnv,
       SOURCE_FEEDS_JSON: '[{"id":"json-feed","name":"JSON Feed","url":"https://example.com/cal.ics?token=secret"}]',
       OUTPUT_STORAGE_ACCOUNT: "teststorage",
+      ADMIN_ACCESS_CODE: "test-admin-code",
+      ADMIN_SESSION_TTL_HOURS: "12",
+      ADMIN_COOKIE_SECURE: "false",
     };
     clearConfigCache();
     resetManualRefreshCooldownForTest();
@@ -174,15 +203,22 @@ describe("HTTP API handlers", () => {
 
   it("registers feeds-simple as protected instead of anonymous", () => {
     expect(azureMocks.http).toHaveBeenCalledWith("listFeedsSimple", expect.objectContaining({
-      authLevel: "function",
+      authLevel: "anonymous",
       route: "feeds-simple",
     }));
   });
 
   it("registers admin status as protected", () => {
     expect(azureMocks.http).toHaveBeenCalledWith("adminStatus", expect.objectContaining({
-      authLevel: "function",
+      authLevel: "anonymous",
       route: "status/internal",
+    }));
+  });
+
+  it("registers admin session as anonymous", () => {
+    expect(azureMocks.http).toHaveBeenCalledWith("adminSession", expect.objectContaining({
+      authLevel: "anonymous",
+      route: "admin/session",
     }));
   });
 
@@ -351,6 +387,18 @@ describe("HTTP API handlers", () => {
     expect(response.jsonBody.data.status.serviceName).toBe("calendarmerge");
     expect(response.jsonBody.data.status.sourceStatuses).toEqual([]);
     expect(response.jsonBody.data.status).not.toHaveProperty("eventSnapshots");
+  });
+
+  it("creates and clears an admin session", async () => {
+    const loginResponse = await adminSessionHandler(request({ accessCode: "test-admin-code" }, {}, "POST"), context);
+    const logoutResponse = await adminSessionHandler(request(undefined, {}, "DELETE"), context);
+    const setCookie = loginResponse.headers as Record<string, string> | undefined;
+
+    expect(loginResponse.status).toBe(200);
+    expect(loginResponse.jsonBody.status).toBe("success");
+    expect(setCookie?.["Set-Cookie"]).toContain("calendarmerge_admin_session=");
+    expect(logoutResponse.status).toBe(200);
+    expect(logoutResponse.jsonBody.data.authenticated).toBe(false);
   });
 
   it("creates feeds through the standard response envelope", async () => {

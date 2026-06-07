@@ -1,4 +1,5 @@
 import "./functions/adminStatus";
+import "./functions/adminSession";
 import "./functions/diagnostic";
 import "./functions/feedCreate";
 import "./functions/feedDelete";

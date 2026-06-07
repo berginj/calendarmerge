@@ -8,9 +8,9 @@
 
 ## Current 1.0 Status (2026-06-06)
 
-This document includes historical findings from the original audit. Current implementation uses `x-functions-key` headers and stores the admin Function key in `sessionStorage`, with legacy `localStorage` keys migrated and removed on first use. This is accepted for the 1.0 operator workflow.
+This document includes historical findings from the original audit. The current management UI uses an admin access code to mint an HttpOnly session cookie, and browser-held Function keys are no longer part of the release path.
 
-Remaining planned work is tracked as `WI-014` in `WORK_ITEMS.md`: replace browser-held Function keys with real admin authentication so Function keys are no longer exposed to browser users.
+The findings below remain as archival context. Implementation work for the migration is tracked in `WORK_ITEMS.md` when still relevant.
 
 ---
 

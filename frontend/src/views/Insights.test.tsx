@@ -13,7 +13,7 @@ describe('Insights', () => {
     render(<Insights />);
 
     expect(screen.getByText('Admin insights unavailable')).toBeInTheDocument();
-    expect(screen.getByText(/Save a Function key/)).toBeInTheDocument();
+    expect(screen.getByText(/Sign in with an admin access code/)).toBeInTheDocument();
   });
 
   it('renders feed health, metadata, and the operator queue from admin status', () => {

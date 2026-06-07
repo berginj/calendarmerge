@@ -21,7 +21,7 @@ describe('Dashboard', () => {
     expect(screen.getByText('7')).toBeInTheDocument();
     expect(screen.getByText('Admin details unavailable')).toBeInTheDocument();
     expect(screen.getByText('Admin diagnostics unavailable')).toBeInTheDocument();
-    expect(screen.getByText('Save a Function key to view per-feed health and operational details.')).toBeInTheDocument();
+    expect(screen.getByText('Sign in with an admin access code to view per-feed health and operational details.')).toBeInTheDocument();
   });
 
   it('renders protected admin diagnostics when available', () => {
@@ -36,4 +36,3 @@ describe('Dashboard', () => {
     expect(screen.queryByText('Admin diagnostics unavailable')).not.toBeInTheDocument();
   });
 });
-

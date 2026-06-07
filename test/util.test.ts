@@ -32,6 +32,9 @@ describe("util", () => {
       alertStaleHours: 2,
       alertConsecutiveFailureThreshold: 3,
       alertDedupeCooldownMinutes: 360,
+      adminAccessCode: "test-admin-code",
+      adminSessionTtlHours: 12,
+      adminCookieSecure: false,
     });
 
     expect(output.blobBaseUrl).toBe("https://calendarmergeprod.z13.web.core.windows.net");

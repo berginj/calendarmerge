@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
 import { BlobStore } from "../lib/blobStore";
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { buildAdminStatus, buildStartingStatus } from "../lib/status";
@@ -9,13 +10,13 @@ import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse
 
 app.http("adminStatus", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "status/internal",
   handler: adminStatusHandler,
 });
 
 export async function adminStatusHandler(
-  _request: HttpRequest,
+  request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
   const requestId = generateId();
@@ -23,6 +24,9 @@ export async function adminStatusHandler(
 
   try {
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const store = new BlobStore(config);
     const status = (await store.readStatusForRefresh()) ?? buildStartingStatus(config);
     const adminStatus = buildAdminStatus(status);

@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
@@ -7,7 +8,7 @@ import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse
 
 app.http("deleteFeed", {
   methods: ["DELETE"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "feeds/{feedId}",
   handler: deleteFeedHandler,
 });
@@ -28,6 +29,9 @@ export async function deleteFeedHandler(
     }
 
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);

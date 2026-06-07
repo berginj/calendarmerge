@@ -179,7 +179,7 @@ export default function Dashboard() {
               <div className="md:col-span-2 lg:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
                 <p className="text-sm font-medium text-slate-900">Admin diagnostics unavailable</p>
                 <p className="mt-1 text-sm text-slate-600">
-                  Save a Function key to view per-feed health and operational details.
+                  Sign in with an admin access code to view per-feed health and operational details.
                 </p>
                 {status.adminInsightsError && (
                   <p className="mt-2 text-xs text-red-600">{status.adminInsightsError}</p>

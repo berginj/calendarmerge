@@ -15,7 +15,7 @@ The public `status.json` is intentionally sanitized, but the management UI still
 
 Scope:
 - Add a protected HTTP endpoint, for example `GET /api/status/internal` or `GET /api/insights`.
-- Require Function auth.
+- Require admin session auth.
 - Read from private internal status storage via `BlobStore.readStatusForRefresh()` or an explicit internal read method.
 - Return the standard API response envelope.
 - Include operational diagnostics needed by the admin UI:
@@ -31,7 +31,7 @@ Scope:
 
 Definition of done:
 - Authenticated endpoint exists and returns internal operational diagnostics.
-- Unauthenticated requests are rejected by Function auth.
+- Unauthenticated requests are rejected by admin session auth.
 - Returned feed URLs are redacted.
 - `eventSnapshots` is not returned by default.
 - Endpoint uses `createSuccessResponse` / `createErrorResponse`.
@@ -51,16 +51,16 @@ The management UI currently fetches public `status.json`, but dashboard and chan
 Scope:
 - Update the management UI status hook to fetch:
   - public `status.json` for public-safe service summary, or
-  - protected admin insights when a Function key is configured.
+  - protected admin insights when an admin session is configured.
 - Make Dashboard, Feeds, and Changes views tolerate unavailable protected diagnostics.
 - Show a clear empty/auth-required state for admin-only insights.
 - Keep the public sports subscribe page unchanged.
-- Preserve the existing sessionStorage behavior for Function keys.
+- Preserve the authenticated admin session flow for protected requests.
 
 Definition of done:
 - Dashboard no longer crashes or silently misreports when `sourceStatuses` is absent from public status.
-- With a valid Function key, dashboard/feed/change views show internal diagnostics from the protected endpoint.
-- Without a Function key, public summary still renders and admin-only diagnostics show an auth-required state.
+- With a valid admin session, dashboard/feed/change views show internal diagnostics from the protected endpoint.
+- Without an admin session, public summary still renders and admin-only diagnostics show an auth-required state.
 - Frontend build passes.
 - Add frontend or integration tests for both public-only and admin-insights data paths.
 - Live `/manage/` page loads successfully after deployment.
@@ -79,7 +79,7 @@ Scope:
   - Public status contract
   - Admin/internal status or insights contract
 - Update `README.md`, `SECURITY_REVIEW.md`, and monitoring docs to match the split.
-- Document which fields are public-safe and which require Function auth.
+- Document which fields are public-safe and which require admin session auth.
 - Document the security rationale for excluding event-level and feed-level diagnostics from public status.
 - Remove or archive stale TODOs that contradict the current implementation.
 
@@ -185,7 +185,7 @@ Manual refresh cooldown is in-memory per Function instance. It does not enforce 
 Scope:
 - Define rate-limit policy:
   - global service limit
-  - per Function key or caller limit if feasible
+  - per admin session or caller limit if feasible
   - optional per-feed limit for future targeted refreshes
 - Store rate-limit state in Azure Table Storage.
 - Return standard error envelope with `RATE_LIMIT_EXCEEDED`.
@@ -223,7 +223,7 @@ Scope:
 
 Definition of done:
 - Admin insights are accessible from `/manage/`.
-- Public users without Function key do not see private event/feed details.
+- Public users without an admin session do not see private event/feed details.
 - Operators can identify failed/suspect feeds within one view.
 - Reschedules and duplicates are visible with source feed context.
 - UI handles empty states, loading states, and API errors.
@@ -369,21 +369,20 @@ Definition of done:
 
 Priority: P1
 
-Status: Pending after 1.0.
+Status: Completed. Admin session cookie auth now replaces browser-held access codes.
 
 Problem:
-The management UI currently accepts an Azure Function key and stores it in browser sessionStorage. This is acceptable for the 1.0 operator workflow, but it is not a long-term admin authentication model.
+The management UI previously used browser-held admin credentials. That model has been replaced by an HttpOnly admin session cookie.
 
 Scope:
-- Choose an admin auth provider, such as Microsoft Entra ID / Easy Auth or a small backend-mediated auth flow.
-- Stop exposing Function keys to browser users.
-- Keep protected endpoints using header-based auth or replace with authenticated identity checks.
-- Document key rotation and emergency access while the migration is in progress.
-- Add tests for unauthenticated, expired-session, and authorized admin flows.
+- Backend-mediated admin session cookies are now issued from an access code.
+- Protected endpoints reject anonymous browser calls.
+- The UI no longer stores browser-held admin credentials.
+- Admin auth behavior is covered by tests.
 
 Definition of done:
-- Admin users can manage feeds and settings without handling Function keys.
-- Function keys are no longer stored in browser storage.
+- Admin users can manage feeds and settings without handling access codes in the browser.
+- Browser storage no longer holds admin authentication secrets.
 - Protected admin endpoints reject anonymous browser calls.
 - Security docs and deployment docs describe the new auth model.
 

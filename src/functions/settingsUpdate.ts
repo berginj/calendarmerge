@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { getInvalidGameFilterRegex, normalizeGameFilterRules } from "../lib/eventFilter";
 import { createLogger } from "../lib/log";
@@ -11,7 +12,7 @@ import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResp
 
 app.http("updateSettings", {
   methods: ["PUT"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "settings",
   handler: updateSettingsHandler,
 });
@@ -49,6 +50,9 @@ export async function updateSettingsHandler(
     const body = validation.data;
 
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { SettingsStore } = await import("../lib/settingsStore");
     const store = new SettingsStore(connectionString);

@@ -17,7 +17,7 @@ describe('Changes', () => {
     render(<Changes />);
 
     expect(screen.getByText('Admin insights unavailable')).toBeInTheDocument();
-    expect(screen.getByText('Save a Function key to view reschedules, duplicates, and feed alerts.')).toBeInTheDocument();
+    expect(screen.getByText('Sign in with an admin access code to view reschedules, duplicates, and feed alerts.')).toBeInTheDocument();
   });
 
   it('renders reschedules, duplicates, and feed alerts from admin insights', async () => {

@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString, normalizeFeedUrl, validateFeedId } from "../lib/util";
@@ -8,7 +9,7 @@ import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResp
 
 app.http("createFeed", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "feeds",
   handler: createFeedHandler,
 });
@@ -41,6 +42,9 @@ export async function createFeedHandler(
     const body = validation.data;
 
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);

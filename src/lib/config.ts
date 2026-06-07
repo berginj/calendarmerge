@@ -26,6 +26,7 @@ export const DEFAULT_FETCH_RETRY_DELAY_MS = 750;
 export const DEFAULT_ALERT_STALE_HOURS = 2;
 export const DEFAULT_ALERT_CONSECUTIVE_FAILURE_THRESHOLD = 3;
 export const DEFAULT_ALERT_DEDUPE_COOLDOWN_MINUTES = 360;
+export const DEFAULT_ADMIN_SESSION_TTL_HOURS = 12;
 
 type RawSourceFeed =
   | string
@@ -112,6 +113,13 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     DEFAULT_ALERT_DEDUPE_COOLDOWN_MINUTES,
     "ALERT_DEDUPE_COOLDOWN_MINUTES",
   );
+  const adminAccessCode = env.ADMIN_ACCESS_CODE?.trim() || undefined;
+  const adminSessionTtlHours = parsePositiveInteger(
+    env.ADMIN_SESSION_TTL_HOURS,
+    DEFAULT_ADMIN_SESSION_TTL_HOURS,
+    "ADMIN_SESSION_TTL_HOURS",
+  );
+  const adminCookieSecure = (env.ADMIN_COOKIE_SECURE ?? "").trim().toLowerCase() === "true";
 
   validateStorageAccountName(outputStorageAccount);
   validateSchedule(refreshSchedule);
@@ -137,6 +145,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     alertStaleHours,
     alertConsecutiveFailureThreshold,
     alertDedupeCooldownMinutes,
+    adminAccessCode,
+    adminSessionTtlHours,
+    adminCookieSecure,
   };
 }
 

@@ -1,16 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { loadSavedFunctionsKey, triggerManualRefresh } from '../api/feedsApi';
+import { triggerManualRefresh } from '../api/feedsApi';
 
 export function useManualRefresh() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const key = loadSavedFunctionsKey();
-      if (!key) {
-        throw new Error('Function key required for manual refresh');
-      }
-
       return triggerManualRefresh();
     },
     onSuccess: () => {

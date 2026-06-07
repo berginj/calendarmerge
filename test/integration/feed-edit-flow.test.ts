@@ -215,7 +215,7 @@ describe("Feed Edit Flow Integration Tests", () => {
     it("SECURITY NOTE: Full URLs visible to authenticated users", () => {
       // This is a deliberate design decision documented in code review response
       // Trade-off: Functionality (edit flows work) vs. obscurity (hiding URLs)
-      // Security through authentication (function key required) not obscurity
+      // Security through authentication (admin session required) not obscurity
 
       const authenticatedEndpointResponse = {
         feed: {
@@ -226,7 +226,7 @@ describe("Feed Edit Flow Integration Tests", () => {
       // URLs are visible but protected by:
       // 1. Function-level authentication (only users with valid key)
       // 2. HTTPS transport (encrypted in transit)
-      // 3. Azure RBAC (who can get function keys)
+      // 3. Admin access code distribution controls who can get a session cookie
 
       expect(authenticatedEndpointResponse.feed.url).toContain("token");
     });

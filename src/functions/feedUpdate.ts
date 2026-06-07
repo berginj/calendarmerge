@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { validateFeed } from "../lib/feedValidation";
@@ -9,7 +10,7 @@ import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResp
 
 app.http("updateFeed", {
   methods: ["PUT"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "feeds/{feedId}",
   handler: updateFeedHandler,
 });
@@ -49,6 +50,9 @@ export async function updateFeedHandler(
     const body = validation.data;
 
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);
@@ -130,8 +134,8 @@ export async function updateFeedHandler(
     }
 
     // SECURITY NOTE: Feed URL is NOT redacted in this authenticated endpoint
-    // Rationale: Users with valid function keys need to see full URLs to manage their feeds
-    // This endpoint requires function-level auth, so URL is protected by authentication
+    // Rationale: Authenticated admins need the full URL to manage and restore feeds
+    // The endpoint is protected by the admin session cookie, so URL values are not exposed publicly
     // URLs are redacted in logs only (via redactFeedUrl in logger calls)
     // IMPORTANT: Frontend edit flow depends on receiving full URL to avoid losing tokens
     return toHttpResponse(
@@ -141,7 +145,7 @@ export async function updateFeedHandler(
           feed: {
             id: updated.id,
             name: updated.name,
-            url: updated.url, // Full URL returned (protected by function auth)
+            url: updated.url, // Full URL returned (protected by admin session auth)
             enabled: updated.enabled,
             disabledAt: updated.enabled === false ? updated.disabledAt : undefined,
             restoreAvailableUntil: updated.enabled === false ? updated.restoreAvailableUntil : undefined,

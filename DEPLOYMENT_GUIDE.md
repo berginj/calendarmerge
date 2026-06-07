@@ -43,7 +43,7 @@ This guide walks through deploying the Phase 1 and Phase 2 enhancements to an ex
 
 Phase 2 is fully additive:
 - Public `status.json` remains public-safe and omits private feed/event diagnostics
-- Protected admin status fields are additive behind Function auth
+- Protected admin status fields are additive behind admin session auth
 - All new API response fields are additive
 - Backward compatible with existing integrations
 
@@ -127,6 +127,8 @@ az storage blob upload-batch `
 
 ### Step 4: Verify Deployment
 
+All protected admin endpoint examples below assume you have already authenticated a PowerShell web session with `POST /api/admin/session` using the configured admin access code and stored it in `$session`.
+
 **Check Function App Status:**
 ```powershell
 # View recent logs
@@ -146,14 +148,16 @@ $status | Select-Object operationalState, refreshId, lastSuccessfulCheck, checkA
 
 **Trigger Manual Refresh:**
 ```powershell
-$key = az functionapp keys list `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --query "functionKeys.default" `
-  --output tsv
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$adminAccessCode = Read-Host "Admin access code"
+Invoke-RestMethod -Method POST `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -ContentType "application/json" `
+  -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
+  -WebSession $session | Out-Null
 
 $refreshUrl = "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh"
-$result = Invoke-RestMethod -Method POST -Uri $refreshUrl -Headers @{"x-functions-key" = $key}
+$result = Invoke-RestMethod -Method POST -Uri $refreshUrl -WebSession $session
 
 # Verify new response fields
 Write-Host "Request ID: $($result.requestId)"
@@ -174,7 +178,7 @@ $publicStatus.PSObject.Properties.Name -contains "potentialDuplicates" # expecte
 
 $adminResponse = Invoke-RestMethod `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
-  -Headers @{ "x-functions-key" = $key }
+  -WebSession $session
 
 $adminStatus = $adminResponse.data.status
 $adminStatus.potentialDuplicates
@@ -274,16 +278,18 @@ git checkout <previous-commit-hash>
 # Redeploy
 powershell -ExecutionPolicy Bypass -File .\scripts\azure\deploy-functions.ps1
 
-# Trigger manual refresh
-$key = az functionapp keys list `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --query "functionKeys.default" `
-  --output tsv
+# Trigger manual refresh using an authenticated admin session
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$adminAccessCode = Read-Host "Admin access code"
+Invoke-RestMethod -Method POST `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -ContentType "application/json" `
+  -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
+  -WebSession $session | Out-Null
 
 Invoke-RestMethod -Method POST `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
-  -Headers @{"x-functions-key" = $key}
+  -WebSession $session
 ```
 
 ### Partial Rollback (Config Only)
@@ -332,7 +338,7 @@ After deployment, merged event count will likely increase because:
 # Get potential duplicates from protected admin status
 $response = Invoke-RestMethod `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
-  -Headers @{ "x-functions-key" = $key }
+  -WebSession $session
 
 $status = $response.data.status
 $status.potentialDuplicates | Where-Object { $_.confidence -eq "high" } | ForEach-Object {
@@ -520,15 +526,17 @@ See [MONITORING_GUIDE.md](MONITORING_GUIDE.md) for complete alert rule configura
 ### Test 1: Manual Refresh
 
 ```powershell
-$key = az functionapp keys list `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --query "functionKeys.default" `
-  --output tsv
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$adminAccessCode = Read-Host "Admin access code"
+Invoke-RestMethod -Method POST `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -ContentType "application/json" `
+  -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
+  -WebSession $session | Out-Null
 
 $result = Invoke-RestMethod -Method POST `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
-  -Headers @{"x-functions-key" = $key}
+  -WebSession $session
 
 # Verify new fields
 Write-Host "✓ requestId: $($result.requestId)"
@@ -545,7 +553,7 @@ Write-Host "✓ rescheduledEvents count: $($result.data.rescheduledEvents.Count 
 # Disable a feed
 $disableResult = Invoke-RestMethod -Method PUT `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
-  -Headers @{"x-functions-key" = $key} `
+  -WebSession $session `
   -Body '{"enabled":false}' `
   -ContentType "application/json"
 
@@ -555,7 +563,7 @@ Write-Host "✓ enabled: $($disableResult.data.feed.enabled)"
 # Re-enable (should trigger refresh)
 $enableResult = Invoke-RestMethod -Method PUT `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
-  -Headers @{"x-functions-key" = $key} `
+  -WebSession $session `
   -Body '{"enabled":true}' `
   -ContentType "application/json"
 
@@ -567,7 +575,7 @@ Write-Host "✓ refreshTriggered: $($enableResult.data.refreshTriggered)"
 # Update feed URL (will validate before saving)
 $updateResult = Invoke-RestMethod -Method PUT `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/feeds/test-feed" `
-  -Headers @{"x-functions-key" = $key} `
+  -WebSession $session `
   -Body '{"url":"https://new-url.com/calendar.ics"}' `
   -ContentType "application/json"
 
@@ -593,7 +601,7 @@ Write-Host "✓ public status omits diagnostics: $(-not ($status.PSObject.Proper
 
 $adminResponse = Invoke-RestMethod `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/status/internal" `
-  -Headers @{ "x-functions-key" = $key }
+  -WebSession $session
 
 $adminStatus = $adminResponse.data.status
 Write-Host "✓ feedChangeAlerts count: $(($adminStatus.feedChangeAlerts ?? @()).Count)"
@@ -706,7 +714,7 @@ az monitor app-insights query `
 - [ ] Feed URLs in logs are redacted
 - [ ] Full URLs not in error messages
 - [ ] Table storage connection secured
-- [ ] Function keys rotated regularly
+  - [ ] Admin access code rotated regularly
 
 ---
 

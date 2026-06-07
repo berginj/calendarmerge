@@ -33,7 +33,7 @@ Azure Functions v4 app that merges multiple ICS calendar feeds into unified outp
 - `src/functions/` — Azure Function handlers (HTTP + timer triggers). Thin wrappers that validate input and delegate to library code.
 - `src/lib/` — Pure business logic. All merge, parse, filter, and publish logic lives here with no Azure Functions dependency.
 
-**Frontend** (`frontend/`): React 19 + Vite + Tailwind + Radix UI. Deployed to `$web/manage/` in Blob Storage. Stores a Function key in sessionStorage for write operations until WI-014 replaces browser-held keys with real admin auth.
+**Frontend** (`frontend/`): React 19 + Vite + Tailwind + Radix UI. Deployed to `$web/manage/` in Blob Storage. Uses an admin access code to mint an HttpOnly session cookie for write operations.
 
 **Failure model:** If some feeds fail, the service keeps the last-known-good published calendar and marks state as degraded. `status.json` is always written, even on total failure.
 

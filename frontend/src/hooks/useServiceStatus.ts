@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { loadSavedFunctionsKey, requestJson } from '../api/feedsApi';
+import { requestJson } from '../api/feedsApi';
 
 export interface FeedStatus {
   id: string;
@@ -121,23 +121,14 @@ async function fetchAdminStatus(publicStatus: ServiceStatus): Promise<ServiceSta
 }
 
 /**
- * Fetches public status and overlays protected admin diagnostics when a Function key exists.
+ * Fetches public status and overlays protected admin diagnostics when an admin session exists.
  * Polls every 30 seconds to keep UI updated
  */
 export function useServiceStatus() {
-  const hasAdminKey = loadSavedFunctionsKey().length > 0;
-
   return useQuery({
-    queryKey: ['serviceStatus', hasAdminKey],
+    queryKey: ['serviceStatus'],
     queryFn: async (): Promise<ServiceStatus> => {
       const publicStatus = await fetchPublicStatus();
-      if (!hasAdminKey) {
-        return {
-          ...publicStatus,
-          adminInsightsAvailable: false,
-        };
-      }
-
       return fetchAdminStatus(publicStatus);
     },
     refetchInterval: 30000, // Refetch every 30 seconds

@@ -50,7 +50,7 @@ If a doc conflicts with code, verify the intended contract before changing behav
 - Prefer fail-safe publication: keep last known good public artifacts when partial feed failures occur and a previous calendar exists.
 - Do not suppress potential duplicates. Remove true identity duplicates, but keep likely duplicates and flag them.
 - Preserve public/private data boundaries. Public outputs must strip attendee, organizer, contact, and direct contact details.
-- `/api/status/internal` requires Function auth, redacts feed URLs, and must not return event snapshots.
+- `/api/status/internal` requires admin session auth, redacts feed URLs, and must not return event snapshots.
 - Manual refresh rate limiting uses durable Azure Table Storage state and should only update cooldown after successful or partial refresh.
 
 ## Commands
@@ -107,7 +107,7 @@ Local endpoints:
 - Use `src/lib/types.ts` and existing interfaces where possible; avoid breaking required fields.
 - For public calendar output, check both ICS and Schedule-X JSON paths.
 - For games-only behavior, update both full-calendar and games-only code paths and tests.
-- For management UI feed writes, remember browser requests require a Function key stored in sessionStorage by the UI until WI-014 replaces this with real admin auth.
+- For management UI feed writes, remember browser requests use the admin session cookie minted from the configured access code.
 - For deployment scripts, be careful with Azure names, GitHub secrets, federated credentials, and role assignments.
 
 ## Common Files By Task

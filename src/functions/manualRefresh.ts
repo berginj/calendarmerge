@@ -1,8 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
-import { errorMessage, generateId, getStorageConnectionString, sha256Hex } from "../lib/util";
+import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
 import {
   createErrorResponse,
   createPartialSuccessResponse,
@@ -13,7 +14,7 @@ import {
 
 app.http("manualRefresh", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "refresh",
   handler: manualRefreshHandler,
 });
@@ -35,6 +36,9 @@ export async function manualRefreshHandler(
 
   try {
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const rateLimitScopes = buildRateLimitScopes(request);
     const { ManualRefreshRateLimitStore } = await import("../lib/manualRefreshRateLimit");
@@ -158,15 +162,5 @@ export async function manualRefreshHandler(
 }
 
 function buildRateLimitScopes(request: HttpRequest) {
-  const scopes = [{ partitionKey: "manual-refresh", rowKey: "global" }];
-  const functionKey = request.headers?.get("x-functions-key") ?? request.query?.get("code");
-
-  if (functionKey?.trim()) {
-    scopes.push({
-      partitionKey: "manual-refresh",
-      rowKey: `function-key-${sha256Hex(functionKey.trim()).slice(0, 16)}`,
-    });
-  }
-
-  return scopes;
+  return [{ partitionKey: "manual-refresh", rowKey: "global" }];
 }

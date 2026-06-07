@@ -69,6 +69,7 @@ export const ERROR_CODES = {
   // Client Errors (4xx)
   VALIDATION_ERROR: "VALIDATION_ERROR",
   INVALID_REQUEST: "INVALID_REQUEST",
+  UNAUTHORIZED: "UNAUTHORIZED",
   NOT_FOUND: "NOT_FOUND",
   CONFLICT: "CONFLICT",
   RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
@@ -331,6 +332,8 @@ function getHttpStatusForErrorCode(code: string): number {
     case ERROR_CODES.VALIDATION_ERROR:
     case ERROR_CODES.INVALID_REQUEST:
       return 400;
+    case ERROR_CODES.UNAUTHORIZED:
+      return 401;
     case ERROR_CODES.NOT_FOUND:
       return 404;
     case ERROR_CODES.CONFLICT:

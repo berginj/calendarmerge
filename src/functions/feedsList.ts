@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId } from "../lib/util";
@@ -7,13 +8,13 @@ import { createErrorResponse, createSuccessResponse, ERROR_CODES, toHttpResponse
 
 app.http("listFeeds", {
   methods: ["GET"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "feeds",
   handler: listFeedsHandler,
 });
 
 export async function listFeedsHandler(
-  _request: HttpRequest,
+  request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> {
   const requestId = generateId();
@@ -21,19 +22,22 @@ export async function listFeedsHandler(
 
   try {
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const { loadManageableSourceFeeds } = await import("../lib/sourceFeeds");
     const feeds = await loadManageableSourceFeeds(config, logger);
 
     // SECURITY NOTE: Feed URLs are NOT redacted in this authenticated endpoint
-    // Rationale: Users with valid function keys need to see their own feed URLs to edit them
+    // Rationale: Authenticated admins need to see full feed URLs to edit them
     // URLs are redacted in logs only (via redactFeedUrl in logger calls)
-    // This endpoint requires function-level auth, so URLs are protected by authentication
+    // This endpoint is protected by the admin session cookie
 
     logger.info("feeds_list_succeeded", { requestId, count: feeds.length });
 
     return toHttpResponse(
       createSuccessResponse(requestId, {
-        feeds, // Full URLs returned (protected by function auth)
+        feeds, // Full URLs returned (protected by admin session auth)
         count: feeds.length,
       }),
     );

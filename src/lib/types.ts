@@ -51,6 +51,9 @@ export interface AppConfig {
   alertStaleHours: number;
   alertConsecutiveFailureThreshold: number;
   alertDedupeCooldownMinutes: number;
+  adminAccessCode?: string;
+  adminSessionTtlHours: number;
+  adminCookieSecure: boolean;
 }
 
 export interface IcsProperty {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { clearFunctionsKey, listFeeds, loadSavedFunctionsKey, saveFunctionsKey, triggerManualRefresh } from './feedsApi';
+import { getAdminSession, listFeeds, loginAdminSession, logoutAdminSession, requestJson, triggerManualRefresh } from './feedsApi';
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -13,70 +13,12 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   });
 }
 
-describe('manual refresh API client', () => {
+describe('admin session API client', () => {
   afterEach(() => {
-    clearFunctionsKey();
     vi.unstubAllGlobals();
   });
 
-  it('unwraps successful manual refresh envelopes and sends the function key header', async () => {
-    saveFunctionsKey('test-key');
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
-      requestId: 'request-1',
-      status: 'success',
-      data: {
-        refreshId: 'refresh-1',
-        success: true,
-        state: 'success',
-      },
-    }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(triggerManualRefresh()).resolves.toEqual({
-      refreshId: 'refresh-1',
-      success: true,
-      state: 'success',
-    });
-
-    expect(fetchMock).toHaveBeenCalledWith('/api/refresh', expect.objectContaining({
-      method: 'POST',
-      headers: expect.any(Headers),
-    }));
-    const headers = fetchMock.mock.calls[0][1].headers as Headers;
-    expect(headers.get('x-functions-key')).toBe('test-key');
-  });
-
-  it('surfaces rate-limit details from manual refresh errors', async () => {
-    saveFunctionsKey('test-key');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      requestId: 'request-1',
-      status: 'error',
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Please wait before refreshing again',
-        details: 'Manual refresh is limited to once every 30 seconds. Retry in 18 seconds.',
-      },
-    }, { status: 429, statusText: 'Too Many Requests' })));
-
-    await expect(triggerManualRefresh()).rejects.toThrow('Manual refresh is limited to once every 30 seconds');
-  });
-
-  it('surfaces invalid function key errors for manual refresh', async () => {
-    saveFunctionsKey('bad-key');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
-      requestId: 'request-1',
-      status: 'error',
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Unauthorized',
-      },
-    }, { status: 403, statusText: 'Forbidden' })));
-
-    await expect(triggerManualRefresh()).rejects.toThrow('Admin function key is missing or invalid');
-  });
-
-  it('migrates legacy localStorage function keys into sessionStorage', async () => {
-    window.localStorage.setItem('calendarmerge_functions_key', 'legacy-key');
+  it('includes browser cookies when calling API endpoints', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       requestId: 'request-1',
       status: 'success',
@@ -86,13 +28,92 @@ describe('manual refresh API client', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    expect(loadSavedFunctionsKey()).toBe('legacy-key');
-    expect(window.localStorage.getItem('calendarmerge_functions_key')).toBeNull();
-    expect(window.sessionStorage.getItem('calendarmerge_functions_key')).toBe('legacy-key');
-
     await listFeeds();
 
+    expect(fetchMock).toHaveBeenCalledWith('/api/feeds', expect.objectContaining({
+      credentials: 'include',
+    }));
     const headers = fetchMock.mock.calls[0][1].headers as Headers;
-    expect(headers.get('x-functions-key')).toBe('legacy-key');
+    expect(headers.get('x-functions-key')).toBeNull();
+  });
+
+  it('starts an admin session with an access code', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: {
+        authenticated: true,
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(loginAdminSession('access-code')).resolves.toEqual({ authenticated: true });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/session', expect.objectContaining({
+      method: 'POST',
+      credentials: 'include',
+    }));
+  });
+
+  it('logs out an admin session', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: {
+        authenticated: false,
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await logoutAdminSession();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/admin/session', expect.objectContaining({
+      method: 'DELETE',
+      credentials: 'include',
+    }));
+  });
+
+  it('surfaces session errors for protected refresh requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'error',
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Unauthorized',
+      },
+    }, { status: 401, statusText: 'Unauthorized' })));
+
+    await expect(triggerManualRefresh()).rejects.toThrow('Admin session is missing or expired');
+  });
+
+  it('reads admin session state from the session endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: {
+        authenticated: false,
+        configured: true,
+      },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getAdminSession()).resolves.toEqual({
+      authenticated: false,
+      configured: true,
+    });
+  });
+
+  it('keeps requestJson on include credentials mode for arbitrary requests', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: { ok: true },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(requestJson<{ ok: boolean }>('/status')).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith('/api/status', expect.objectContaining({
+      credentials: 'include',
+    }));
   });
 });

@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
+import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { getInvalidGameFilterRegex, normalizeGameFilterRules } from "../lib/eventFilter";
 import { fetchFeed } from "../lib/fetchFeeds";
@@ -15,7 +16,7 @@ import { fieldError, invalid, parseJsonObjectRequest, valid, validationErrorResp
 
 app.http("previewGameFilter", {
   methods: ["POST"],
-  authLevel: "function",
+  authLevel: "anonymous",
   route: "settings/game-filter/preview",
   handler: previewGameFilterHandler,
 });
@@ -45,6 +46,9 @@ export async function previewGameFilterHandler(
     }
 
     const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
     const { SettingsStore } = await import("../lib/settingsStore");
     const settingsStore = new SettingsStore(getStorageConnectionString(config.outputStorageAccount));
     const currentSettings = await settingsStore.getSettings().catch(() => DEFAULT_SETTINGS);

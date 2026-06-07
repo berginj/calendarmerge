@@ -75,6 +75,9 @@ const config: AppConfig = {
   alertStaleHours: 2,
   alertConsecutiveFailureThreshold: 3,
   alertDedupeCooldownMinutes: 360,
+  adminAccessCode: "test-admin-code",
+  adminSessionTtlHours: 12,
+  adminCookieSecure: false,
 };
 
 function serviceStatus(): ServiceStatus {

@@ -1,7 +1,6 @@
 import { SourceFeedConfig } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
-const FUNCTIONS_KEY_STORAGE_KEY = 'calendarmerge_functions_key';
 
 interface ApiErrorBody {
   status?: 'error';
@@ -14,67 +13,9 @@ interface ApiErrorBody {
   details?: string | string[];
 }
 
-// SECURITY: Use sessionStorage instead of localStorage to reduce XSS exposure
-// sessionStorage clears when browser/tab closes, limiting credential lifetime
-function getStoredFunctionsKey(): string {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  try {
-    const sessionKey = window.sessionStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim();
-    if (sessionKey) {
-      return sessionKey;
-    }
-
-    const legacyLocalKey = window.localStorage.getItem(FUNCTIONS_KEY_STORAGE_KEY)?.trim();
-    if (legacyLocalKey) {
-      window.sessionStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, legacyLocalKey);
-      window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
-      return legacyLocalKey;
-    }
-
-    return '';
-  } catch {
-    return '';
-  }
-}
-
-function getFunctionsKey(): string {
-  return getStoredFunctionsKey();
-}
-
-export function loadSavedFunctionsKey(): string {
-  return getStoredFunctionsKey();
-}
-
-export function saveFunctionsKey(value: string): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed) {
-    window.sessionStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
-    return;
-  }
-
-  // SECURITY: Keys now stored in sessionStorage (cleared on browser close)
-  window.sessionStorage.setItem(FUNCTIONS_KEY_STORAGE_KEY, trimmed);
-}
-
-export function clearFunctionsKey(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.sessionStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
-  window.localStorage.removeItem(FUNCTIONS_KEY_STORAGE_KEY);
-}
-
 async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {
   if ((response.status === 401 || response.status === 403) && requiresAdmin) {
-    return new Error('Admin function key is missing or invalid. Update it in the UI and try again.');
+    return new Error('Admin session is missing or expired. Sign in again and try again.');
   }
 
   const contentType = response.headers.get('content-type');
@@ -116,14 +57,11 @@ interface ApiSuccessEnvelope<T> {
 
 export async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = false): Promise<T> {
   const headers = new Headers(init?.headers);
-  const functionsKey = requiresAdmin ? getFunctionsKey() : '';
-  if (functionsKey) {
-    headers.set('x-functions-key', functionsKey);
-  }
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
@@ -209,6 +147,31 @@ export async function triggerManualRefresh(): Promise<unknown> {
     },
     true,
   );
+}
+
+export interface AdminSessionResponse {
+  authenticated: boolean;
+  configured?: boolean;
+}
+
+export async function loginAdminSession(accessCode: string): Promise<AdminSessionResponse> {
+  const data = await requestJson<{ authenticated: boolean }>('/admin/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accessCode }),
+  });
+
+  return data;
+}
+
+export async function logoutAdminSession(): Promise<void> {
+  await requestJson<Record<string, never>>('/admin/session', {
+    method: 'DELETE',
+  });
+}
+
+export async function getAdminSession(): Promise<AdminSessionResponse> {
+  return requestJson<AdminSessionResponse>('/admin/session');
 }
 
 export interface GameFilterRules {

@@ -16,7 +16,7 @@ interface EnhancedFeedsProps {
   feeds: SourceFeedConfig[];
   loading: boolean;
   error: string | null;
-  hasConfiguredAdminKey: boolean;
+  hasAdminSession: boolean;
   onUpdate: (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
   onCreateMany: (feeds: NewSourceFeedInput[]) => Promise<BulkFeedCreateResult>;
@@ -27,7 +27,7 @@ export default function Feeds({
   feeds,
   loading,
   error,
-  hasConfiguredAdminKey,
+  hasAdminSession,
   onUpdate,
   onDelete,
   onCreateMany,
@@ -193,7 +193,7 @@ export default function Feeds({
         <div className="flex gap-2">
           <Button
             onClick={() => refresh()}
-            disabled={isRefreshing || !hasConfiguredAdminKey}
+            disabled={isRefreshing || !hasAdminSession}
             variant="secondary"
             size="md"
           >
@@ -203,7 +203,7 @@ export default function Feeds({
 
           <Button
             onClick={() => setShowForm(!showForm)}
-            disabled={!hasConfiguredAdminKey}
+            disabled={!hasAdminSession}
             variant="primary"
             size="md"
           >
@@ -214,7 +214,7 @@ export default function Feeds({
       </div>
 
       {/* Bulk selection and actions */}
-      {filteredFeeds.length > 0 && hasConfiguredAdminKey && (
+      {filteredFeeds.length > 0 && hasAdminSession && (
         <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
             <input
@@ -300,7 +300,7 @@ export default function Feeds({
       )}
 
       {/* Feed setup form */}
-      {showForm && hasConfiguredAdminKey && (
+      {showForm && hasAdminSession && (
         <Card>
           <CardContent className="p-6">
             <BulkFeedForm
@@ -312,11 +312,11 @@ export default function Feeds({
       )}
 
       {/* Feed list */}
-      {!hasConfiguredAdminKey ? (
+      {!hasAdminSession ? (
         <Card>
           <CardContent className="p-12 text-center">
-            <p className="text-slate-600">A Function key is required to load feed URLs.</p>
-            <p className="text-slate-600 mt-2">Save the admin key above to manage feeds.</p>
+            <p className="text-slate-600">An admin session is required to load feed URLs.</p>
+            <p className="text-slate-600 mt-2">Sign in above to manage feeds.</p>
           </CardContent>
         </Card>
       ) : loading ? (

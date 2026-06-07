@@ -70,12 +70,13 @@ The app reads configuration from Azure Functions app settings or `local.settings
 - Feeds can be managed via the web UI (stored in Azure Table Storage)
 - Or configured via `SOURCE_FEEDS_JSON` environment variable (legacy mode)
 - Set `ENABLE_TABLE_STORAGE=true` to load feeds from Table Storage
-- Write actions in the UI require a Function key; the browser stores it in sessionStorage after you enter it
+- Write actions in the UI require an authenticated admin session; sign in with the configured admin access code to get an HttpOnly session cookie
 
 Required:
 
 - `OUTPUT_STORAGE_ACCOUNT`
 - `SOURCE_FEEDS_JSON` when `ENABLE_TABLE_STORAGE=false`, or as an optional fallback when table storage is enabled
+- `ADMIN_ACCESS_CODE` for management UI sign-in and protected admin endpoints
 
 Supported settings:
 
@@ -101,6 +102,9 @@ Supported settings:
 | `ALERT_STALE_HOURS` | No | `2` | Calendar age threshold for stale-calendar alerts. |
 | `ALERT_CONSECUTIVE_FAILURE_THRESHOLD` | No | `3` | Consecutive feed failures required before repeated-failure alerts. |
 | `ALERT_DEDUPE_COOLDOWN_MINUTES` | No | `360` | Dedupe cooldown for identical operational alerts. |
+| `ADMIN_ACCESS_CODE` | Yes for admin auth | none | Shared admin sign-in code used to mint the HttpOnly session cookie for `/manage/`. |
+| `ADMIN_SESSION_TTL_HOURS` | No | `12` | Lifetime for the admin session cookie. |
+| `ADMIN_COOKIE_SECURE` | No | `false` | Set to `true` to mark the admin session cookie `Secure`. |
 | `SERVICE_NAME` | No | `calendarmerge` | Included in logs and `status.json`. |
 
 Example `SOURCE_FEEDS_JSON`:
@@ -300,7 +304,7 @@ See [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md) for detailed instructions
 
 **Note:** Secrets are auto-created by Azure or via setup script
 
-When using the management UI against protected write endpoints, retrieve a Function key and enter it into the UI before creating, updating, disabling, restoring, or previewing feed rules.
+When using the management UI against protected write endpoints, sign in with the configured admin access code. The browser receives an HttpOnly session cookie and uses that cookie for protected requests.
 
 ## Public URLs
 
@@ -356,19 +360,23 @@ Function endpoints:
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/settings/game-filter/preview` - Preview games-only filter rules (POST)
 - `https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/diagnostic` - Deployment diagnostics (GET)
 
-Manual refresh uses Function auth. Retrieve a key and invoke it like this:
+Manual refresh uses the same admin session cookie as the management UI. Sign in first, then invoke it with the session cookie:
 
 ```powershell
-$refreshKey = az functionapp keys list `
-  --resource-group $env:AZ_RESOURCE_GROUP `
-  --name $env:AZ_FUNCTIONAPP_NAME `
-  --query "functionKeys.default" `
-  --output tsv
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$adminAccessCode = Read-Host "Admin access code"
+
+Invoke-WebRequest `
+  -Method POST `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -ContentType "application/json" `
+  -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
+  -WebSession $session | Out-Null
 
 Invoke-WebRequest `
   -Method POST `
   -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/refresh" `
-  -Headers @{"x-functions-key" = $refreshKey}
+  -WebSession $session
 ```
 
 Manual refresh is limited to one successful refresh every 30 seconds. The cooldown is stored in Azure Table Storage (`ManualRefreshRateLimits`) so it applies across Function App instances, and failed refresh attempts do not start the cooldown. A rate-limited request returns the standard error envelope with `RATE_LIMIT_EXCEEDED` and a `Retry-After` header.
