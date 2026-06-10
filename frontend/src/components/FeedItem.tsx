@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SourceFeedConfig } from '../types';
 import FeedForm from './FeedForm';
+import Button from './ui/Button';
 
 interface FeedItemProps {
   feed: SourceFeedConfig;
@@ -40,18 +41,20 @@ function FeedItem({ feed, onUpdate, onDelete }: FeedItemProps) {
         <p className="feed-id">ID: {feed.id}</p>
       </div>
       <div className="feed-actions">
-        <button
-          className="btn-secondary"
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => setEditing(true)}
         >
           Edit
-        </button>
-        <button
-          className="btn-danger"
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
           onClick={handleDelete}
         >
           Delete
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { normalizeFeedUrl, validateFeedUrl } from '../lib/feedInput';
+import Button from './ui/Button';
+import { Loader2 } from 'lucide-react';
 
 interface FeedFormProps {
   onSubmit: (feed: { name: string; url: string }) => Promise<void>;
@@ -68,22 +70,29 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
           disabled={submitting}
         />
         {urlError && (
-          <div style={{ color: '#dc2626', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+          <div className="text-sm text-red-600 mt-2">
             {urlError}
           </div>
         )}
-        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.5rem' }}>
+        <div className="text-xs text-slate-500 mt-2">
           Accepts direct calendar subscription URLs, including tokenized provider links and webcal:// links, which are converted to https://.
         </div>
       </div>
 
       <div className="form-actions">
-        <button type="submit" className="btn-primary" disabled={submitting}>
-          {submitting ? 'Saving...' : initialValues ? 'Update Feed' : 'Add Feed'}
-        </button>
-        <button type="button" className="btn-secondary" onClick={onCancel} disabled={submitting}>
+        <Button variant="primary" type="submit" disabled={submitting}>
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving…
+            </>
+          ) : (
+            initialValues ? 'Update Feed' : 'Add Feed'
+          )}
+        </Button>
+        <Button variant="secondary" type="button" onClick={onCancel} disabled={submitting}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

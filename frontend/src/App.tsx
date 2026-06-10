@@ -22,7 +22,8 @@ import Changes from './views/Changes';
 import Feeds from './views/Feeds';
 import Insights from './views/Insights';
 import Settings from './components/Settings';
-import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Menu, HelpCircle, Search } from 'lucide-react';
+import Button from './components/ui/Button';
+import { LayoutDashboard, Rss, Bell, Settings as SettingsIcon, Menu, HelpCircle, Search, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import './App.css';
 
@@ -48,6 +49,7 @@ function App() {
   const [adminKeyMessage, setAdminKeyMessage] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast, toasts, removeToast } = useToast();
@@ -120,6 +122,8 @@ function App() {
       return;
     }
 
+    setSigningIn(true);
+    setAdminKeyMessage(null);
     void loginAdminSession(trimmed)
       .then(() => {
         setHasAdminSession(true);
@@ -132,6 +136,9 @@ function App() {
         const errorMsg = err instanceof Error ? err.message : 'Failed to start admin session';
         setAdminKeyMessage(errorMsg);
         setHasAdminSession(false);
+      })
+      .finally(() => {
+        setSigningIn(false);
       });
   };
 
@@ -342,9 +349,9 @@ function App() {
                       Admin session active
                     </span>
                   </div>
-                  <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
+                  <Button variant="secondary" size="sm" onClick={handleClearAdminKey} type="button">
                     Sign Out
-                  </button>
+                  </Button>
                   <p className="admin-key-help">
                     You have admin access. Feed management and settings are available.
                   </p>
@@ -365,10 +372,18 @@ function App() {
                       }}
                       placeholder="Enter admin access code"
                       autoComplete="off"
+                      disabled={signingIn}
                     />
-                    <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
-                      Sign In
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={handleSaveAdminKey} type="button" disabled={signingIn}>
+                      {signingIn ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Signing in…
+                        </>
+                      ) : (
+                        'Sign In'
+                      )}
+                    </Button>
                   </div>
                   <p className="admin-key-help">
                     Feed URLs, feed changes, and settings updates require an authenticated admin session.
@@ -378,55 +393,7 @@ function App() {
               )}
               {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
             </div>
-
-        <div className="troubleshooting-panel">
-          <div className="troubleshooting-section">
-            <h2>Troubleshooting Links</h2>
-            <p>
-              Open the public artifacts and API endpoints directly while debugging refresh,
-              rendering, or feed issues.
-            </p>
-            <p className="troubleshooting-note">
-              Manage UI base: <a href={manageBase} target="_blank" rel="noreferrer">{manageBase}</a>
-            </p>
-            <p className="troubleshooting-note">
-              Function API base: <a href={apiBaseDisplay} target="_blank" rel="noreferrer">{apiBaseDisplay}</a>
-            </p>
-            <p className="troubleshooting-note">
-              Public site base: <a href={publicBaseDisplay} target="_blank" rel="noreferrer">{publicBaseDisplay}</a>
-            </p>
-          </div>
-
-          <div className="troubleshooting-grid">
-            <section className="troubleshooting-section">
-              <h3>Public Outputs</h3>
-              <div className="link-list">
-                {publicLinks.map((link) => (
-                  <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </section>
-
-            <section className="troubleshooting-section">
-              <h3>API Endpoints</h3>
-              <div className="link-list">
-                {apiLinks.map((link) => (
-                  <a key={link.label} href={link.href} target="_blank" rel="noreferrer">
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-              {!hasAdminSession && (
-                <p className="admin-key-help">
-                  Protected endpoints require an authenticated admin session.
-                </p>
-              )}
-            </section>
-          </div>
-        </div>
-      </header>
+          </header>
 
       <main id="main-content" className="app-main" role="main">
         {currentView === 'dashboard' && <Dashboard />}
@@ -448,7 +415,17 @@ function App() {
 
         {currentView === 'changes' && <Changes />}
 
-        {currentView === 'settings' && <Settings />}
+        {currentView === 'settings' && (
+          <Settings
+            publicLinks={publicLinks}
+            apiLinks={apiLinks}
+            manageBase={manageBase}
+            apiBaseDisplay={apiBaseDisplay}
+            publicBaseDisplay={publicBaseDisplay}
+            hasAdminSession={hasAdminSession}
+            toast={toast}
+          />
+        )}
       </main>
 
       {/* Toast notifications */}

@@ -71,7 +71,7 @@ export function Toast({
         )}
       </div>
 
-      <ToastPrimitive.Close className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors">
+      <ToastPrimitive.Close className="flex-shrink-0 text-slate-400 hover:text-slate-600 transition-colors" aria-label="Close notification">
         <X className="h-4 w-4" />
       </ToastPrimitive.Close>
     </ToastPrimitive.Root>

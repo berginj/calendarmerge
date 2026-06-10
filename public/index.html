@@ -121,6 +121,12 @@
         border-color: rgba(15, 118, 110, 0.35);
       }
 
+      button:focus-visible,
+      a.link-pill:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
       button[aria-pressed="true"] {
         background: linear-gradient(135deg, var(--accent), var(--accent-strong));
         border-color: transparent;
@@ -248,7 +254,7 @@
   <body>
     <div class="shell">
       <section class="hero">
-        <p class="eyebrow">calendarmerge + Schedule-X</p>
+        <p class="eyebrow">Family Sports Calendar</p>
         <h1>Public calendar viewer</h1>
         <p class="lede">
           This is a read-only public calendar generated from the merged feeds. It keeps location details visible,

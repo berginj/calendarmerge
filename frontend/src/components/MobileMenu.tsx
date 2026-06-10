@@ -26,6 +26,7 @@ export default function MobileMenu({ open, onClose, currentView, onViewChange }:
             <button
               onClick={onClose}
               className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Close navigation menu"
             >
               <X className="h-5 w-5" />
             </button>
