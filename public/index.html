@@ -452,12 +452,14 @@
 
         const selectedDate = getInitialCalendarDate(currentEvents, mode);
         const defaultView = getInitialView(mode, sx, views);
+        const dayBoundaries = computeDayBoundaries(currentEvents);
         const calendarConfig = {
           locale: "en-US",
           timezone: browserTimeZone,
           defaultView,
           selectedDate,
           isResponsive: true,
+          dayBoundaries,
           views,
           events: currentEvents,
           calendars: buildCalendars(currentEvents),
@@ -494,6 +496,44 @@
         }
 
         return sx.viewWeek?.name || views[0].name;
+      }
+
+      function computeDayBoundaries(events) {
+        let earliest = 23;
+        let latest = 0;
+
+        for (const event of events) {
+          const startStr = typeof event.start === "string" ? event.start : "";
+          const endStr = typeof event.end === "string" ? event.end : "";
+          // Extract hour from "YYYY-MM-DD HH:MM" format
+          const startMatch = startStr.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}):/);
+          const endMatch = endStr.match(/\d{4}-\d{2}-\d{2}\s+(\d{2}):/);
+          if (startMatch) earliest = Math.min(earliest, parseInt(startMatch[1], 10));
+          if (endMatch) latest = Math.max(latest, parseInt(endMatch[1], 10) + 1);
+        }
+
+        if (earliest > latest) {
+          // No timed events found — use reasonable defaults
+          return { start: "06:00", end: "22:00" };
+        }
+
+        // Pad by 1 hour, clamp to valid range
+        const startHour = Math.max(0, earliest - 1);
+        const endHour = Math.min(24, latest + 1);
+        // Ensure at least an 8-hour window so the grid isn't too cramped
+        const span = endHour - startHour;
+        if (span < 8) {
+          const pad = Math.ceil((8 - span) / 2);
+          return {
+            start: `${String(Math.max(0, startHour - pad)).padStart(2, "0")}:00`,
+            end: `${String(Math.min(24, endHour + pad)).padStart(2, "0")}:00`,
+          };
+        }
+
+        return {
+          start: `${String(startHour).padStart(2, "0")}:00`,
+          end: `${String(endHour).padStart(2, "0")}:00`,
+        };
       }
 
       function getInitialCalendarDate(events, mode) {
