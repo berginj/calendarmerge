@@ -205,7 +205,7 @@ const body = validation.data; // Now safely typed
 ## Architecture
 
 ### Core Flow
-1. **Timer Trigger** (`timerRefresh.ts`) - Runs every 30 minutes by default (configurable via `REFRESH_SCHEDULE`)
+1. **Timer Trigger** (`timerRefresh.ts`) - Wakes every 5 minutes; effective cadence is every 4 hours by default (configurable via Settings UI)
 2. **Fetch Feeds** (`fetchFeeds.ts`) - Downloads ICS files from source URLs with retries and timeout
 3. **Parse ICS** (`ics.ts`) - Parses ICS format into `ParsedEvent` objects
 4. **Merge & Detect** (`merge.ts`) - Identity-based deduplication + potential duplicate flagging:
@@ -239,9 +239,10 @@ const body = validation.data; // Now safely typed
 - `tableStore.ts` - Azure Table Storage operations for feed management
 
 **Frontend** (`frontend/`)
-- React app for feed management UI
+- React 19 + Vite + Tailwind v4 + Radix UI management app
 - Deployed to `$web/manage/` in Blob Storage
-- Stores Function key in browser localStorage for authenticated operations
+- Uses admin access code → HttpOnly session cookie for authenticated operations
+- Unified color system via Tailwind `@theme` tokens (no duplicate CSS variables)
 
 ### Storage Architecture
 
@@ -374,7 +375,7 @@ The ICS parser in `ics.ts`:
 ### Key Optional Settings
 - `ENABLE_TABLE_STORAGE` - Set to `true` to load feeds from Table Storage
 - `OUTPUT_BASE_URL` - Public base URL (defaults to blob URL)
-- `REFRESH_SCHEDULE` - NCRONTAB expression (default: `0 */15 * * * *`)
+- `REFRESH_SCHEDULE` - NCRONTAB expression (default: `0 */5 * * * *`). This is the timer wake-up interval; the effective refresh cadence is controlled by the Settings table (default: every 4 hours).
 - `FETCH_TIMEOUT_MS` - Per-request timeout (default: 10000)
 - `FETCH_RETRY_COUNT` - Retries after initial attempt (default: 2)
 
@@ -469,10 +470,13 @@ Required GitHub variables:
 
 ## Authentication & Security
 
-- **Function endpoints**: Protected with Function keys (except health/status endpoints)
+- **Admin UI**: HMAC-SHA256 signed HttpOnly session cookie, minted from `ADMIN_ACCESS_CODE` env var
+- **Protected endpoints**: Require valid admin session cookie (CSRF-protected via `x-csrf-protection` header)
+- **Public endpoints**: Health/status/ping available without auth
 - **Blob Storage**: Uses managed identity with `Storage Blob Data Contributor` role
 - **Table Storage**: Uses connection string from `AzureWebJobsStorage`
-- **Frontend**: Stores Function key in browser localStorage for write operations
+- **Frontend**: CSP meta tag restricts script/style/connect sources; SRI hashes on CDN resources
+- **Error responses**: Internal details suppressed in production; brute-force delay on failed login
 
 ## Troubleshooting
 
@@ -514,7 +518,7 @@ Required GitHub variables:
 **Before committing code:**
 
 1. Run `npm run build` - Must pass with no errors
-2. Run `npm test` - All 80+ tests must pass
+2. Run `npm test` - All 200+ tests must pass (184 backend + 20 frontend)
 3. Review DESIGN_CONTRACTS.md - Verify compliance
 4. Check backward compatibility - No breaking changes without documentation
 5. Update tests for new functionality

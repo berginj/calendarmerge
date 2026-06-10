@@ -6,9 +6,21 @@
 
 ---
 
-## Current 1.0 Status (2026-06-06)
+## Current 1.0 Status (2026-06-10)
 
 This document includes historical findings from the original audit. The current management UI uses an admin access code to mint an HttpOnly session cookie, and browser-held Function keys are no longer part of the release path.
+
+**Security hardening completed (June 2026):**
+- CSRF protection on all mutating API endpoints (`x-csrf-protection` header required)
+- Error detail suppression in production responses (internal details no longer leaked)
+- Brute-force delay (500ms) on failed admin login attempts
+- Date window filter on published calendar events (future + 1 year back)
+- Removed `feedsSimple` endpoint (redundant unauthenticated access path)
+- SRI integrity hashes on all CDN `<script>` and `<link>` tags (public viewer)
+- CSP meta tags on both public viewer and admin UI
+- CORS configuration in `host.json` restricting allowed origins
+- All GitHub Actions pinned to exact commit SHAs
+- Unsafe type casts replaced with validated input handling
 
 The findings below remain as archival context. Implementation work for the migration is tracked in `WORK_ITEMS.md` when still relevant.
 

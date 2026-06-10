@@ -158,7 +158,7 @@ Navigate to: `https://<storage-account>.z13.web.core.windows.net/manage/`
 
 ### Adding Multiple Calendar Feeds
 
-In `/manage/`, save the Admin Function Key, open **Feeds**, then choose **Add Calendars**.
+In `/manage/`, sign in with your admin access code, open **Feeds**, then choose **Add Calendars**.
 Paste one calendar subscription link per line. The bulk form accepts:
 
 ```text
@@ -383,7 +383,7 @@ Manual refresh is limited to one successful refresh every 30 seconds. The cooldo
 
 ## Testing
 
-**Test Coverage: 80 tests across 8 test files**
+**Test Coverage: 204 tests across 30 test files (184 backend + 20 frontend)**
 
 The test suite covers:
 
@@ -408,10 +408,24 @@ The test suite covers:
 - Cancellation detection (multiple signals)
 - LeagueApps reschedule marker handling
 
+**Security Tests:**
+- SSRF protection (private IP, DNS rebinding, URL validation)
+- Input validation (malformed JSON, injection attempts, field constraints)
+- API response contract validation (no internal detail leakage)
+
+**Frontend Tests:**
+- Service health banner rendering
+- Dashboard with public-only and admin status
+- Changes view with reschedules and alerts
+- Insights view with feed health and duplicates
+- Feed input parsing and validation
+- API client behavior
+
 Run tests:
 ```powershell
-npm test            # Run all tests
-npm run test:watch  # Watch mode for development
+npm test                            # Run all backend tests
+npm run test:watch                  # Watch mode for development
+npm test --prefix frontend          # Run frontend tests
 ```
 
 ## Monitoring & Operations

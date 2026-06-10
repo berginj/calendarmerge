@@ -3,6 +3,8 @@
 **Status:** Foundation Complete ✅
 **Next:** Continue implementation following this guide
 
+Historical note: this guide was written for the initial Tailwind v3 setup. The project now uses Tailwind v4 with `@theme` in `index.css` instead of `tailwind.config.js`. Color tokens are defined via `--color-primary-*` CSS custom properties in the `@theme` block. References to `tailwind.config.js` below are outdated.
+
 ---
 
 ## ✅ What's Been Set Up

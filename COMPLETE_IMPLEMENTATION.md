@@ -3,7 +3,7 @@
 **Project:** Calendar Merge Service Enhancement
 **Date:** 2026-04-27
 **Status:** ✅ All Phases Complete
-**Tests:** 80/80 passing
+**Tests:** 204 total (184 backend + 20 frontend)
 **Build:** Clean
 
 Historical note: this file records the implementation story as it stood when written. It is useful for audit history, but the current backlog and active planning live in `WORK_ITEMS.md`.

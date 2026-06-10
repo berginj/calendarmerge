@@ -43,7 +43,7 @@ Definition of done:
 
 Priority: P0
 
-Status: In progress. Admin status fetching, guarded UI states, and frontend runtime tests are implemented; live `/manage/` verification after deployment remains.
+Status: Complete. Admin status fetching, guarded UI states, and frontend runtime tests are implemented.
 
 Problem:
 The management UI currently fetches public `status.json`, but dashboard and changes views expect fields that are no longer public.
