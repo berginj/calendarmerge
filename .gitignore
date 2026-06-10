@@ -7,3 +7,4 @@ coverage/
 local.settings.json
 .claude/
 remote-review/
+temp-settings.json

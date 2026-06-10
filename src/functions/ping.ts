@@ -19,12 +19,6 @@ export async function pingHandler(
     createSuccessResponse(generateId(), {
       message: "pong",
       timestamp: new Date().toISOString(),
-      nodeVersion: process.version,
-      env: {
-        hasStorageConnectionString: Boolean(process.env.AZURE_STORAGE_CONNECTION_STRING),
-        hasSourceFeeds: Boolean(process.env.SOURCE_FEEDS_JSON),
-        hasOutputStorageAccount: Boolean(process.env.OUTPUT_STORAGE_ACCOUNT),
-      },
     }),
   );
 }
