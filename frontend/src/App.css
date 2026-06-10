@@ -1,14 +1,6 @@
 :root {
   color-scheme: light;
   font-family: "Segoe UI", sans-serif;
-  --primary-color: #0f766e;
-  --danger-color: #dc2626;
-  --bg-gradient-start: #f7fafc;
-  --bg-gradient-end: #e2e8f0;
-  --card-bg: rgba(255, 255, 255, 0.92);
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --border-color: #cbd5e1;
 }
 
 * {
@@ -20,8 +12,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-  color: var(--text-primary);
+  background: linear-gradient(180deg, var(--color-slate-50) 0%, var(--color-slate-200) 100%);
+  color: var(--color-slate-900);
 }
 
 .app {
@@ -33,7 +25,7 @@ body {
 .app-header {
   padding: 1.5rem;
   text-align: center;
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
   position: sticky;
   top: 0;
@@ -50,11 +42,11 @@ body {
 .app-header h1 {
   font-size: 2rem;
   margin-bottom: 0.5rem;
-  color: var(--primary-color);
+  color: var(--color-primary-700);
 }
 
 .app-header p {
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
 }
 
 .app-nav {
@@ -78,7 +70,7 @@ body {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
 }
 
 .admin-key-controls {
@@ -91,7 +83,7 @@ body {
   flex: 1;
   min-width: 0;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-slate-300);
   border-radius: 0.5rem;
   font-size: 1rem;
   font-family: inherit;
@@ -99,7 +91,7 @@ body {
 
 .admin-key-controls input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--color-primary-700);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
 }
 
@@ -107,11 +99,11 @@ body {
 .admin-key-status {
   margin-top: 0.75rem;
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
 }
 
 .admin-key-status {
-  color: var(--primary-color);
+  color: var(--color-primary-700);
 }
 
 .nav-button {
@@ -120,7 +112,7 @@ body {
   gap: 0.5rem;
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   padding: 0.5rem 1rem;
   font-size: 1rem;
   cursor: pointer;
@@ -129,12 +121,12 @@ body {
 }
 
 .nav-button:hover {
-  color: var(--primary-color);
+  color: var(--color-primary-700);
 }
 
 .nav-button.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
+  color: var(--color-primary-700);
+  border-bottom-color: var(--color-primary-700);
   font-weight: 500;
 }
 
@@ -173,7 +165,7 @@ body {
   left: -9999px;
   z-index: 999;
   padding: 1rem;
-  background: var(--primary-color);
+  background: var(--color-primary-700);
   color: white;
   text-decoration: none;
   border-radius: 0.5rem;
@@ -186,7 +178,7 @@ body {
 
 /* Focus visible enhancements */
 *:focus-visible {
-  outline: 2px solid var(--primary-color);
+  outline: 2px solid var(--color-primary-700);
   outline-offset: 2px;
   border-radius: 0.25rem;
 }
@@ -218,19 +210,19 @@ body {
 .loading {
   text-align: center;
   padding: 3rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
 }
 
 .empty-state {
   text-align: center;
   padding: 3rem;
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 1rem;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
 }
 
 .empty-state p {
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   margin: 0.5rem 0;
 }
 
@@ -241,7 +233,7 @@ body {
 }
 
 .feed-item {
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 1rem;
   padding: 1.5rem;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
@@ -256,19 +248,19 @@ body {
 
 .feed-info h3 {
   margin: 0 0 0.5rem 0;
-  color: var(--primary-color);
+  color: var(--color-primary-700);
 }
 
 .feed-url {
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   word-break: break-all;
   margin: 0.25rem 0;
 }
 
 .feed-id {
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   margin: 0.25rem 0;
 }
 
@@ -278,7 +270,7 @@ body {
 }
 
 .feed-form {
-  background: var(--card-bg);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 1rem;
   padding: 1.5rem;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12);
@@ -293,13 +285,13 @@ body {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
 }
 
 .form-group input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-slate-300);
   border-radius: 0.5rem;
   font-size: 1rem;
   font-family: inherit;
@@ -307,7 +299,7 @@ body {
 
 .form-group input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--color-primary-700);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
 }
 
@@ -339,12 +331,12 @@ button:disabled {
 }
 
 .settings-container h2 {
-  color: var(--primary-color);
+  color: var(--color-primary-700);
   margin-bottom: 1rem;
 }
 
 .settings-container h3 {
-  color: var(--text-primary);
+  color: var(--color-slate-900);
   margin-bottom: 0.5rem;
 }
 
@@ -358,19 +350,19 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   padding: 1rem;
-  border: 2px solid var(--border-color);
+  border: 2px solid var(--color-slate-300);
   border-radius: 0.5rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .schedule-option:hover {
-  border-color: var(--primary-color);
-  background: var(--bg-gradient-start);
+  border-color: var(--color-primary-700);
+  background: var(--color-slate-50);
 }
 
 .schedule-option.selected {
-  border-color: var(--primary-color);
+  border-color: var(--color-primary-700);
   background: rgba(15, 118, 110, 0.05);
 }
 
@@ -388,18 +380,18 @@ button:disabled {
 
 .option-label {
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
   margin-bottom: 0.25rem;
 }
 
 .option-description {
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
 }
 
 .last-updated {
   font-size: 0.875rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   margin-top: 1rem;
   text-align: right;
 }
@@ -424,7 +416,7 @@ button:disabled {
   gap: 0.5rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
 }
 
 .game-filter-field textarea {
@@ -432,15 +424,15 @@ button:disabled {
   min-height: 7rem;
   resize: vertical;
   padding: 0.75rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-slate-300);
   border-radius: 0.5rem;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
   font: 0.875rem/1.4 "Consolas", "Segoe UI Mono", monospace;
 }
 
 .game-filter-field textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--color-primary-700);
   box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
 }
 
@@ -454,7 +446,7 @@ button:disabled {
 .game-filter-preview > div {
   min-width: 0;
   padding: 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-slate-300);
   border-radius: 0.5rem;
   background: rgba(248, 250, 252, 0.9);
 }
@@ -462,12 +454,12 @@ button:disabled {
 .game-filter-preview strong {
   display: block;
   font-size: 1.5rem;
-  color: var(--text-primary);
+  color: var(--color-slate-900);
 }
 
 .game-filter-preview span {
   display: block;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   font-size: 0.875rem;
 }
 
@@ -478,7 +470,7 @@ button:disabled {
 .game-filter-samples ul {
   margin-top: 0.5rem;
   padding-left: 1rem;
-  color: var(--text-secondary);
+  color: var(--color-slate-500);
   font-size: 0.875rem;
 }
 
