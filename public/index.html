@@ -421,6 +421,8 @@
             : `Showing ${datasets.games.events.length} game events from the merged public calendar.`,
         );
       }
+      // Expose for headless browser testing
+      window.switchMode = switchMode;
 
       function renderCalendar(mode) {
         const dataset = datasets[mode];

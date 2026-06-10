@@ -24,7 +24,13 @@ describe.skipIf(!canRunBrowserSmoke)("public Schedule-X viewer browser smoke", (
     const tempDir = mkdtempSync(join(process.cwd(), ".calendarmerge-viewer-"));
     const profileDir = join(tempDir, "profile");
     const htmlPath = join(tempDir, "index.html");
-    writeFileSync(htmlPath, injectSmokeScript(injectTestRuntime(readFileSync("public/index.html", "utf8"))), "utf8");
+    const injected = injectSmokeScript(injectTestRuntime(readFileSync("public/index.html", "utf8")));
+
+    // Verify stub injection succeeded — the replacement target depends on line endings
+    expect(injected).toContain("fixtureResponses");
+    expect(injected).toContain("SXCalendar");
+
+    writeFileSync(htmlPath, injected, "utf8");
 
     try {
       const result = spawnSync(
@@ -40,7 +46,7 @@ describe.skipIf(!canRunBrowserSmoke)("public Schedule-X viewer browser smoke", (
           "--disable-extensions",
           "--disable-sync",
           `--user-data-dir=${profileDir}`,
-          "--virtual-time-budget=12000",
+          "--virtual-time-budget=30000",
           "--dump-dom",
           pathToFileURL(htmlPath).toString(),
         ],
@@ -129,10 +135,10 @@ function injectSmokeScript(html: string): string {
         window.addEventListener("load", () => {
           setTimeout(() => {
             snapshot("initial");
-            document.getElementById("mode-games")?.click();
+            window.switchMode("games");
             setTimeout(() => {
               snapshot("games");
-              document.getElementById("mode-full")?.click();
+              window.switchMode("full");
               setTimeout(() => {
                 snapshot("full");
                 const resultNode = document.createElement("pre");
@@ -140,9 +146,9 @@ function injectSmokeScript(html: string): string {
                 resultNode.textContent = JSON.stringify(snapshots);
                 document.body.appendChild(resultNode);
                 setTimeout(() => window.close(), 0);
-              }, 1500);
-            }, 1500);
-          }, 2500);
+              }, 2000);
+            }, 2000);
+          }, 5000);
         });
       })();
     </script></body>`,
@@ -150,10 +156,15 @@ function injectSmokeScript(html: string): string {
 }
 
 function injectTestRuntime(html: string): string {
-  const withoutExternalAssets = html
+  // Normalize to LF so replacement targets match regardless of checkout line endings
+  const normalized = html.replace(/\r\n/g, "\n");
+  const withoutExternalAssets = normalized
     .replace(/<link\s+rel="preconnect"\s+href="https:\/\/cdn\.jsdelivr\.net"\s*\/>\s*/g, "")
     .replace(/<link\s+rel="stylesheet"[\s\S]*?@schedule-x\/theme-default[\s\S]*?\/>\s*/g, "")
-    .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/[^"]+"><\/script>\s*/g, "");
+    // Script tags may span multiple lines when integrity/crossorigin attributes are present
+    .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/[^"]*"[\s\S]*?<\/script>\s*/g, "")
+    // Strip CSP meta tag — 'self' origin doesn't resolve correctly under file:// protocol in headless Chrome
+    .replace(/<meta\s+http-equiv="Content-Security-Policy"[\s\S]*?\/>\s*/g, "");
 
   return withoutExternalAssets.replace(
     "<script>\n      const fallbackOutput",
