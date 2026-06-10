@@ -49,7 +49,7 @@ export async function listFeedsHandler(
         requestId,
         ERROR_CODES.INTERNAL_ERROR,
         "Failed to load feeds",
-        errorMessage(error),
+        undefined,
       ),
     );
   }

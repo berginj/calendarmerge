@@ -6,7 +6,17 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import Switch from '../components/ui/Switch';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/DropdownMenu';
-import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, Calendar, CircleOff } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/AlertDialog';
+import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, CircleOff, Rss } from 'lucide-react';
 import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from '../types';
 import FeedForm from '../components/FeedForm';
 import BulkFeedForm from '../components/BulkFeedForm';
@@ -23,6 +33,11 @@ interface EnhancedFeedsProps {
   setError: (error: string | null) => void;
 }
 
+type ConfirmAction =
+  | { type: 'single'; feedId: string; feedName: string }
+  | { type: 'bulk'; feedIds: string[]; count: number }
+  | null;
+
 export default function Feeds({
   feeds,
   loading,
@@ -37,6 +52,8 @@ export default function Feeds({
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'healthy' | 'suspect' | 'failed' | 'disabled'>('all');
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [isConfirmingAction, setIsConfirmingAction] = useState(false);
   const { data: status } = useServiceStatus();
   const { refresh, isRefreshing } = useManualRefresh();
 
@@ -91,8 +108,8 @@ export default function Feeds({
     for (const feedId of Array.from(selectedFeeds)) {
       try {
         await onUpdate(feedId, { enabled: true });
-      } catch (err) {
-        console.error(`Failed to enable ${feedId}`, err);
+      } catch {
+        // Error handled by parent
       }
     }
     setSelectedFeeds(new Set());
@@ -102,26 +119,49 @@ export default function Feeds({
     for (const feedId of Array.from(selectedFeeds)) {
       try {
         await onUpdate(feedId, { enabled: false });
-      } catch (err) {
-        console.error(`Failed to disable ${feedId}`, err);
+      } catch {
+        // Error handled by parent
       }
     }
     setSelectedFeeds(new Set());
   };
 
-  const handleBulkDelete = async () => {
-    if (!confirm(`Disable ${selectedFeeds.size} feed(s)? They will remain visible for restore for 15 days.`)) {
+  const handleBulkDelete = () => {
+    if (selectedFeeds.size === 0) {
       return;
     }
 
-    for (const feedId of Array.from(selectedFeeds)) {
-      try {
-        await onUpdate(feedId, { enabled: false });
-      } catch (err) {
-        console.error(`Failed to disable ${feedId}`, err);
-      }
+    setConfirmAction({
+      type: 'bulk',
+      feedIds: Array.from(selectedFeeds),
+      count: selectedFeeds.size,
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    if (!confirmAction) {
+      return;
     }
-    setSelectedFeeds(new Set());
+
+    setIsConfirmingAction(true);
+
+    try {
+      if (confirmAction.type === 'single') {
+        await onDelete(confirmAction.feedId);
+      } else {
+        for (const feedId of confirmAction.feedIds) {
+          try {
+            await onUpdate(feedId, { enabled: false });
+          } catch {
+            // Error handled by parent
+          }
+        }
+        setSelectedFeeds(new Set());
+      }
+    } finally {
+      setIsConfirmingAction(false);
+      setConfirmAction(null);
+    }
   };
 
   // Get feed health from status
@@ -332,21 +372,28 @@ export default function Feeds({
             </Card>
           ))}
         </div>
+      ) : feeds.length === 0 && !error ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <div className="text-center py-12 px-4">
+              <Rss className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-slate-700 mb-2">No calendar feeds yet</h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+                Add your first calendar feed to start merging events from sports platforms,
+                school calendars, or any ICS-compatible source.
+              </p>
+              <Button onClick={() => setShowForm(true)} variant="primary" size="md">
+                <Plus className="h-4 w-4" />
+                Add Calendars
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : filteredFeeds.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
-            {feeds.length === 0 ? (
-              <>
-                <Calendar className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-600">No calendar feeds configured yet.</p>
-                <p className="text-slate-600 mt-2">Click "Add Calendars" to paste one or more subscription links.</p>
-              </>
-            ) : (
-              <>
-                <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                <p className="text-slate-600">No feeds match your search or filter.</p>
-              </>
-            )}
+            <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+            <p className="text-slate-600">No feeds match your search or filter.</p>
           </CardContent>
         </Card>
       ) : (
@@ -357,7 +404,14 @@ export default function Feeds({
               feed={feed}
               feedHealth={getFeedHealth(feed.id)}
               onUpdate={onUpdate}
-              onDelete={onDelete}
+              onDelete={(feedId) => {
+                setConfirmAction({
+                  type: 'single',
+                  feedId,
+                  feedName: feed.name,
+                });
+                return Promise.resolve();
+              }}
               onToggleEnabled={handleToggleEnabled}
               selected={selectedFeeds.has(feed.id)}
               onSelectChange={toggleSelectFeed}
@@ -365,6 +419,33 @@ export default function Feeds({
           ))}
         </div>
       )}
+
+      <AlertDialog open={confirmAction !== null} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === 'bulk' ? 'Disable selected feeds?' : 'Disable this feed?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === 'bulk'
+                ? `Disable ${confirmAction.count} feed(s)? They will remain visible for restore for 15 days.`
+                : `Disable ${confirmAction?.feedName ?? 'this feed'}? It will remain visible for restore for 15 days.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button type="button" variant="secondary" size="sm">
+                Cancel
+              </Button>
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmAction} asChild>
+              <Button type="button" variant="danger" size="sm" disabled={isConfirmingAction}>
+                {isConfirmingAction ? 'Disabling...' : 'Disable'}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

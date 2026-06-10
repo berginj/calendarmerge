@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
+import { buildAdminUnauthorizedResponse, verifyAdminSession, verifyCsrfHeader } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { getInvalidGameFilterRegex, normalizeGameFilterRules } from "../lib/eventFilter";
 import { fetchFeed } from "../lib/fetchFeeds";
@@ -48,6 +48,9 @@ export async function previewGameFilterHandler(
     const config = getConfig();
     if (!verifyAdminSession(request, config)) {
       return buildAdminUnauthorizedResponse(requestId);
+    }
+    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
+      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
     }
     const { SettingsStore } = await import("../lib/settingsStore");
     const settingsStore = new SettingsStore(getStorageConnectionString(config.outputStorageAccount));

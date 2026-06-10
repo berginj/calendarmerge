@@ -2,12 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdn.jsdelivr.net 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self' https://cdn.jsdelivr.net; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>calendarmerge public calendar</title>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@schedule-x/theme-default@2.2.0/dist/index.css"
+      integrity="sha384-y8zjwuah+4aLP5K+qiFPCOaW6MOFG668T2T3LcEe4FtMU5nK3qyKQ/1Z4W+pCB+9"
+      crossorigin="anonymous"
     />
     <style>
       :root {
@@ -280,13 +287,41 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/preact@10.23.2/dist/preact.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/preact@10.23.2/hooks/dist/hooks.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@preact/signals-core@1.8.0/dist/signals-core.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@preact/signals@1.3.0/dist/signals.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/preact@10.23.2/jsx-runtime/dist/jsxRuntime.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/preact@10.23.2/compat/dist/compat.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@schedule-x/calendar@2.2.0/dist/core.umd.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/preact@10.23.2/dist/preact.min.js"
+      integrity="sha384-Ny8HaSOyKLhPtFG88W1MaL6Nd2dbuwL1gm/kpeLxqC8IQummb+mFQzjsx973RXfP"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/preact@10.23.2/hooks/dist/hooks.umd.js"
+      integrity="sha384-3TOXhf2QfKuO2sx5nN6tX0tFWCkocWRxCUu1hkgFl0eIHD/9ZVPE1vF6haC1A+6y"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@preact/signals-core@1.8.0/dist/signals-core.min.js"
+      integrity="sha384-VlQL/TNH45sxULknP0S1bWcBTpHz2Vi32OimDQzvibharbSht/d3HoP96ChSBC9a"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@preact/signals@1.3.0/dist/signals.min.js"
+      integrity="sha384-S25NxD16DyWzmMVsb+SFU6fikgFHbHb3A9Jin8ncbQft97IU2zBqmBv18VsM4Q14"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/preact@10.23.2/jsx-runtime/dist/jsxRuntime.umd.js"
+      integrity="sha384-RZuQvFkZpef+j/U9U9dgv/JmipzMz5K/r1so8DL/7wSBJvXoSbnyNILGKyeRMbda"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/preact@10.23.2/compat/dist/compat.umd.js"
+      integrity="sha384-GdRb6C6axRZLP+niIgaoVKXx6D2swYc4EbbbfP7ZdyUet5cVdQWXXJOMyjeqEyUZ"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@schedule-x/calendar@2.2.0/dist/core.umd.js"
+      integrity="sha384-vnAEJsOu6HTRdj/4SdkMXPt1gJhi/2Iv+cUm5tNKbM8sfBbVfCBiQI2EfNXZgYx6"
+      crossorigin="anonymous"
+    ></script>
     <script>
       const fallbackOutput = {
         calendarBlobPath: "calendar.ics",

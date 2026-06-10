@@ -89,6 +89,7 @@ export async function adminSessionHandler(
     }
 
     if (accessCode !== config.adminAccessCode?.trim()) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       return toHttpResponse(
         createErrorResponse(
           requestId,
@@ -115,7 +116,7 @@ export async function adminSessionHandler(
         requestId,
         ERROR_CODES.INTERNAL_ERROR,
         "Failed to manage admin session",
-        errorMessage(error),
+        undefined,
       ),
     );
   }

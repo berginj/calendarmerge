@@ -48,6 +48,10 @@ export function verifyAdminSession(request: HttpRequest, config: AppConfig): boo
   }
 }
 
+export function verifyCsrfHeader(request: HttpRequest): boolean {
+  return request.headers.get("x-requested-with") === "XMLHttpRequest";
+}
+
 export function buildAdminUnauthorizedResponse(requestId: string, message = "Admin session required"): HttpResponseInit {
   return toHttpResponse(
     createErrorResponse(requestId, ERROR_CODES.UNAUTHORIZED, message),

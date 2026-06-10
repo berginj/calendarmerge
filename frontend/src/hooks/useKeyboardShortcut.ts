@@ -7,6 +7,22 @@ export function useKeyboardShortcut(
 ) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!target) {
+        return;
+      }
+
+      const tagName = target.tagName.toLowerCase();
+      if (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        target.isContentEditable ||
+        target.getAttribute('role') === 'textbox' ||
+        target.closest('[contenteditable], [role="textbox"]')
+      ) {
+        return;
+      }
+
       // Check for modifier keys
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
       const modifierKey = isMac ? event.metaKey : event.ctrlKey;
@@ -19,13 +35,6 @@ export function useKeyboardShortcut(
       // Check if shortcut matches
       if (needsModifier && !modifierKey) return;
       if (event.key.toLowerCase() !== mainKey) return;
-
-      // Don't trigger if user is typing in an input
-      const target = event.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-        // Exception: allow '?' for help even in inputs if it's just '?'
-        if (mainKey !== '?') return;
-      }
 
       event.preventDefault();
       callback();

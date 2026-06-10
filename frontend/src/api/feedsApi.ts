@@ -57,6 +57,7 @@ interface ApiSuccessEnvelope<T> {
 
 export async function requestJson<T>(path: string, init?: RequestInit, requiresAdmin = false): Promise<T> {
   const headers = new Headers(init?.headers);
+  headers.set('X-Requested-With', 'XMLHttpRequest');
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,

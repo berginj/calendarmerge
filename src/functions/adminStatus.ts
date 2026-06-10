@@ -46,7 +46,7 @@ export async function adminStatusHandler(
         requestId,
         ERROR_CODES.INTERNAL_ERROR,
         "Failed to load admin status",
-        errorMessage(error),
+        undefined,
       ),
     );
   }

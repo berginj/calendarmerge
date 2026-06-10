@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 
-import { buildAdminUnauthorizedResponse, verifyAdminSession } from "../lib/adminSession";
+import { buildAdminUnauthorizedResponse, verifyAdminSession, verifyCsrfHeader } from "../lib/adminSession";
 import { getConfig } from "../lib/config";
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId, getStorageConnectionString } from "../lib/util";
@@ -31,6 +31,9 @@ export async function deleteFeedHandler(
     const config = getConfig();
     if (!verifyAdminSession(request, config)) {
       return buildAdminUnauthorizedResponse(requestId);
+    }
+    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
+      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
     }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");

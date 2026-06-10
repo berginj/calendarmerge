@@ -86,7 +86,7 @@ import { clearConfigCache } from "../../src/lib/config";
 import { createFeedHandler } from "../../src/functions/feedCreate";
 import { deleteFeedHandler } from "../../src/functions/feedDelete";
 import { listFeedsHandler } from "../../src/functions/feedsList";
-import { listFeedsSimpleHandler } from "../../src/functions/feedsSimple";
+
 import { manualRefreshHandler, resetManualRefreshCooldownForTest } from "../../src/functions/manualRefresh";
 import { getSettingsHandler } from "../../src/functions/settingsGet";
 import { updateSettingsHandler } from "../../src/functions/settingsUpdate";
@@ -201,13 +201,6 @@ describe("HTTP API handlers", () => {
     clearConfigCache();
   });
 
-  it("registers feeds-simple as protected instead of anonymous", () => {
-    expect(azureMocks.http).toHaveBeenCalledWith("listFeedsSimple", expect.objectContaining({
-      authLevel: "anonymous",
-      route: "feeds-simple",
-    }));
-  });
-
   it("registers admin status as protected", () => {
     expect(azureMocks.http).toHaveBeenCalledWith("adminStatus", expect.objectContaining({
       authLevel: "anonymous",
@@ -220,17 +213,6 @@ describe("HTTP API handlers", () => {
       authLevel: "anonymous",
       route: "admin/session",
     }));
-  });
-
-  it("redacts feed URLs from the simplified diagnostic feed endpoint", async () => {
-    const response = await listFeedsSimpleHandler(request(), context);
-
-    expect(response.status).toBe(200);
-    expect(response.jsonBody.status).toBe("success");
-    expect(response.jsonBody.data.feeds[0].url).toBe("https://example.com/[redacted]");
-    expect(JSON.stringify(response.jsonBody)).not.toContain("cal.ics");
-    expect(JSON.stringify(response.jsonBody)).not.toContain("token=secret");
-    expect(JSON.stringify(response.jsonBody)).not.toContain("stack");
   });
 
   it("returns the standard envelope when listing authenticated feeds", async () => {

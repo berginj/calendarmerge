@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { applyEventFilter } from "./eventFilter";
 import { isCancelledEvent, isLeagueAppsRescheduleMarker } from "./eventSnapshot";
 import { GameFilterRules, ParsedEvent } from "./types";
@@ -48,9 +49,17 @@ export function buildPublicCalendarArtifacts(
   generatedAt = new Date(),
   gameFilterRules?: Partial<GameFilterRules>,
 ): PublicCalendarArtifacts {
+  const now = DateTime.utc();
+  const windowStart = now.minus({ days: 90 });
+  const windowEnd = now.plus({ days: 365 });
+  const windowFilteredEvents = events.filter((event) => {
+    const eventStart = DateTime.fromISO(event.start.iso, { zone: "utc" });
+    return eventStart.isValid && eventStart >= windowStart && eventStart <= windowEnd;
+  });
+
   // Filter out cancelled events and LeagueApps reschedule markers
-  const cancelledCount = events.filter((e) => isCancelledEvent(e) || isLeagueAppsRescheduleMarker(e)).length;
-  const activeEvents = events.filter((e) => !isCancelledEvent(e) && !isLeagueAppsRescheduleMarker(e));
+  const cancelledCount = windowFilteredEvents.filter((e) => isCancelledEvent(e) || isLeagueAppsRescheduleMarker(e)).length;
+  const activeEvents = windowFilteredEvents.filter((e) => !isCancelledEvent(e) && !isLeagueAppsRescheduleMarker(e));
 
   const publicEvents = activeEvents.map(toPublicEvent);
   const publicGamesEvents = applyEventFilter(activeEvents, "games-only", gameFilterRules).map(toPublicEvent);

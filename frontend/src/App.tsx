@@ -214,10 +214,6 @@ function App() {
   };
 
   const handleDelete = async (feedId: string) => {
-    if (!confirm('Disable this feed? It will remain visible for restore for 15 days.')) {
-      return;
-    }
-
     try {
       setError(null);
       await deleteFeed(feedId);
@@ -337,32 +333,51 @@ function App() {
               onViewChange={setCurrentView}
             />
 
-        <div className="admin-key-panel">
-          <label htmlFor="admin-key">Admin Access Code</label>
-          <div className="admin-key-controls">
-              <input
-                id="admin-key"
-                type="password"
-                value={adminAccessCode}
-                onChange={(event) => setAdminAccessCode(event.target.value)}
-                placeholder="Enter admin access code"
-                autoComplete="off"
-              />
-              <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
-                Sign In
-              </button>
-              <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
-                Sign Out
-              </button>
+            <div className="admin-key-panel">
+              {hasAdminSession ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Admin session active
+                    </span>
+                  </div>
+                  <button className="btn-secondary" onClick={handleClearAdminKey} type="button">
+                    Sign Out
+                  </button>
+                  <p className="admin-key-help">
+                    You have admin access. Feed management and settings are available.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label htmlFor="admin-key">Admin Access Code</label>
+                  <div className="admin-key-controls">
+                    <input
+                      id="admin-key"
+                      type="password"
+                      value={adminAccessCode}
+                      onChange={(event) => setAdminAccessCode(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          handleSaveAdminKey();
+                        }
+                      }}
+                      placeholder="Enter admin access code"
+                      autoComplete="off"
+                    />
+                    <button className="btn-secondary" onClick={handleSaveAdminKey} type="button">
+                      Sign In
+                    </button>
+                  </div>
+                  <p className="admin-key-help">
+                    Feed URLs, feed changes, and settings updates require an authenticated admin session.
+                    Enter your admin access code to load and manage feeds.
+                  </p>
+                </>
+              )}
+              {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
             </div>
-          <p className="admin-key-help">
-            Feed URLs, feed changes, and settings updates require an authenticated admin session.
-            {hasAdminSession
-              ? ' Admin access is active for this browser.'
-              : ' Enter your admin access code to load and manage feeds.'}
-          </p>
-          {adminKeyMessage && <p className="admin-key-status">{adminKeyMessage}</p>}
-        </div>
 
         <div className="troubleshooting-panel">
           <div className="troubleshooting-section">
