@@ -22,7 +22,7 @@ app.http("manualRefresh", {
 const REFRESH_COOLDOWN_MS = 30000;
 
 export function resetManualRefreshCooldownForTest(): void {
-  // Retained for existing tests. Durable cooldown state lives in Azure Table Storage.
+  // No-op — retained for backward compatibility with existing test imports.
 }
 
 export async function manualRefreshHandler(
@@ -158,7 +158,6 @@ export async function manualRefreshHandler(
         requestId,
         ERROR_CODES.INTERNAL_ERROR,
         "Manual refresh failed",
-        errorMessage(error),
       ),
     );
   }

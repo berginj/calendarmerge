@@ -11,10 +11,6 @@ import {
 import { createLogger } from "../lib/log";
 import { errorMessage, generateId } from "../lib/util";
 
-interface AdminSessionLoginRequest {
-  accessCode?: string;
-}
-
 app.http("adminSession", {
   methods: ["GET", "POST", "DELETE"],
   authLevel: "anonymous",
@@ -61,21 +57,20 @@ export async function adminSessionHandler(
       );
     }
 
-    let body: AdminSessionLoginRequest;
+    let body: Record<string, unknown>;
     try {
-      body = (await request.json()) as AdminSessionLoginRequest;
+      body = (await request.json()) as Record<string, unknown>;
     } catch (error) {
       return toHttpResponse(
         createErrorResponse(
           requestId,
           ERROR_CODES.INVALID_REQUEST,
           "Request body must be valid JSON",
-          errorMessage(error),
         ),
       );
     }
 
-    const accessCode = body.accessCode?.trim();
+    const accessCode = typeof body.accessCode === "string" ? body.accessCode.trim() : "";
     if (!accessCode) {
       return toHttpResponse(
         createErrorResponse(

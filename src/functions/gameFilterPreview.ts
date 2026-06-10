@@ -113,7 +113,6 @@ export async function previewGameFilterHandler(
         requestId,
         ERROR_CODES.INTERNAL_ERROR,
         "Failed to preview game filter",
-        errorMessage(error),
       ),
     );
   }

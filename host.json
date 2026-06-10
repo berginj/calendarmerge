@@ -2,7 +2,13 @@
   "version": "2.0",
   "extensions": {
     "http": {
-      "routePrefix": "api"
+      "routePrefix": "api",
+      "cors": {
+        "allowedOrigins": [
+          "https://calendarmergeprod01.z13.web.core.windows.net"
+        ],
+        "supportCredentials": true
+      }
     }
   }
 }
