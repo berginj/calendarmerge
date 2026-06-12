@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/AlertDialog';
-import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, CircleOff, Rss } from 'lucide-react';
+import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, CircleOff, Rss, Copy, ExternalLink } from 'lucide-react';
 import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from '../types';
 import FeedForm from '../components/FeedForm';
 import BulkFeedForm from '../components/BulkFeedForm';
@@ -31,6 +31,12 @@ interface EnhancedFeedsProps {
   onDelete: (feedId: string) => Promise<void>;
   onCreateMany: (feeds: NewSourceFeedInput[]) => Promise<BulkFeedCreateResult>;
   setError: (error: string | null) => void;
+  toast: {
+    success: (title: string, description?: string) => string;
+    error: (title: string, description?: string) => string;
+    warning: (title: string, description?: string) => string;
+    info: (title: string, description?: string) => string;
+  };
 }
 
 type ConfirmAction =
@@ -47,6 +53,7 @@ export default function Feeds({
   onDelete,
   onCreateMany,
   setError,
+  toast,
 }: EnhancedFeedsProps) {
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +63,18 @@ export default function Feeds({
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
   const { data: status } = useServiceStatus();
   const { refresh, isRefreshing } = useManualRefresh();
+
+  const handleRefreshNow = async () => {
+    try {
+      setError(null);
+      await refresh();
+      toast.success('Refresh requested', 'Calendar status will update when the refresh completes.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to request refresh';
+      setError(message);
+      toast.error('Refresh failed', message);
+    }
+  };
 
   const handleCreateMany = async (newFeeds: NewSourceFeedInput[]) => {
     try {
@@ -212,11 +231,45 @@ export default function Feeds({
   const activeFeedIds = new Set(feeds.filter(f => f.enabled !== false).map(f => f.id));
   const failedCount = status?.sourceStatuses?.filter(f => activeFeedIds.has(f.id) && !f.ok).length ?? 0;
   const disabledCount = feeds.filter(f => f.enabled === false).length;
+  const activeCount = feeds.length - disabledCount;
 
   return (
     <div className="space-y-6">
+      <Card className="border border-primary-100 bg-gradient-to-br from-white to-primary-50/70 shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">
+                Feed Management
+              </p>
+              <h2 className="mt-1 text-2xl font-bold text-slate-950">Calendar feeds</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                {hasAdminSession
+                  ? `Review ${feeds.length} configured calendar feeds. ${activeCount} active and ${disabledCount} disabled.`
+                  : 'Sign in above to load feed URLs and manage calendar sources.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/75 p-2 text-center shadow-inner">
+              <div className="rounded-lg px-4 py-3">
+                <p className="text-2xl font-bold text-slate-950">{feeds.length}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
+              </div>
+              <div className="rounded-lg px-4 py-3">
+                <p className="text-2xl font-bold text-emerald-700">{activeCount}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Active</p>
+              </div>
+              <div className="rounded-lg px-4 py-3">
+                <p className="text-2xl font-bold text-slate-600">{disabledCount}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Disabled</p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 w-full sm:max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -230,9 +283,9 @@ export default function Feeds({
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
-            onClick={() => refresh()}
+            onClick={handleRefreshNow}
             disabled={isRefreshing || !hasAdminSession}
             variant="secondary"
             size="md"
@@ -255,7 +308,7 @@ export default function Feeds({
 
       {/* Bulk selection and actions */}
       {filteredFeeds.length > 0 && hasAdminSession && (
-        <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
           <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer">
             <input
               type="checkbox"
@@ -267,18 +320,18 @@ export default function Feeds({
           </label>
 
           {selectedFeeds.size > 0 && (
-            <div className="flex gap-2 ml-auto">
+            <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row">
               <Button onClick={handleBulkEnable} variant="secondary" size="sm">
                 <CheckCircle className="h-4 w-4" />
-                Enable
+                Turn On Selected
               </Button>
               <Button onClick={handleBulkDisable} variant="secondary" size="sm">
                 <XCircle className="h-4 w-4" />
-                Disable
+                Turn Off Selected
               </Button>
               <Button onClick={handleBulkDelete} variant="danger" size="sm">
                 <Trash className="h-4 w-4" />
-                Disable
+                Disable for 15 Days
               </Button>
             </div>
           )}
@@ -521,6 +574,7 @@ function EnhancedFeedCard({
   onSelectChange: (feedId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   const handleUpdate = async (updates: { name: string; url: string }) => {
     await onUpdate(feed.id, updates);
@@ -566,11 +620,21 @@ function EnhancedFeedCard({
     return <Badge variant="success">✓ {feedHealth.eventCount} events</Badge>;
   };
 
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard?.writeText(feed.url);
+      setCopiedUrl(true);
+      window.setTimeout(() => setCopiedUrl(false), 1500);
+    } catch {
+      setCopiedUrl(false);
+    }
+  };
+
   return (
     <Card className={clsx(selected && 'ring-2 ring-primary-500', feed.enabled === false && 'bg-slate-50')}>
       <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-4 flex-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-1 items-start gap-4">
             {/* Selection checkbox */}
             <input
               type="checkbox"
@@ -591,7 +655,22 @@ function EnhancedFeedCard({
                 {getHealthBadge()}
               </div>
 
-              <p className="text-sm text-slate-600 truncate mb-1">{feed.url}</p>
+              <p className="mb-2 break-all text-sm text-slate-600 sm:truncate">{feed.url}</p>
+              <div className="mb-2 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={handleCopyUrl}>
+                  <Copy className="h-4 w-4" />
+                  {copiedUrl ? 'Copied' : 'Copy URL'}
+                </Button>
+                <a
+                  href={feed.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open
+                </a>
+              </div>
               <p className="text-xs text-slate-500">ID: {feed.id}</p>
               {feed.enabled === false && (
                 <p className="text-xs text-slate-500 mt-1">
@@ -622,7 +701,7 @@ function EnhancedFeedCard({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3 ml-4">
+          <div className="flex flex-col gap-3 sm:ml-4 sm:flex-row sm:items-center">
             <Switch
               checked={feed.enabled !== false}
               onCheckedChange={(checked) => onToggleEnabled(feed.id, checked)}

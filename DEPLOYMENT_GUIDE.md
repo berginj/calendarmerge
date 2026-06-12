@@ -127,7 +127,7 @@ az storage blob upload-batch `
 
 ### Step 4: Verify Deployment
 
-All protected admin endpoint examples below assume you have already authenticated a PowerShell web session with `POST /api/admin/session` using the configured admin access code and stored it in `$session`.
+All protected admin endpoint examples below assume you have already authenticated a PowerShell web session with `POST /api/session` using the configured admin access code and stored it in `$session`.
 
 **Check Function App Status:**
 ```powershell
@@ -151,7 +151,7 @@ $status | Select-Object operationalState, refreshId, lastSuccessfulCheck, checkA
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $adminAccessCode = Read-Host "Admin access code"
 Invoke-RestMethod -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/session" `
   -ContentType "application/json" `
   -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
   -WebSession $session | Out-Null
@@ -282,7 +282,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\azure\deploy-functions.ps1
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $adminAccessCode = Read-Host "Admin access code"
 Invoke-RestMethod -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/session" `
   -ContentType "application/json" `
   -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
   -WebSession $session | Out-Null
@@ -529,7 +529,7 @@ See [MONITORING_GUIDE.md](MONITORING_GUIDE.md) for complete alert rule configura
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $adminAccessCode = Read-Host "Admin access code"
 Invoke-RestMethod -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/session" `
   -ContentType "application/json" `
   -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
   -WebSession $session | Out-Null

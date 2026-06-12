@@ -368,7 +368,7 @@ $adminAccessCode = Read-Host "Admin access code"
 
 Invoke-WebRequest `
   -Method POST `
-  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/admin/session" `
+  -Uri "https://$env:AZ_FUNCTIONAPP_NAME.azurewebsites.net/api/session" `
   -ContentType "application/json" `
   -Body (@{ accessCode = $adminAccessCode } | ConvertTo-Json) `
   -WebSession $session | Out-Null

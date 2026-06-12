@@ -9,6 +9,21 @@ const browserPath = findBrowser();
 // Windows Chrome hangs under Vitest with --dump-dom in this workspace; CI Linux runs this when Chrome is present.
 const canRunBrowserSmoke = Boolean(browserPath) && process.platform !== "win32";
 
+describe("public Schedule-X viewer static UX", () => {
+  it("keeps next events prominent on mobile and exposes a jump to the full calendar", () => {
+    const html = readFileSync("public/index.html", "utf8");
+
+    expect(html).toContain('id="next-events"');
+    expect(html).toContain("Next 5 events");
+    expect(html).toContain("Open full calendar");
+    expect(html).toContain('href="#calendar"');
+    expect(html).toContain("function renderNextEvents()");
+    expect(html).toContain("function focusEvent(eventId)");
+    expect(html).toMatch(/@media \(max-width: 640px\)[\s\S]*?\.panel\s*{[\s\S]*?order:\s*-1;/);
+    expect(html).toMatch(/@media \(max-width: 640px\)[\s\S]*?#calendar\s*{[\s\S]*?min-height:\s*420px;/);
+  });
+});
+
 describe.skipIf(!canRunBrowserSmoke)("public Schedule-X viewer browser smoke", () => {
   it("does not configure non-exported Schedule-X views", () => {
     const html = readFileSync("public/index.html", "utf8");

@@ -165,6 +165,48 @@
         font-size: 1rem;
       }
 
+      .next-events {
+        display: grid;
+        gap: 0.65rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .next-event {
+        width: 100%;
+        border-radius: 1rem;
+        padding: 0.85rem;
+        text-align: left;
+        background: var(--surface-strong);
+      }
+
+      .next-event-title {
+        display: block;
+        font-weight: 800;
+        color: var(--ink);
+      }
+
+      .next-event-time,
+      .next-event-source {
+        display: block;
+        margin-top: 0.25rem;
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+
+      .next-event-empty {
+        margin: 0 0 1.25rem;
+        padding: 0.85rem;
+        border: 1px dashed var(--line);
+        border-radius: 1rem;
+        color: var(--muted);
+      }
+
+      .panel-calendar-link {
+        display: inline-flex;
+        margin: 0 0 1.25rem;
+      }
+
       .meta {
         margin: 0;
         color: var(--muted);
@@ -230,6 +272,10 @@
           border-radius: 1.1rem;
         }
 
+        .panel {
+          order: -1;
+        }
+
         .toolbar {
           align-items: stretch;
         }
@@ -246,7 +292,7 @@
         }
 
         #calendar {
-          min-height: 540px;
+          min-height: 420px;
         }
       }
     </style>
@@ -279,6 +325,12 @@
         </section>
 
         <aside class="panel">
+          <h2>Next 5 events</h2>
+          <div id="next-events" class="next-events" aria-live="polite">
+            <p class="next-event-empty">Loading upcoming events...</p>
+          </div>
+          <a class="link-pill panel-calendar-link" href="#calendar">Open full calendar</a>
+
           <h2>Selected event</h2>
           <p class="meta">
             Select an event to view its time, source calendar, and full location text. Times use this browser's
@@ -351,6 +403,7 @@
       const browserTimeZone = getBrowserTimeZone();
 
       const calendarRoot = document.getElementById("calendar");
+      const nextEventsRoot = document.getElementById("next-events");
       const details = document.getElementById("details");
       const statusNode = document.getElementById("status");
       const fullButton = document.getElementById("mode-full");
@@ -432,6 +485,7 @@
 
         const normalized = normalizeDatasetEvents(dataset.events, dataset.timezone || "UTC");
         currentEvents = normalized.events;
+        renderNextEvents();
         details.innerHTML = `
           <h3>${mode === "full" ? "Full calendar loaded" : "Games calendar loaded"}</h3>
           <p class="meta">Select an event to inspect its public location details.</p>
@@ -674,6 +728,63 @@
         return currentEvents.find((event) => event.id === id) ?? null;
       }
 
+      function renderNextEvents() {
+        const nextEvents = getNextEvents(currentEvents, 5);
+        if (nextEvents.length === 0) {
+          nextEventsRoot.innerHTML = `<p class="next-event-empty">No upcoming events found in this calendar.</p>`;
+          return;
+        }
+
+        nextEventsRoot.innerHTML = nextEvents
+          .map(
+            (event) => `
+              <button class="next-event" type="button" data-event-id="${escapeHtml(event.id)}">
+                <span class="next-event-title">${escapeHtml(event.title)}</span>
+                <span class="next-event-time">${escapeHtml(formatRange(event.start, event.end))}</span>
+                <span class="next-event-source">${escapeHtml(event.sourceName || event.sourceId || "Calendar")}</span>
+              </button>
+            `,
+          )
+          .join("");
+
+        for (const button of nextEventsRoot.querySelectorAll("[data-event-id]")) {
+          button.addEventListener("click", () => focusEvent(button.getAttribute("data-event-id")));
+        }
+      }
+
+      function getNextEvents(events, count) {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        return events
+          .map((event) => ({ event, startDate: getEventStartDate(event.start) }))
+          .filter(({ startDate }) => startDate && startDate >= today)
+          .sort((a, b) => a.startDate - b.startDate)
+          .slice(0, count)
+          .map(({ event }) => event);
+      }
+
+      function focusEvent(eventId) {
+        const event = findEvent(eventId);
+        if (!event) {
+          return;
+        }
+
+        showEventDetails(event);
+
+        const eventDate = event.start.slice(0, 10);
+        const sx = window.SXCalendar;
+        const targetView = sx?.viewDay?.name || sx?.viewWeek?.name;
+        if (calendarApp && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+          calendarApp.$app.datePickerState.selectedDate.value = eventDate;
+          if (targetView) {
+            calendarApp.$app.calendarState.setView(targetView, eventDate);
+          }
+        }
+
+        calendarRoot.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
       function showEventDetails(event) {
         if (!event) {
           return;
@@ -764,6 +875,15 @@
           dateStyle: "medium",
           timeStyle: "short",
         });
+      }
+
+      function getEventStartDate(value) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return new Date(`${value}T00:00:00`);
+        }
+
+        const date = parseLocalScheduleXDateTime(value);
+        return Number.isNaN(date.getTime()) ? null : date;
       }
 
       function parseLocalScheduleXDateTime(value) {

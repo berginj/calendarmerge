@@ -14,7 +14,7 @@ import { errorMessage, generateId } from "../lib/util";
 app.http("adminSession", {
   methods: ["GET", "POST", "DELETE"],
   authLevel: "anonymous",
-  route: "admin/session",
+  route: "session",
   handler: adminSessionHandler,
 });
 

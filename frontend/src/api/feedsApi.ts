@@ -156,7 +156,7 @@ export interface AdminSessionResponse {
 }
 
 export async function loginAdminSession(accessCode: string): Promise<AdminSessionResponse> {
-  const data = await requestJson<{ authenticated: boolean }>('/admin/session', {
+  const data = await requestJson<{ authenticated: boolean }>('/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ accessCode }),
@@ -166,13 +166,13 @@ export async function loginAdminSession(accessCode: string): Promise<AdminSessio
 }
 
 export async function logoutAdminSession(): Promise<void> {
-  await requestJson<Record<string, never>>('/admin/session', {
+  await requestJson<Record<string, never>>('/session', {
     method: 'DELETE',
   });
 }
 
 export async function getAdminSession(): Promise<AdminSessionResponse> {
-  return requestJson<AdminSessionResponse>('/admin/session');
+  return requestJson<AdminSessionResponse>('/session');
 }
 
 export interface GameFilterRules {

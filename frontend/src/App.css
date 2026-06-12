@@ -24,13 +24,18 @@ body {
 
 .app-header {
   padding: 1.5rem;
-  text-align: center;
+  text-align: left;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
-  position: sticky;
-  top: 0;
-  z-index: 10;
   backdrop-filter: blur(8px);
+}
+
+.app-header > div,
+.app-header > nav,
+.app-header > .admin-key-panel {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @media (min-width: 768px) {
@@ -53,11 +58,12 @@ body {
   display: flex;
   gap: 0.5rem;
   margin-top: 1rem;
-  justify-content: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 
 .admin-key-panel {
-  max-width: 48rem;
+  max-width: 1200px;
   margin: 1.5rem auto 0;
   padding: 1rem;
   border-radius: 0.75rem;
@@ -104,6 +110,28 @@ body {
 
 .admin-key-status {
   color: var(--color-primary-700);
+}
+
+.admin-session-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-session-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-primary-700);
+  font-weight: 700;
+}
+
+.admin-session-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #10b981;
 }
 
 .nav-button {
@@ -492,6 +520,12 @@ button:disabled {
   }
 
   .admin-key-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-session-summary {
+    align-items: stretch;
     flex-direction: column;
   }
 

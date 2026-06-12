@@ -52,6 +52,7 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
   const [rawInput, setRawInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<BulkFeedCreateResult | null>(null);
+  const [pasteError, setPasteError] = useState<string | null>(null);
   const parsed = useMemo(() => parseBulkFeedInput(rawInput), [rawInput]);
   const canSubmit = parsed.feeds.length > 0 && parsed.errors.length === 0 && !submitting;
 
@@ -75,6 +76,21 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
     }
   };
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      setPasteError(null);
+      const text = await navigator.clipboard?.readText();
+      if (!text) {
+        setPasteError('Clipboard is empty or unavailable. Paste the link into the box below.');
+        return;
+      }
+
+      setRawInput((current) => current ? `${current.trimEnd()}\n${text.trim()}` : text.trim());
+    } catch {
+      setPasteError('Clipboard access was blocked. Paste the link into the box below.');
+    }
+  };
+
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -92,24 +108,6 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
         </Button>
       </div>
 
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {PROVIDER_GUIDES.map((guide) => (
-          <div key={guide.name} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <h3 className="font-semibold text-slate-900">{guide.name}</h3>
-            <p className="mt-1 text-sm text-slate-600">{guide.steps}</p>
-            <a
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline"
-              href={guide.helpUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {guide.linkLabel}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        ))}
-      </section>
-
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="flex items-start gap-2">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
@@ -121,9 +119,14 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
       </div>
 
       <div>
-        <label htmlFor="bulk-feed-input" className="mb-2 block font-medium text-slate-900">
-          Calendar subscription links
-        </label>
+        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label htmlFor="bulk-feed-input" className="block font-medium text-slate-900">
+            Calendar subscription links
+          </label>
+          <Button type="button" variant="secondary" size="sm" onClick={handlePasteFromClipboard} disabled={submitting}>
+            Paste from Clipboard
+          </Button>
+        </div>
         <textarea
           id="bulk-feed-input"
           value={rawInput}
@@ -133,7 +136,31 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
           disabled={submitting}
           className="w-full rounded-lg border border-slate-300 p-3 font-mono text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary-700"
         />
+        {pasteError && <p className="mt-2 text-sm text-red-700">{pasteError}</p>}
       </div>
+
+      <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+          Provider help and examples
+        </summary>
+        <section className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {PROVIDER_GUIDES.map((guide) => (
+            <div key={guide.name} className="rounded-lg border border-slate-200 bg-white p-4">
+              <h3 className="font-semibold text-slate-900">{guide.name}</h3>
+              <p className="mt-1 text-sm text-slate-600">{guide.steps}</p>
+              <a
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline"
+                href={guide.helpUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {guide.linkLabel}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          ))}
+        </section>
+      </details>
 
       {(parsed.feeds.length > 0 || parsed.errors.length > 0) && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -15,7 +15,7 @@ export function useManualRefresh() {
   });
 
   return {
-    refresh: mutation.mutate,
+    refresh: mutation.mutateAsync,
     isRefreshing: mutation.isPending,
     result: mutation.data,
     error: mutation.error,

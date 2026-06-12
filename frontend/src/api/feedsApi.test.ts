@@ -49,7 +49,7 @@ describe('admin session API client', () => {
 
     await expect(loginAdminSession('access-code')).resolves.toEqual({ authenticated: true });
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/admin/session', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/session', expect.objectContaining({
       method: 'POST',
       credentials: 'include',
     }));
@@ -67,7 +67,7 @@ describe('admin session API client', () => {
 
     await logoutAdminSession();
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/admin/session', expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith('/api/session', expect.objectContaining({
       method: 'DELETE',
       credentials: 'include',
     }));

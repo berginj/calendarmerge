@@ -32,4 +32,29 @@ describe('BulkFeedForm', () => {
       { name: 'Conner', url: 'https://example.teamsnap.com/team.ics' },
     ]);
   });
+
+  it('prioritizes paste input and can read subscription links from the clipboard', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue({ created: [], failed: [] });
+    const readText = vi.fn().mockResolvedValue('webcal://example.gc.com/team.ics');
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText },
+    });
+
+    const { container } = render(<BulkFeedForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+
+    const input = screen.getByLabelText('Calendar subscription links');
+    const help = screen.getByText('Provider help and examples');
+    expect(container.textContent?.indexOf('Calendar subscription links')).toBeLessThan(
+      container.textContent?.indexOf('Provider help and examples') ?? Number.POSITIVE_INFINITY,
+    );
+    expect(input.compareDocumentPosition(help) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: /paste from clipboard/i }));
+
+    expect(readText).toHaveBeenCalled();
+    expect(input).toHaveValue('webcal://example.gc.com/team.ics');
+    expect(screen.getByText('Ready to add (1)')).toBeInTheDocument();
+  });
 });

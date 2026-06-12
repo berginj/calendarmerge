@@ -48,7 +48,7 @@ export function Toast({
   return (
     <ToastPrimitive.Root
       className={clsx(
-        'rounded-lg border shadow-lg p-4 flex items-start gap-3 min-w-[320px] max-w-md',
+        'rounded-lg border shadow-lg p-4 flex items-start gap-3 w-full max-w-md',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]',
         'data-[swipe=cancel]:translate-x-0',
@@ -82,7 +82,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastPrimitive.Provider swipeDirection="right">
       {children}
-      <ToastPrimitive.Viewport className="fixed top-0 right-0 p-6 flex flex-col gap-2 w-full max-w-md z-50" />
+      <ToastPrimitive.Viewport className="fixed top-0 right-0 p-3 sm:p-6 flex flex-col gap-2 w-full max-w-md z-50" />
     </ToastPrimitive.Provider>
   );
 }

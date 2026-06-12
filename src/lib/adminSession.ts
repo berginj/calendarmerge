@@ -86,7 +86,7 @@ export function buildAdminSessionSetCookie(config: AppConfig): string {
     "Path=/",
     "HttpOnly",
     `Max-Age=${maxAge}`,
-    "SameSite=Lax",
+    config.adminCookieSecure ? "SameSite=None" : "SameSite=Lax",
   ];
 
   if (config.adminCookieSecure) {
@@ -102,7 +102,7 @@ export function buildClearedAdminSessionCookie(config: AppConfig): string {
     "Path=/",
     "HttpOnly",
     "Max-Age=0",
-    "SameSite=Lax",
+    config.adminCookieSecure ? "SameSite=None" : "SameSite=Lax",
   ];
 
   if (config.adminCookieSecure) {

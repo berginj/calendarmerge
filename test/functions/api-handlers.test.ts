@@ -211,7 +211,7 @@ describe("HTTP API handlers", () => {
   it("registers admin session as anonymous", () => {
     expect(azureMocks.http).toHaveBeenCalledWith("adminSession", expect.objectContaining({
       authLevel: "anonymous",
-      route: "admin/session",
+      route: "session",
     }));
   });
 
