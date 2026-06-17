@@ -119,7 +119,9 @@ export function loadConfig(env: NodeJS.ProcessEnv): AppConfig {
     DEFAULT_ADMIN_SESSION_TTL_HOURS,
     "ADMIN_SESSION_TTL_HOURS",
   );
-  const adminCookieSecure = (env.ADMIN_COOKIE_SECURE ?? "").trim().toLowerCase() === "true";
+  // Secure by default: the admin session cookie is only issued without the Secure
+  // attribute when ADMIN_COOKIE_SECURE is explicitly set to "false" (local HTTP dev).
+  const adminCookieSecure = (env.ADMIN_COOKIE_SECURE ?? "").trim().toLowerCase() !== "false";
 
   validateStorageAccountName(outputStorageAccount);
   validateSchedule(refreshSchedule);

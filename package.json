@@ -22,7 +22,8 @@
     "@azure/functions": "^4.7.3",
     "@azure/identity": "^4.13.0",
     "@azure/storage-blob": "^12.31.0",
-    "luxon": "^3.7.2"
+    "luxon": "^3.7.2",
+    "undici": "^6.27.0"
   },
   "devDependencies": {
     "@types/luxon": "^3.7.1",

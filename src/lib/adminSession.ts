@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type { HttpRequest } from "@azure/functions";
 import type { HttpResponseInit } from "@azure/functions";
@@ -16,6 +16,22 @@ interface AdminSessionPayload {
 
 export function isAdminAuthConfigured(config: AppConfig): boolean {
   return Boolean(config.adminAccessCode?.trim());
+}
+
+/**
+ * Constant-time verification of a submitted admin access code. Codes are hashed
+ * to fixed-length digests first so the comparison never leaks length and runs in
+ * time independent of how many leading characters match.
+ */
+export function verifyAdminAccessCode(provided: string, config: AppConfig): boolean {
+  const expected = config.adminAccessCode?.trim();
+  if (!expected || !provided) {
+    return false;
+  }
+
+  const providedDigest = createHash("sha256").update(provided).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(providedDigest, expectedDigest);
 }
 
 export function verifyAdminSession(request: HttpRequest, config: AppConfig): boolean {

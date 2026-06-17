@@ -18,6 +18,8 @@
     "REFRESH_SCHEDULE": "0 */5 * * * *",
     "FETCH_TIMEOUT_MS": "10000",
     "FETCH_RETRY_COUNT": "2",
-    "FETCH_RETRY_DELAY_MS": "750"
+    "FETCH_RETRY_DELAY_MS": "750",
+    "ADMIN_ACCESS_CODE": "change-me-local-admin-code",
+    "ADMIN_COOKIE_SECURE": "false"
   }
 }

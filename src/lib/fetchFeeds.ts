@@ -1,7 +1,17 @@
+import { Agent } from "undici";
+
 import { AppConfig, FeedRunResult, SourceFeedConfig } from "./types";
 import { parseIcsCalendar } from "./ics";
 import { Logger } from "./log";
-import { errorMessage, FeedDnsLookup, normalizeFeedUrl, redactFeedUrl, sleep, validateFeedUrlTarget } from "./util";
+import {
+  createSsrfGuardedLookup,
+  errorMessage,
+  FeedDnsLookup,
+  normalizeFeedUrl,
+  redactFeedUrl,
+  sleep,
+  validateFeedUrlTarget,
+} from "./util";
 
 class HttpStatusError extends Error {
   constructor(
@@ -82,6 +92,20 @@ export async function fetchFeed(source: SourceFeedConfig, config: AppConfig, log
 const MAX_ICS_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
+// SECURITY: A dispatcher whose DNS resolution re-applies the SSRF blocklist at
+// actual connection time, closing the DNS-rebinding TOCTOU window between
+// validateFeedUrlTarget() (pre-flight) and the fetch() that follows.
+let ssrfGuardedDispatcher: Agent | undefined;
+function getSsrfGuardedDispatcher(): Agent {
+  if (!ssrfGuardedDispatcher) {
+    ssrfGuardedDispatcher = new Agent({
+      connect: { lookup: createSsrfGuardedLookup() as never },
+    });
+  }
+
+  return ssrfGuardedDispatcher;
+}
+
 export interface FetchFeedTextOptions {
   lookupAddress?: FeedDnsLookup;
   fetchImpl?: typeof fetch;
@@ -97,19 +121,28 @@ export async function fetchFeedText(
   const timeout = setTimeout(() => controller.abort(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
   const lookupAddress = options.lookupAddress;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const useDefaultFetch = options.fetchImpl === undefined;
   const maxBytes = options.maxBytes ?? MAX_ICS_SIZE_BYTES;
 
   try {
     let currentUrl = await validateFeedUrlTarget(url, lookupAddress);
 
     for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
-      const response = await fetchImpl(currentUrl, {
+      const requestInit: RequestInit & { dispatcher?: unknown } = {
         signal: controller.signal,
         redirect: "manual",
         headers: {
           Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1",
         },
-      });
+      };
+
+      // Only attach the guarded dispatcher to the real runtime fetch; injected
+      // fetch implementations (tests) manage their own transport.
+      if (useDefaultFetch) {
+        requestInit.dispatcher = getSsrfGuardedDispatcher() as never;
+      }
+
+      const response = await fetchImpl(currentUrl, requestInit);
 
       if (isRedirect(response.status)) {
         const location = response.headers.get("location");

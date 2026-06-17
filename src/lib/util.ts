@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { lookup as dnsLookup } from "node:dns/promises";
+import { lookup as dnsLookupCallback } from "node:dns";
+import type { LookupAddress, LookupOptions } from "node:dns";
 import { isIP } from "node:net";
 
 import { AppConfig, OutputPaths } from "./types";
@@ -204,6 +206,62 @@ export async function validateFeedUrlTarget(
   }
 
   return normalizedUrl;
+}
+
+/**
+ * Node-style DNS lookup signature used by the HTTP connection layer (undici/http).
+ */
+export type NodeLookupFunction = (
+  hostname: string,
+  options: LookupOptions,
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string | LookupAddress[],
+    family?: number,
+  ) => void,
+) => void;
+
+/**
+ * Wraps DNS resolution so the SSRF blocklist is enforced at actual connection
+ * time (defeating DNS-rebinding TOCTOU between pre-flight validation and fetch).
+ * Every resolved address must be public, or the connection is rejected.
+ */
+export function createSsrfGuardedLookup(
+  lookupImpl: NodeLookupFunction = dnsLookupCallback as unknown as NodeLookupFunction,
+): NodeLookupFunction {
+  return (hostname, options, callback) => {
+    lookupImpl(hostname, { ...options, all: true }, (err, addresses) => {
+      if (err) {
+        callback(err, "", 0);
+        return;
+      }
+
+      const list = (Array.isArray(addresses)
+        ? addresses
+        : [{ address: addresses as string, family: isIP(addresses as string) || 4 }]) as LookupAddress[];
+
+      if (list.length === 0) {
+        callback(new Error(`Feed URL host did not resolve to any addresses: ${hostname}`), "", 0);
+        return;
+      }
+
+      const blocked = list.find((entry) => isPrivateOrLocalAddress(entry.address));
+      if (blocked) {
+        callback(
+          new Error(`Feed URL host resolves to private or local address: ${hostname}`),
+          "",
+          0,
+        );
+        return;
+      }
+
+      if (options.all) {
+        callback(null, list);
+      } else {
+        callback(null, list[0].address, list[0].family);
+      }
+    });
+  };
 }
 
 export function deriveFeedIdFromUrl(input: string, fallbackIndex?: number): string {

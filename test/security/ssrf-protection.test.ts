@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { normalizeFeedUrl, validateFeedUrlTarget } from "../../src/lib/util";
+import { createSsrfGuardedLookup, normalizeFeedUrl, validateFeedUrlTarget } from "../../src/lib/util";
+import type { LookupAddress } from "node:dns";
 
 describe("SSRF Protection", () => {
   describe("IPv4 private addresses", () => {
@@ -99,6 +100,57 @@ describe("SSRF Protection", () => {
           { address: "93.184.216.34", family: 4 },
         ]),
       ).resolves.toBe("https://calendar.example.com/cal.ics");
+    });
+  });
+
+  describe("connection-time DNS guard (rebinding defense)", () => {
+    type LookupCb = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
+
+    function fakeLookup(addresses: LookupAddress[]) {
+      return (_hostname: string, _options: unknown, callback: LookupCb) => {
+        callback(null, addresses);
+      };
+    }
+
+    it("rejects connections that resolve to a private address at connect time", async () => {
+      const guarded = createSsrfGuardedLookup(fakeLookup([{ address: "10.0.0.5", family: 4 }]) as never);
+
+      await new Promise<void>((resolve) => {
+        guarded("rebind.example.com", { all: true }, (err) => {
+          expect(err).toBeInstanceOf(Error);
+          expect(err?.message).toContain("private or local");
+          resolve();
+        });
+      });
+    });
+
+    it("passes through public addresses unchanged", async () => {
+      const resolved: LookupAddress[] = [{ address: "93.184.216.34", family: 4 }];
+      const guarded = createSsrfGuardedLookup(fakeLookup(resolved) as never);
+
+      await new Promise<void>((resolve) => {
+        guarded("public.example.com", { all: true }, (err, address) => {
+          expect(err).toBeNull();
+          expect(address).toEqual(resolved);
+          resolve();
+        });
+      });
+    });
+
+    it("rejects when any resolved address is private (mixed result)", async () => {
+      const guarded = createSsrfGuardedLookup(
+        fakeLookup([
+          { address: "93.184.216.34", family: 4 },
+          { address: "127.0.0.1", family: 4 },
+        ]) as never,
+      );
+
+      await new Promise<void>((resolve) => {
+        guarded("mixed.example.com", { all: true }, (err) => {
+          expect(err).toBeInstanceOf(Error);
+          resolve();
+        });
+      });
     });
   });
 });

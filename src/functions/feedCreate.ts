@@ -28,6 +28,14 @@ export async function createFeedHandler(
   const logger = createLogger(context).withContext(undefined, requestId).setCategory("api");
 
   try {
+    const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
+    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
+      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
+    }
+
     const parsed = await parseJsonObjectRequest(request);
     if (!parsed.valid) {
       logger.warn("feed_create_invalid_json", { requestId, errors: parsed.errors });
@@ -41,13 +49,6 @@ export async function createFeedHandler(
     }
     const body = validation.data;
 
-    const config = getConfig();
-    if (!verifyAdminSession(request, config)) {
-      return buildAdminUnauthorizedResponse(requestId);
-    }
-    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
-      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
-    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);

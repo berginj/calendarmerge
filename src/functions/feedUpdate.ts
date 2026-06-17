@@ -36,6 +36,14 @@ export async function updateFeedHandler(
       );
     }
 
+    const config = getConfig();
+    if (!verifyAdminSession(request, config)) {
+      return buildAdminUnauthorizedResponse(requestId);
+    }
+    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
+      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
+    }
+
     const parsed = await parseJsonObjectRequest(request);
     if (!parsed.valid) {
       logger.warn("feed_update_invalid_json", { feedId, errors: parsed.errors });
@@ -49,13 +57,6 @@ export async function updateFeedHandler(
     }
     const body = validation.data;
 
-    const config = getConfig();
-    if (!verifyAdminSession(request, config)) {
-      return buildAdminUnauthorizedResponse(requestId);
-    }
-    if (["POST", "PUT", "DELETE"].includes(request.method.toUpperCase()) && !verifyCsrfHeader(request)) {
-      return buildAdminUnauthorizedResponse(requestId, "Missing CSRF header");
-    }
     const connectionString = getStorageConnectionString(config.outputStorageAccount);
     const { TableStore } = await import("../lib/tableStore");
     const store = new TableStore(connectionString);

@@ -13,38 +13,61 @@ interface ApiErrorBody {
   details?: string | string[];
 }
 
+function friendlyServerMessage(status: number): string {
+  if (status === 429) {
+    return 'Too many requests. Please wait a moment and try again.';
+  }
+  if (status === 503) {
+    return 'The service is temporarily unavailable. Please try again shortly.';
+  }
+  if (status >= 500) {
+    return 'Something went wrong on the server. Please try again.';
+  }
+  return `Request failed (${status}). Please try again.`;
+}
+
 async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {
   if ((response.status === 401 || response.status === 403) && requiresAdmin) {
     return new Error('Admin session is missing or expired. Sign in again and try again.');
   }
 
+  if (response.status === 429) {
+    return new Error(friendlyServerMessage(response.status));
+  }
+
   const contentType = response.headers.get('content-type');
   if (contentType?.includes('application/json')) {
-    const error = (await response.json()) as ApiErrorBody;
+    const error = (await response.json().catch(() => ({}))) as ApiErrorBody;
+
     if (error.error && typeof error.error === 'object') {
+      // Validation feedback is intended for the user and helps them fix their input.
       const validationErrors = error.error.validationErrors
         ? Object.values(error.error.validationErrors).flat().join(', ')
         : '';
-      return new Error(
-        validationErrors ||
-        error.error.details ||
-        error.error.message ||
-        `API Error: ${response.status} ${response.statusText}`,
-      );
+      if (validationErrors) {
+        return new Error(validationErrors);
+      }
+
+      // Never surface internal server-error detail to the user.
+      if (response.status >= 500) {
+        return new Error(friendlyServerMessage(response.status));
+      }
+
+      return new Error(error.error.message || friendlyServerMessage(response.status));
+    }
+
+    if (response.status >= 500) {
+      return new Error(friendlyServerMessage(response.status));
     }
 
     const details = Array.isArray(error.details) ? error.details.join(', ') : error.details;
-    return new Error(details || error.error || `API Error: ${response.status} ${response.statusText}`);
+    const topLevel = typeof error.error === 'string' ? error.error : '';
+    return new Error(details || topLevel || friendlyServerMessage(response.status));
   }
 
-  const text = await response.text();
-  if (text.includes('<!DOCTYPE') || text.includes('<html')) {
-    return new Error(
-      `Server returned HTML error page (${response.status}). The backend API may not be deployed correctly. Check: ${response.url}`,
-    );
-  }
-
-  return new Error(text || `API Error: ${response.status} ${response.statusText}`);
+  // Non-JSON responses (HTML error page, proxy/gateway errors) must not leak
+  // internal details or request URLs back to the user.
+  return new Error(friendlyServerMessage(response.status));
 }
 
 interface ApiSuccessEnvelope<T> {

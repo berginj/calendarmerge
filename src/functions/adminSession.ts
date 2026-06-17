@@ -6,6 +6,7 @@ import {
   buildAdminSessionSetCookie,
   buildClearedAdminSessionCookie,
   isAdminAuthConfigured,
+  verifyAdminAccessCode,
   verifyAdminSession,
 } from "../lib/adminSession";
 import { createLogger } from "../lib/log";
@@ -83,7 +84,7 @@ export async function adminSessionHandler(
       );
     }
 
-    if (accessCode !== config.adminAccessCode?.trim()) {
+    if (!verifyAdminAccessCode(accessCode, config)) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       return toHttpResponse(
         createErrorResponse(
