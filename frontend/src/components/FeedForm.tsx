@@ -16,9 +16,19 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [urlError, setUrlError] = useState<string | null>(null);
 
+  const isEditing = Boolean(initialValues);
+  const isDirty = name !== (initialValues?.name ?? '') || url !== (initialValues?.url ?? '');
+
   const handleUrlChange = (value: string) => {
     setUrl(value);
     setUrlError(validateFeedUrl(value));
+  };
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('Discard your unsaved changes?')) {
+      return;
+    }
+    onCancel();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,9 +100,14 @@ function FeedForm({ onSubmit, onCancel, initialValues }: FeedFormProps) {
             initialValues ? 'Update Feed' : 'Add Feed'
           )}
         </Button>
-        <Button variant="secondary" type="button" onClick={onCancel} disabled={submitting}>
+        <Button variant="secondary" type="button" onClick={handleCancel} disabled={submitting}>
           Cancel
         </Button>
+        {isEditing && isDirty && (
+          <span className="text-xs font-medium text-amber-600" role="status">
+            ● Unsaved changes
+          </span>
+        )}
       </div>
     </form>
   );

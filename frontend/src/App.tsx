@@ -30,6 +30,14 @@ import './App.css';
 
 type View = 'dashboard' | 'feeds' | 'insights' | 'changes' | 'settings';
 
+const VIEW_LABELS: Record<View, string> = {
+  dashboard: 'Dashboard',
+  feeds: 'Feeds',
+  insights: 'Insights',
+  changes: 'Changes',
+  settings: 'Settings',
+};
+
 interface LinkItem {
   label: string;
   href: string;
@@ -298,6 +306,9 @@ function App() {
               <div>
                 <h1>Calendar Merge</h1>
                 <p>Manage your calendar feed sources</p>
+                <p className="md:hidden mt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {VIEW_LABELS[currentView]}
+                </p>
               </div>
 
               {/* Mobile menu button and shortcuts */}

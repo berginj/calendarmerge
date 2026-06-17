@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/Card';
 import Button from './ui/Button';
 import { ChevronDown, ChevronRight, ExternalLink, Loader2 } from 'lucide-react';
+import { clsx } from 'clsx';
 
 interface LinkItem {
   label: string;
@@ -40,6 +41,12 @@ function Settings({ publicLinks, apiLinks, manageBase, apiBaseDisplay, publicBas
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  const gameFilterDirty = Boolean(
+    settings &&
+    gameFilterDraft &&
+    JSON.stringify(gameFilterDraft) !== JSON.stringify(settings.gameFilter ?? null),
+  );
 
   useEffect(() => {
     loadSettings();
@@ -271,7 +278,7 @@ function Settings({ publicLinks, apiLinks, manageBase, apiBaseDisplay, publicBas
                   'Preview Matches'
                 )}
               </Button>
-              <Button variant="primary" type="button" onClick={handleSaveGameFilter} disabled={saving || previewing}>
+              <Button variant="primary" type="button" onClick={handleSaveGameFilter} disabled={saving || previewing || !gameFilterDirty}>
                 {saving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -281,6 +288,14 @@ function Settings({ publicLinks, apiLinks, manageBase, apiBaseDisplay, publicBas
                   'Save Rules'
                 )}
               </Button>
+              {gameFilterDraft && (
+                <span
+                  className={clsx('text-sm', gameFilterDirty ? 'text-amber-600 font-medium' : 'text-slate-500')}
+                  role="status"
+                >
+                  {gameFilterDirty ? '● Unsaved changes' : '✓ All changes saved'}
+                </span>
+              )}
             </div>
 
             {gameFilterPreview && (

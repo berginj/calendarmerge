@@ -162,6 +162,12 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
         </section>
       </details>
 
+      {parsed.feeds.length === 0 && parsed.errors.length === 0 && (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          Parsed calendars will appear here as you paste links above.
+        </p>
+      )}
+
       {(parsed.feeds.length > 0 || parsed.errors.length > 0) && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className="rounded-lg border border-green-200 bg-green-50 p-4">
