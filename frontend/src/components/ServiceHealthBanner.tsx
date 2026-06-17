@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useServiceStatus, getStatusBgColor, getStatusColor } from '../hooks/useServiceStatus';
 import { CheckCircle, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function ServiceHealthBanner() {
   const { data: status, isLoading, error } = useServiceStatus();
+  const [showAllReasons, setShowAllReasons] = useState(false);
 
   if (isLoading) {
     return (
@@ -33,11 +35,11 @@ export default function ServiceHealthBanner() {
   const getIcon = () => {
     switch (operationalState) {
       case 'healthy':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
+        return <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />;
       case 'degraded':
-        return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
+        return <AlertTriangle className="h-5 w-5 text-yellow-600" aria-hidden="true" />;
       case 'failed':
-        return <XCircle className="h-5 w-5 text-red-600" />;
+        return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
     }
   };
 
@@ -52,8 +54,11 @@ export default function ServiceHealthBanner() {
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
+  const reasons = status.degradationReasons ?? [];
+  const visibleReasons = showAllReasons ? reasons : reasons.slice(0, 2);
+
   return (
-    <div className={clsx('border-b border-slate-200 px-6 py-4', bgColor)}>
+    <div className={clsx('border-b border-slate-200 px-6 py-4', bgColor)} role="status" aria-live="polite">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-3">
           {getIcon()}
@@ -73,17 +78,22 @@ export default function ServiceHealthBanner() {
           </div>
         </div>
 
-        {status.degradationReasons && status.degradationReasons.length > 0 && (
+        {reasons.length > 0 && (
           <div className="flex flex-col items-end gap-1">
-            {status.degradationReasons.slice(0, 2).map((reason, index) => (
+            {visibleReasons.map((reason, index) => (
               <span key={index} className="text-xs text-slate-600">
                 {reason}
               </span>
             ))}
-            {status.degradationReasons.length > 2 && (
-              <span className="text-xs text-slate-500">
-                +{status.degradationReasons.length - 2} more
-              </span>
+            {reasons.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setShowAllReasons((value) => !value)}
+                aria-expanded={showAllReasons}
+                className="rounded text-xs font-medium text-slate-500 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-slate-400"
+              >
+                {showAllReasons ? 'Show less' : `+${reasons.length - 2} more`}
+              </button>
             )}
           </div>
         )}

@@ -447,6 +447,19 @@ export default function Feeds({
           <CardContent className="p-12 text-center">
             <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
             <p className="text-slate-600">No feeds match your search or filter.</p>
+            {(searchQuery || filter !== 'all') && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-4"
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilter('all');
+                }}
+              >
+                Clear filters
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
