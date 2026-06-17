@@ -167,11 +167,13 @@ export default function Changes() {
                       <div className="space-y-2">
                         {event.changes.time && (
                           <div className="flex items-center gap-2 text-sm">
-                            <Clock className="h-4 w-4 text-slate-600" />
+                            <Clock className="h-4 w-4 text-slate-600" aria-hidden="true" />
+                            <span className="sr-only">Previously </span>
                             <span className="text-slate-600 line-through">
                               {formatTime(event.changes.time.from)}
                             </span>
-                            <ArrowRight className="h-4 w-4 text-slate-400" />
+                            <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                            <span className="sr-only">changed to </span>
                             <span className="font-medium text-slate-900">
                               {formatTime(event.changes.time.to)}
                             </span>
@@ -180,11 +182,13 @@ export default function Changes() {
 
                         {event.changes.location && (
                           <div className="flex items-center gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-slate-600" />
+                            <MapPin className="h-4 w-4 text-slate-600" aria-hidden="true" />
+                            <span className="sr-only">Previously </span>
                             <span className="text-slate-600 line-through">
                               {event.changes.location.from || 'No location'}
                             </span>
-                            <ArrowRight className="h-4 w-4 text-slate-400" />
+                            <ArrowRight className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                            <span className="sr-only">changed to </span>
                             <span className="font-medium text-slate-900">
                               {event.changes.location.to || 'No location'}
                             </span>
@@ -238,6 +242,10 @@ export default function Changes() {
                         </Badge>
                       </div>
 
+                      <p className="text-xs text-slate-600 mb-3">
+                        These events have the same name on the same day. They may be duplicates or separate events.
+                      </p>
+
                       <div className="space-y-2">
                         {dup.instances.map((instance: any) => (
                           <div key={instance.uid} className="bg-white rounded p-3 text-sm">
@@ -247,17 +255,13 @@ export default function Changes() {
                             </div>
                             {instance.location && (
                               <p className="text-slate-600 mt-1 flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
+                                <MapPin className="h-3 w-3" aria-hidden="true" />
                                 {instance.location}
                               </p>
                             )}
                           </div>
                         ))}
                       </div>
-
-                      <p className="text-xs text-slate-500 mt-3">
-                        These events have the same name on the same day. They may be duplicates or separate events.
-                      </p>
                     </div>
                   ))}
                 </div>

@@ -651,10 +651,10 @@ function EnhancedFeedCard({
   }
 
   const getHealthIcon = () => {
-    if (feed.enabled === false) return <CircleOff className="h-5 w-5 text-slate-500" />;
-    if (!feedHealth.ok) return <XCircle className="h-5 w-5 text-red-600" />;
-    if (feedHealth.suspect) return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
-    return <CheckCircle className="h-5 w-5 text-green-600" />;
+    if (feed.enabled === false) return <CircleOff className="h-5 w-5 text-slate-500" aria-hidden="true" />;
+    if (!feedHealth.ok) return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
+    if (feedHealth.suspect) return <AlertTriangle className="h-5 w-5 text-yellow-600" aria-hidden="true" />;
+    return <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />;
   };
 
   const getHealthBadge = () => {

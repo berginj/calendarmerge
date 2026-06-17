@@ -1,16 +1,17 @@
 import { useServiceStatus, formatAge } from '../hooks/useServiceStatus';
 import MetricCard from '../components/dashboard/MetricCard';
 import AdminGate from '../components/AdminGate';
+import Button from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Calendar, Trophy, Rss, Clock, Loader2 } from 'lucide-react';
+import { Calendar, Trophy, Rss, Clock, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function Dashboard() {
-  const { data: status, isLoading, error } = useServiceStatus();
+  const { data: status, isLoading, error, refetch } = useServiceStatus();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
         <Loader2 className="h-8 w-8 animate-spin text-primary-700" />
         <span className="ml-3 text-slate-600">Loading dashboard...</span>
       </div>
@@ -19,9 +20,19 @@ export default function Dashboard() {
 
   if (error || !status) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600">Failed to load dashboard data</p>
-      </div>
+      <Card>
+        <CardContent className="p-12 text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" aria-hidden="true" />
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">Failed to load dashboard data</h3>
+          <p className="text-sm text-slate-600 max-w-md mx-auto">
+            We couldn't reach the service status. Check your connection and try again.
+          </p>
+          <Button variant="secondary" size="sm" className="mt-4" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 

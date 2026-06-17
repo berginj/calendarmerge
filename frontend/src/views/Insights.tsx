@@ -153,7 +153,7 @@ export default function Insights() {
     if (!value) return;
     await navigator.clipboard?.writeText(value);
     setCopied(label);
-    window.setTimeout(() => setCopied(null), 1500);
+    window.setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -175,7 +175,7 @@ export default function Insights() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetadataItem label="Refresh ID" value={status.refreshId} copied={copied === 'refreshId'} onCopy={() => copyValue('refreshId', status.refreshId)} />
-            <MetadataItem label="Last attempted" value={formatDateTime(status.lastAttemptedRefresh)} />
+            <MetadataItem label="Last attempted" value={<RelativeTime value={status.lastAttemptedRefresh} />} />
             <MetadataItem label="State" value={status.operationalState ?? status.state} />
           </div>
         </CardContent>
@@ -198,7 +198,7 @@ export default function Insights() {
           <CardTitle>Feed Health</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="hidden w-full text-sm md:table">
             <thead>
               <tr className="border-b border-slate-200 text-left text-slate-600">
                 <th className="py-2 pr-4 font-medium">Feed</th>
@@ -215,6 +215,11 @@ export default function Insights() {
               ))}
             </tbody>
           </table>
+          <div className="space-y-3 md:hidden">
+            {(status.sourceStatuses ?? []).map((feed) => (
+              <FeedHealthCard key={feed.id} feed={feed} />
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -253,7 +258,7 @@ export default function Insights() {
                       <p className="mt-1 text-sm text-slate-600">{insight.detail}</p>
                     </div>
                     {insight.timestamp && (
-                      <p className="text-xs text-slate-500 md:text-right">{formatDateTime(insight.timestamp)}</p>
+                      <p className="text-xs text-slate-500 md:text-right"><RelativeTime value={insight.timestamp} /></p>
                     )}
                   </div>
                 </div>
@@ -282,7 +287,7 @@ function SummaryCard({ icon, label, value, severity }: { icon: ReactNode; label:
   );
 }
 
-function MetadataItem({ label, value, copied, onCopy }: { label: string; value?: string; copied?: boolean; onCopy?: () => void }) {
+function MetadataItem({ label, value, copied, onCopy }: { label: string; value?: ReactNode; copied?: boolean; onCopy?: () => void }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
@@ -290,7 +295,14 @@ function MetadataItem({ label, value, copied, onCopy }: { label: string; value?:
         <p className="truncate text-sm font-medium text-slate-900">{value ?? 'Unavailable'}</p>
         {onCopy && value && (
           <Button type="button" variant="ghost" size="sm" onClick={onCopy} aria-label={`Copy ${label}`}>
-            {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+            {copied ? (
+              <span className="flex items-center gap-1 text-green-600">
+                <CheckCircle className="h-4 w-4" />
+                Copied
+              </span>
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
           </Button>
         )}
       </div>
@@ -307,7 +319,7 @@ function StalenessRow({ label, age, timestamp, published }: { label: string; age
         <div>
           <p className="font-semibold text-slate-900">{label}</p>
           <p className="mt-1 text-sm text-slate-600">Age: {formatAge(age)}</p>
-          <p className="mt-1 text-xs text-slate-500">{formatDateTime(timestamp)}</p>
+          <p className="mt-1 text-xs text-slate-500"><RelativeTime value={timestamp} /></p>
         </div>
         <Badge variant={published && !stale ? 'success' : 'warning'}>{published ? 'Published' : 'Not published'}</Badge>
       </div>
@@ -331,9 +343,46 @@ function FeedHealthRow({ feed }: { feed: FeedStatus }) {
         )}
       </td>
       <td className="py-3 pr-4 text-slate-700">{feed.consecutiveFailures ?? 0}</td>
-      <td className="py-3 pr-4 text-slate-700">{formatDateTime(feed.attemptedAt)}</td>
+      <td className="py-3 pr-4 text-slate-700"><RelativeTime value={feed.attemptedAt} /></td>
       <td className="py-3 text-slate-600">{feed.error ?? (feed.suspect ? 'Event count needs review' : 'No issues')}</td>
     </tr>
+  );
+}
+
+function FeedHealthCard({ feed }: { feed: FeedStatus }) {
+  const statusVariant = !feed.ok ? 'error' : feed.suspect ? 'warning' : 'success';
+  const statusLabel = !feed.ok ? 'failed' : feed.suspect ? 'review' : 'healthy';
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium text-slate-900">{feed.name}</p>
+        <Badge variant={statusVariant}>{statusLabel}</Badge>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <div>
+          <dt className="text-xs uppercase tracking-wide text-slate-500">Events</dt>
+          <dd className="text-slate-700">
+            {feed.eventCount}
+            {feed.previousEventCount !== undefined && feed.previousEventCount !== feed.eventCount && (
+              <span className="ml-1 text-xs text-slate-500">was {feed.previousEventCount}</span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs uppercase tracking-wide text-slate-500">Failures</dt>
+          <dd className="text-slate-700">{feed.consecutiveFailures ?? 0}</dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-xs uppercase tracking-wide text-slate-500">Last attempted</dt>
+          <dd className="text-slate-700"><RelativeTime value={feed.attemptedAt} /></dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-xs uppercase tracking-wide text-slate-500">Message</dt>
+          <dd className="text-slate-600">{feed.error ?? (feed.suspect ? 'Event count needs review' : 'No issues')}</dd>
+        </div>
+      </dl>
+    </div>
   );
 }
 
@@ -391,6 +440,26 @@ function formatDateTime(value?: string) {
   } catch {
     return value;
   }
+}
+
+function formatRelativeTime(date: Date) {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 0) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+function RelativeTime({ value }: { value?: string }) {
+  if (!value) return <>Unavailable</>;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return <>{value}</>;
+  return (
+    <time dateTime={value} title={date.toLocaleString()}>
+      {formatRelativeTime(date)}
+    </time>
+  );
 }
 
 function severityRank(severity: Severity) {
