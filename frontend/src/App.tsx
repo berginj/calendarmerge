@@ -8,6 +8,7 @@ import {
   listFeeds,
   loginAdminSession,
   logoutAdminSession,
+  onSessionExpired,
   updateFeed,
 } from './api/feedsApi';
 import ServiceHealthBanner from './components/ServiceHealthBanner';
@@ -125,6 +126,19 @@ function App() {
   useEffect(() => {
     void loadFeeds();
   }, [hasAdminSession]);
+
+  useEffect(() => {
+    const unsubscribe = onSessionExpired(() => {
+      setHasAdminSession(false);
+      setFeeds([]);
+      setError(null);
+      setLoading(false);
+      setAdminKeyMessage('Your admin session expired. Sign in again to continue.');
+      toast.warning('Admin session expired', 'Sign in again to continue managing feeds.');
+    });
+
+    return unsubscribe;
+  }, [toast]);
 
   const handleSaveAdminKey = () => {
     const trimmed = adminAccessCode.trim();

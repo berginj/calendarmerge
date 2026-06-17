@@ -555,6 +555,25 @@ function formatRestoreDate(value?: string): string {
   }
 }
 
+function formatRestoreCountdown(value?: string): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const target = new Date(value).getTime();
+  if (Number.isNaN(target)) {
+    return null;
+  }
+
+  const msLeft = target - Date.now();
+  if (msLeft <= 0) {
+    return 'restore window closed';
+  }
+
+  const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+  return daysLeft === 1 ? '1 day left' : `${daysLeft} days left`;
+}
+
 // Enhanced feed card component
 function EnhancedFeedCard({
   feed,
@@ -675,6 +694,9 @@ function EnhancedFeedCard({
               {feed.enabled === false && (
                 <p className="text-xs text-slate-500 mt-1">
                   Restore available until {formatRestoreDate(feed.restoreAvailableUntil)}
+                  {formatRestoreCountdown(feed.restoreAvailableUntil) && (
+                    <span className="text-slate-400"> ({formatRestoreCountdown(feed.restoreAvailableUntil)})</span>
+                  )}
                 </p>
               )}
 

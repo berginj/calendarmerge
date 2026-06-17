@@ -2,6 +2,32 @@ import { SourceFeedConfig } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
+type SessionExpiredListener = () => void;
+const sessionExpiredListeners = new Set<SessionExpiredListener>();
+
+/**
+ * Subscribe to admin-session expiry. Fires whenever a request that requires an
+ * admin session is rejected with 401/403, so the UI can prompt re-authentication
+ * instead of letting the user discover the expiry one failed action at a time.
+ * Returns an unsubscribe function.
+ */
+export function onSessionExpired(listener: SessionExpiredListener): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+}
+
+function notifySessionExpired(): void {
+  for (const listener of sessionExpiredListeners) {
+    try {
+      listener();
+    } catch {
+      // A misbehaving listener must not break error handling for the request.
+    }
+  }
+}
+
 interface ApiErrorBody {
   status?: 'error';
   error?: string | {
@@ -28,6 +54,7 @@ function friendlyServerMessage(status: number): string {
 
 async function parseApiError(response: Response, requiresAdmin: boolean): Promise<Error> {
   if ((response.status === 401 || response.status === 403) && requiresAdmin) {
+    notifySessionExpired();
     return new Error('Admin session is missing or expired. Sign in again and try again.');
   }
 

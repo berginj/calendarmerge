@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { getAdminSession, listFeeds, loginAdminSession, logoutAdminSession, requestJson, triggerManualRefresh } from './feedsApi';
+import { getAdminSession, listFeeds, loginAdminSession, logoutAdminSession, onSessionExpired, requestJson, triggerManualRefresh } from './feedsApi';
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -84,6 +84,38 @@ describe('admin session API client', () => {
     }, { status: 401, statusText: 'Unauthorized' })));
 
     await expect(triggerManualRefresh()).rejects.toThrow('Admin session is missing or expired');
+  });
+
+  it('notifies session-expired subscribers when a protected request returns 401', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'error',
+      error: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
+    }, { status: 401, statusText: 'Unauthorized' })));
+
+    const listener = vi.fn();
+    const unsubscribe = onSessionExpired(listener);
+
+    await expect(triggerManualRefresh()).rejects.toThrow();
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+  });
+
+  it('does not notify session-expired subscribers for unauthenticated public requests', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      requestId: 'request-1',
+      status: 'success',
+      data: { authenticated: false, configured: true },
+    })));
+
+    const listener = vi.fn();
+    const unsubscribe = onSessionExpired(listener);
+
+    await getAdminSession();
+    expect(listener).not.toHaveBeenCalled();
+
+    unsubscribe();
   });
 
   it('reads admin session state from the session endpoint', async () => {
