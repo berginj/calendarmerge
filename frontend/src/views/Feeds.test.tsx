@@ -133,7 +133,10 @@ describe('Feeds', () => {
   });
 
   it('confirms successful refresh requests with a toast', async () => {
-    mockStatus(status);
+    mockStatus(
+      { ...status, lastAttemptedRefresh: '2026-06-10T12:00:00.000Z' },
+      { ...status, lastAttemptedRefresh: '2026-06-10T12:05:00.000Z' },
+    );
     manualRefreshMock.refresh.mockResolvedValueOnce(undefined);
     const { user, props } = renderFeeds();
 
@@ -141,8 +144,8 @@ describe('Feeds', () => {
 
     await waitFor(() => {
       expect(props.toast.success).toHaveBeenCalledWith(
-        'Refresh requested',
-        'Calendar status will update when the refresh completes.',
+        'Refresh complete',
+        'Calendar status is now up to date.',
       );
     });
   });

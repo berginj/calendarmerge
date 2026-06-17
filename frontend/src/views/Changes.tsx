@@ -2,6 +2,7 @@ import { useServiceStatus } from '../hooks/useServiceStatus';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
 import Badge from '../components/ui/Badge';
+import AdminGate from '../components/AdminGate';
 import { Calendar, Copy, Bell, Loader2, CheckCircle, Clock, MapPin, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -10,28 +11,21 @@ export default function Changes() {
 
   if (isLoading || !status) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
         <Loader2 className="h-8 w-8 animate-spin text-primary-700" />
+        <span className="ml-3 text-slate-600">Loading changes...</span>
       </div>
     );
   }
 
   if (!status.adminInsightsAvailable) {
     return (
-      <Card>
-        <CardContent>
-          <div className="text-center py-12">
-            <Bell className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">Admin insights unavailable</h3>
-            <p className="text-sm text-slate-600">
-              Sign in with an admin access code to view reschedules, duplicates, and feed alerts.
-            </p>
-            {status.adminInsightsError && (
-              <p className="text-xs text-red-600 mt-2">{status.adminInsightsError}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <AdminGate
+        icon={Bell}
+        title="Admin insights unavailable"
+        description="Sign in with an admin access code to view reschedules, duplicates, and feed alerts."
+        error={status.adminInsightsError}
+      />
     );
   }
 

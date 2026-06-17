@@ -1,5 +1,6 @@
 import { useServiceStatus, formatAge } from '../hooks/useServiceStatus';
 import MetricCard from '../components/dashboard/MetricCard';
+import AdminGate from '../components/AdminGate';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Calendar, Trophy, Rss, Clock, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -176,14 +177,14 @@ export default function Dashboard() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {sourceStatuses.length === 0 ? (
-              <div className="md:col-span-2 lg:col-span-3 rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-                <p className="text-sm font-medium text-slate-900">Admin diagnostics unavailable</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Sign in with an admin access code to view per-feed health and operational details.
-                </p>
-                {status.adminInsightsError && (
-                  <p className="mt-2 text-xs text-red-600">{status.adminInsightsError}</p>
-                )}
+              <div className="md:col-span-2 lg:col-span-3">
+                <AdminGate
+                  variant="inline"
+                  icon={Rss}
+                  title="Admin diagnostics unavailable"
+                  description="Sign in with an admin access code to view per-feed health and operational details."
+                  error={status.adminInsightsError}
+                />
               </div>
             ) : sourceStatuses.map((feed) => {
               const isSuspect = status.suspectFeeds?.includes(feed.id);
@@ -194,6 +195,8 @@ export default function Dashboard() {
               };
 
               const healthStatus = getHealthStatus();
+              const healthLabel =
+                healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'suspect' ? 'Suspect' : 'Failed';
 
               return (
                 <div
@@ -207,12 +210,22 @@ export default function Dashboard() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <h4 className="font-semibold text-slate-900 text-sm">{feed.name}</h4>
-                    <div className={clsx(
-                      'h-2 w-2 rounded-full',
-                      healthStatus === 'healthy' && 'bg-green-500',
-                      healthStatus === 'suspect' && 'bg-yellow-500',
-                      healthStatus === 'failed' && 'bg-red-500'
-                    )} />
+                    <span
+                      className={clsx(
+                        'inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide',
+                        healthStatus === 'healthy' && 'text-green-700',
+                        healthStatus === 'suspect' && 'text-yellow-700',
+                        healthStatus === 'failed' && 'text-red-700'
+                      )}
+                    >
+                      <span className={clsx(
+                        'h-2 w-2 rounded-full',
+                        healthStatus === 'healthy' && 'bg-green-500',
+                        healthStatus === 'suspect' && 'bg-yellow-500',
+                        healthStatus === 'failed' && 'bg-red-500'
+                      )} />
+                      {healthLabel}
+                    </span>
                   </div>
 
                   <div className="space-y-1">

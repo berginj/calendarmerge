@@ -61,18 +61,41 @@ export default function Feeds({
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
-  const { data: status } = useServiceStatus();
+  const { data: status, refetch: refetchStatus } = useServiceStatus();
   const { refresh, isRefreshing } = useManualRefresh();
+  const [isPolling, setIsPolling] = useState(false);
+  const refreshing = isRefreshing || isPolling;
+
+  const waitForRefreshCompletion = async (previousTimestamp?: string) => {
+    for (let attempt = 0; attempt < 15; attempt++) {
+      const { data } = await refetchStatus();
+      if (data?.lastAttemptedRefresh && data.lastAttemptedRefresh !== previousTimestamp) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+    }
+    return false;
+  };
 
   const handleRefreshNow = async () => {
+    const previousTimestamp = status?.lastAttemptedRefresh;
     try {
       setError(null);
       await refresh();
-      toast.success('Refresh requested', 'Calendar status will update when the refresh completes.');
+      toast.info('Refresh started', 'Fetching the latest events from your feeds…');
+      setIsPolling(true);
+      const completed = await waitForRefreshCompletion(previousTimestamp);
+      if (completed) {
+        toast.success('Refresh complete', 'Calendar status is now up to date.');
+      } else {
+        toast.info('Still refreshing', 'This is taking longer than usual — status will update automatically.');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to request refresh';
       setError(message);
       toast.error('Refresh failed', message);
+    } finally {
+      setIsPolling(false);
     }
   };
 
@@ -286,12 +309,12 @@ export default function Feeds({
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Button
             onClick={handleRefreshNow}
-            disabled={isRefreshing || !hasAdminSession}
+            disabled={refreshing || !hasAdminSession}
             variant="secondary"
             size="md"
           >
-            <RefreshCw className={clsx('h-4 w-4', isRefreshing && 'animate-spin')} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh Now'}
+            <RefreshCw className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
+            {refreshing ? 'Refreshing...' : 'Refresh Now'}
           </Button>
 
           <Button

@@ -17,6 +17,7 @@ import { clsx } from 'clsx';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import AdminGate from '../components/AdminGate';
 import { formatAge, useServiceStatus, type FeedStatus } from '../hooks/useServiceStatus';
 
 type InsightType = 'feed' | 'reschedule' | 'duplicate' | 'alert';
@@ -123,7 +124,7 @@ export default function Insights() {
 
   if (isLoading || !status) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
         <Loader2 className="h-8 w-8 animate-spin text-primary-700" />
         <span className="ml-3 text-slate-600">Loading insights...</span>
       </div>
@@ -132,20 +133,12 @@ export default function Insights() {
 
   if (!status.adminInsightsAvailable) {
     return (
-      <Card>
-        <CardContent>
-          <div className="text-center py-12">
-            <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-1">Admin insights unavailable</h3>
-            <p className="text-sm text-slate-600">
-              Sign in with an admin access code to view feed health, schedule changes, duplicates, and alert details.
-            </p>
-            {status.adminInsightsError && (
-              <p className="text-xs text-red-600 mt-2">{status.adminInsightsError}</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <AdminGate
+        icon={Search}
+        title="Admin insights unavailable"
+        description="Sign in with an admin access code to view feed health, schedule changes, duplicates, and alert details."
+        error={status.adminInsightsError}
+      />
     );
   }
 

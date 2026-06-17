@@ -12,11 +12,12 @@ vi.mock('../hooks/useServiceStatus', async () => {
   };
 });
 
-export function mockStatus(status: ServiceStatus): void {
+export function mockStatus(status: ServiceStatus, refetchResult?: ServiceStatus): void {
   mockUseServiceStatus.mockReturnValue({
     data: status,
     isLoading: false,
     error: null,
+    refetch: vi.fn().mockResolvedValue({ data: refetchResult ?? status }),
   });
 }
 
