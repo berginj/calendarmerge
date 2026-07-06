@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useServiceStatus } from '../hooks/useServiceStatus';
 import { useManualRefresh } from '../hooks/useManualRefresh';
 import { Card, CardContent } from '../components/ui/Card';
@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/AlertDialog';
-import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, CircleOff, Rss, Copy, ExternalLink } from 'lucide-react';
+import { RefreshCw, Plus, MoreVertical, Edit, Trash, Search, CheckCircle, AlertTriangle, XCircle, CircleOff, Rss, Copy, ExternalLink, Clock } from 'lucide-react';
 import { BulkFeedCreateResult, NewSourceFeedInput, SourceFeedConfig } from '../types';
 import FeedForm from '../components/FeedForm';
 import BulkFeedForm from '../components/BulkFeedForm';
@@ -27,8 +27,13 @@ interface EnhancedFeedsProps {
   loading: boolean;
   error: string | null;
   hasAdminSession: boolean;
+  setupOpen?: boolean;
+  mergedCalendarUrl: string;
+  gamesCalendarUrl: string;
   onUpdate: (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => Promise<void>;
+  onUpdateMany: (updates: Array<{ feedId: string; updates: { name?: string; url?: string; enabled?: boolean } }>) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
+  onDeleteMany: (feedIds: string[]) => Promise<void>;
   onCreateMany: (feeds: NewSourceFeedInput[]) => Promise<BulkFeedCreateResult>;
   setError: (error: string | null) => void;
   toast: {
@@ -44,13 +49,28 @@ type ConfirmAction =
   | { type: 'bulk'; feedIds: string[]; count: number }
   | null;
 
+interface FeedHealth {
+  status: 'pending' | 'healthy' | 'suspect' | 'failed';
+  ok: boolean;
+  eventCount: number;
+  previousEventCount?: number;
+  suspect: boolean;
+  consecutiveFailures: number;
+  error?: string;
+}
+
 export default function Feeds({
   feeds,
   loading,
   error,
   hasAdminSession,
+  setupOpen = false,
+  mergedCalendarUrl,
+  gamesCalendarUrl,
   onUpdate,
+  onUpdateMany,
   onDelete,
+  onDeleteMany,
   onCreateMany,
   setError,
   toast,
@@ -61,10 +81,18 @@ export default function Feeds({
   const [selectedFeeds, setSelectedFeeds] = useState<Set<string>>(new Set());
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [isConfirmingAction, setIsConfirmingAction] = useState(false);
-  const { data: status, refetch: refetchStatus } = useServiceStatus();
+  const [setupCompleted, setSetupCompleted] = useState(false);
+  const [copiedCalendar, setCopiedCalendar] = useState<'merged' | 'games' | null>(null);
+  const { data: status, refetch: refetchStatus } = useServiceStatus(hasAdminSession);
   const { refresh, isRefreshing } = useManualRefresh();
   const [isPolling, setIsPolling] = useState(false);
   const refreshing = isRefreshing || isPolling;
+
+  useEffect(() => {
+    if (setupOpen) {
+      setShowForm(true);
+    }
+  }, [setupOpen]);
 
   const waitForRefreshCompletion = async (previousTimestamp?: string) => {
     for (let attempt = 0; attempt < 15; attempt++) {
@@ -102,8 +130,9 @@ export default function Feeds({
   const handleCreateMany = async (newFeeds: NewSourceFeedInput[]) => {
     try {
       const result = await onCreateMany(newFeeds);
-      if (result.failed.length === 0) {
-        setShowForm(false);
+      if (result.created.length > 0) {
+        setSetupCompleted(true);
+        setShowForm(result.failed.length > 0);
       }
       return result;
     } catch (err) {
@@ -147,24 +176,12 @@ export default function Feeds({
   };
 
   const handleBulkEnable = async () => {
-    for (const feedId of Array.from(selectedFeeds)) {
-      try {
-        await onUpdate(feedId, { enabled: true });
-      } catch {
-        // Error handled by parent
-      }
-    }
+    await onUpdateMany(Array.from(selectedFeeds).map((feedId) => ({ feedId, updates: { enabled: true } })));
     setSelectedFeeds(new Set());
   };
 
   const handleBulkDisable = async () => {
-    for (const feedId of Array.from(selectedFeeds)) {
-      try {
-        await onUpdate(feedId, { enabled: false });
-      } catch {
-        // Error handled by parent
-      }
-    }
+    await onUpdateMany(Array.from(selectedFeeds).map((feedId) => ({ feedId, updates: { enabled: false } })));
     setSelectedFeeds(new Set());
   };
 
@@ -191,13 +208,7 @@ export default function Feeds({
       if (confirmAction.type === 'single') {
         await onDelete(confirmAction.feedId);
       } else {
-        for (const feedId of confirmAction.feedIds) {
-          try {
-            await onUpdate(feedId, { enabled: false });
-          } catch {
-            // Error handled by parent
-          }
-        }
+        await onDeleteMany(confirmAction.feedIds);
         setSelectedFeeds(new Set());
       }
     } finally {
@@ -206,19 +217,42 @@ export default function Feeds({
     }
   };
 
-  // Get feed health from status
   const getFeedHealth = (feedId: string) => {
     const feedStatus = status?.sourceStatuses?.find(f => f.id === feedId);
     const isSuspect = status?.suspectFeeds?.includes(feedId);
 
+    if (!feedStatus?.attemptedAt) {
+      return {
+        status: 'pending',
+        ok: false,
+        eventCount: 0,
+        suspect: false,
+        consecutiveFailures: 0,
+      } satisfies FeedHealth;
+    }
+
+    const healthStatus = !feedStatus.ok ? 'failed' : isSuspect ? 'suspect' : 'healthy';
+
     return {
+      status: healthStatus,
       ok: feedStatus?.ok ?? false,
       eventCount: feedStatus?.eventCount ?? 0,
       previousEventCount: feedStatus?.previousEventCount,
       suspect: isSuspect ?? false,
       consecutiveFailures: feedStatus?.consecutiveFailures ?? 0,
       error: feedStatus?.error,
-    };
+    } satisfies FeedHealth;
+  };
+
+  const copyCalendarLink = async (kind: 'merged' | 'games', url: string) => {
+    try {
+      await navigator.clipboard?.writeText(url);
+      setCopiedCalendar(kind);
+      window.setTimeout(() => setCopiedCalendar(null), 1500);
+      toast.success(kind === 'merged' ? 'Merged calendar link copied' : 'Games calendar link copied');
+    } catch {
+      toast.error('Copy failed', 'Copy the calendar link from Settings instead.');
+    }
   };
 
   // Filter feeds
@@ -237,9 +271,9 @@ export default function Feeds({
     if (filter !== 'all') {
       const health = getFeedHealth(feed.id);
 
-      if (filter === 'healthy' && (feed.enabled === false || !health.ok || health.suspect)) return false;
+      if (filter === 'healthy' && (feed.enabled === false || health.status !== 'healthy')) return false;
       if (filter === 'suspect' && !health.suspect) return false;
-      if (filter === 'failed' && (feed.enabled === false || health.ok)) return false;
+      if (filter === 'failed' && (feed.enabled === false || health.status !== 'failed')) return false;
       if (filter === 'disabled' && feed.enabled !== false) return false;
     }
 
@@ -248,11 +282,11 @@ export default function Feeds({
 
   const healthyCount = feeds.filter(f => {
     const h = getFeedHealth(f.id);
-    return f.enabled !== false && h.ok && !h.suspect;
+    return f.enabled !== false && h.status === 'healthy';
   }).length;
   const suspectCount = status?.suspectFeeds?.length ?? 0;
   const activeFeedIds = new Set(feeds.filter(f => f.enabled !== false).map(f => f.id));
-  const failedCount = status?.sourceStatuses?.filter(f => activeFeedIds.has(f.id) && !f.ok).length ?? 0;
+  const failedCount = status?.sourceStatuses?.filter(f => activeFeedIds.has(f.id) && f.attemptedAt && !f.ok).length ?? 0;
   const disabledCount = feeds.filter(f => f.enabled === false).length;
   const activeCount = feeds.length - disabledCount;
 
@@ -415,6 +449,10 @@ export default function Feeds({
         </div>
       )}
 
+      {hasAdminSession && (setupOpen || showForm || setupCompleted) && (
+        <SetupChecklist completed={setupCompleted} />
+      )}
+
       {/* Feed setup form */}
       {showForm && hasAdminSession && (
         <Card>
@@ -423,6 +461,36 @@ export default function Feeds({
               onSubmit={handleCreateMany}
               onCancel={() => setShowForm(false)}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {setupCompleted && (
+        <Card className="border border-green-200 bg-green-50">
+          <CardContent className="p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="font-semibold text-green-950">Calendars added</h3>
+                <p className="mt-1 text-sm text-green-900">
+                  Run a refresh now, then copy the merged calendar link into Apple Calendar, Google Calendar, or Outlook.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button type="button" variant="primary" size="sm" onClick={handleRefreshNow} disabled={refreshing}>
+                  <RefreshCw className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
+                  {refreshing ? 'Refreshing...' : 'Run First Refresh'}
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyCalendarLink('merged', mergedCalendarUrl)}>
+                  <Copy className="h-4 w-4" />
+                  {copiedCalendar === 'merged' ? 'Copied' : 'Copy Merged Link'}
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyCalendarLink('games', gamesCalendarUrl)}>
+                  <Copy className="h-4 w-4" />
+                  {copiedCalendar === 'games' ? 'Copied' : 'Copy Games Link'}
+                </Button>
+              </div>
+            </div>
+            <SubscriptionInstructions />
           </CardContent>
         </Card>
       )}
@@ -448,7 +516,7 @@ export default function Feeds({
             </Card>
           ))}
         </div>
-      ) : feeds.length === 0 && !error ? (
+      ) : feeds.length === 0 && !error && !showForm ? (
         <Card>
           <CardContent className="p-12 text-center">
             <div className="text-center py-12 px-4">
@@ -465,7 +533,7 @@ export default function Feeds({
             </div>
           </CardContent>
         </Card>
-      ) : filteredFeeds.length === 0 ? (
+      ) : feeds.length === 0 ? null : filteredFeeds.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <Search className="h-12 w-12 text-slate-400 mx-auto mb-3" />
@@ -579,6 +647,92 @@ function FilterChip({
   );
 }
 
+function SetupChecklist({ completed }: { completed: boolean }) {
+  const steps = [
+    'Sign in',
+    'Get subscription links',
+    'Paste links',
+    'Add feeds',
+    'Refresh',
+    'Subscribe to merged calendar',
+  ];
+
+  return (
+    <Card className="border border-blue-200 bg-blue-50">
+      <CardContent className="p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="font-semibold text-blue-950">Setup checklist</h3>
+            <p className="mt-1 text-sm text-blue-900">
+              Collect the calendar subscription links from each team app, paste them here, then subscribe to the merged family calendar.
+            </p>
+          </div>
+          <ol className="grid grid-cols-2 gap-2 text-xs font-medium text-blue-950 sm:grid-cols-3 lg:grid-cols-6">
+            {steps.map((step, index) => (
+              <li key={step} className="rounded-lg bg-white/80 px-3 py-2">
+                <span className="mr-1 text-blue-700">{index + 1}.</span>
+                {step}
+              </li>
+            ))}
+          </ol>
+        </div>
+        {completed && (
+          <p className="mt-3 text-sm font-medium text-green-800">
+            Calendar feeds are saved. Finish by running a refresh and copying one of the published calendar links.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SubscriptionInstructions() {
+  const guides = [
+    {
+      title: 'Google Calendar',
+      steps: [
+        'Open Google Calendar in a browser.',
+        'Next to Other calendars, choose From URL.',
+        'Paste the merged calendar link and add the calendar.',
+      ],
+    },
+    {
+      title: 'Apple Calendar',
+      steps: [
+        'Open Calendar on a Mac, iPhone, or iPad.',
+        'Choose New Calendar Subscription or Add Subscription Calendar.',
+        'Paste the merged calendar link and subscribe.',
+      ],
+    },
+    {
+      title: 'Outlook',
+      steps: [
+        'Open Outlook Calendar.',
+        'Choose Add calendar, then subscribe from web or from internet.',
+        'Paste the merged calendar link and save.',
+      ],
+    },
+  ];
+
+  return (
+    <div className="mt-4 border-t border-green-200 pt-4">
+      <h4 className="text-sm font-semibold text-green-950">How to subscribe</h4>
+      <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+        {guides.map((guide) => (
+          <details key={guide.title} className="rounded-lg border border-green-200 bg-white/80 p-3">
+            <summary className="cursor-pointer text-sm font-medium text-green-950">{guide.title}</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-green-900">
+              {guide.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function formatRestoreDate(value?: string): string {
   if (!value) {
     return '15 days after disable';
@@ -621,7 +775,7 @@ function EnhancedFeedCard({
   onSelectChange,
 }: {
   feed: SourceFeedConfig;
-  feedHealth: any;
+  feedHealth: FeedHealth;
   onUpdate: (feedId: string, updates: any) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
   onToggleEnabled: (feedId: string, enabled: boolean) => Promise<void>;
@@ -652,7 +806,8 @@ function EnhancedFeedCard({
 
   const getHealthIcon = () => {
     if (feed.enabled === false) return <CircleOff className="h-5 w-5 text-slate-500" aria-hidden="true" />;
-    if (!feedHealth.ok) return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
+    if (feedHealth.status === 'pending') return <Clock className="h-5 w-5 text-slate-500" aria-hidden="true" />;
+    if (feedHealth.status === 'failed') return <XCircle className="h-5 w-5 text-red-600" aria-hidden="true" />;
     if (feedHealth.suspect) return <AlertTriangle className="h-5 w-5 text-yellow-600" aria-hidden="true" />;
     return <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />;
   };
@@ -662,7 +817,11 @@ function EnhancedFeedCard({
       return <Badge variant="neutral">Disabled</Badge>;
     }
 
-    if (!feedHealth.ok) {
+    if (feedHealth.status === 'pending') {
+      return <Badge variant="neutral">Pending first refresh</Badge>;
+    }
+
+    if (feedHealth.status === 'failed') {
       return (
         <Badge variant="error">
           ✗ Failed ({feedHealth.consecutiveFailures}x)

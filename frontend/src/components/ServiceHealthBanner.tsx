@@ -3,8 +3,12 @@ import { useServiceStatus, getStatusBgColor, getStatusColor } from '../hooks/use
 import { CheckCircle, AlertTriangle, XCircle, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
-export default function ServiceHealthBanner() {
-  const { data: status, isLoading, error } = useServiceStatus();
+interface ServiceHealthBannerProps {
+  hasAdminSession?: boolean;
+}
+
+export default function ServiceHealthBanner({ hasAdminSession = false }: ServiceHealthBannerProps) {
+  const { data: status, isLoading, error } = useServiceStatus(hasAdminSession);
   const [showAllReasons, setShowAllReasons] = useState(false);
 
   if (isLoading) {

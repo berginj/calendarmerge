@@ -29,6 +29,7 @@ import { clsx } from 'clsx';
 import './App.css';
 
 type View = 'dashboard' | 'feeds' | 'insights' | 'changes' | 'settings';
+type FeedUpdate = { feedId: string; updates: { name?: string; url?: string; enabled?: boolean } };
 
 const VIEW_LABELS: Record<View, string> = {
   dashboard: 'Dashboard',
@@ -48,8 +49,34 @@ function toDirectoryUrl(path: string, origin: string): URL {
   return new URL(normalizedPath, origin);
 }
 
+async function runLimited<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      try {
+        results[index] = { status: 'fulfilled', value: await worker(items[index]) };
+      } catch (reason) {
+        results[index] = { status: 'rejected', reason };
+      }
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length);
+  await Promise.all(Array.from({ length: workerCount }, runWorker));
+  return results;
+}
+
 function App() {
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const setupRequested = new URLSearchParams(window.location.search).get('setup') === '1';
+  const [currentView, setCurrentView] = useState<View>(setupRequested ? 'feeds' : 'dashboard');
   const [feeds, setFeeds] = useState<SourceFeedConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +111,8 @@ function App() {
   const manageBase = window.location.href;
   const apiBaseDisplay = apiBase.toString().replace(/\/$/, '');
   const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
+  const mergedCalendarUrl = new URL('calendar.ics', publicBase).toString();
+  const gamesCalendarUrl = new URL('calendar-games.ics', publicBase).toString();
 
   const scrollToMainContent = () => {
     window.setTimeout(() => {
@@ -108,6 +137,10 @@ function App() {
       setError(null);
       const fetchedFeeds = await listFeeds();
       setFeeds(fetchedFeeds);
+      if (setupRequested || fetchedFeeds.length === 0) {
+        setCurrentView('feeds');
+        scrollToMainContent();
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load feeds';
       setError(errorMessage);
@@ -167,7 +200,11 @@ function App() {
         try {
           setLoading(true);
           setError(null);
-          setFeeds(await listFeeds());
+          const fetchedFeeds = await listFeeds();
+          setFeeds(fetchedFeeds);
+          if (setupRequested || fetchedFeeds.length === 0) {
+            setCurrentView('feeds');
+          }
         } finally {
           setLoading(false);
         }
@@ -203,17 +240,17 @@ function App() {
     try {
       setError(null);
 
-      for (const feed of newFeeds) {
-        try {
-          const createdFeed = await createFeed(feed);
-          created.push(createdFeed);
-        } catch (err) {
+      const createResults = await runLimited(newFeeds, 3, createFeed);
+      createResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          created.push(result.value);
+        } else {
           failed.push({
-            feed,
-            error: err instanceof Error ? err.message : 'Failed to create feed',
+            feed: newFeeds[index],
+            error: result.reason instanceof Error ? result.reason.message : 'Failed to create feed',
           });
         }
-      }
+      });
 
       await loadFeeds();
 
@@ -261,6 +298,32 @@ function App() {
     }
   };
 
+  const handleUpdateMany = async (updates: FeedUpdate[]) => {
+    try {
+      setError(null);
+      const results = await runLimited(updates, 3, (item) => updateFeed(item.feedId, item.updates));
+      await loadFeeds();
+
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (failed.length === 0) {
+        const enabled = updates.every((item) => item.updates.enabled === true);
+        const disabled = updates.every((item) => item.updates.enabled === false);
+        toast.success(
+          enabled ? 'Selected feeds enabled' : disabled ? 'Selected feeds disabled' : 'Selected feeds updated',
+          'Changes will take effect on next refresh',
+        );
+      } else {
+        const message = `${updates.length - failed.length} updated; ${failed.length} failed.`;
+        setError(message);
+        toast.warning('Some feed updates failed', message);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update feeds';
+      setError(errorMsg);
+      toast.error('Failed to update feeds', errorMsg);
+    }
+  };
+
   const handleDelete = async (feedId: string) => {
     try {
       setError(null);
@@ -271,6 +334,27 @@ function App() {
       const errorMsg = err instanceof Error ? err.message : 'Failed to delete feed';
       setError(errorMsg);
       toast.error('Failed to delete feed', errorMsg);
+    }
+  };
+
+  const handleDeleteMany = async (feedIds: string[]) => {
+    try {
+      setError(null);
+      const results = await runLimited(feedIds, 3, deleteFeed);
+      await loadFeeds();
+
+      const failed = results.filter((result) => result.status === 'rejected');
+      if (failed.length === 0) {
+        toast.success(`${feedIds.length} feeds disabled for 15 days`);
+      } else {
+        const message = `${feedIds.length - failed.length} disabled; ${failed.length} failed.`;
+        setError(message);
+        toast.warning('Some feeds were not disabled', message);
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to disable feeds';
+      setError(errorMsg);
+      toast.error('Failed to disable feeds', errorMsg);
     }
   };
 
@@ -299,7 +383,7 @@ function App() {
             Skip to main content
           </a>
 
-          <ServiceHealthBanner />
+          <ServiceHealthBanner hasAdminSession={hasAdminSession} />
 
           <header className="app-header">
             <div className="flex items-center justify-between">
@@ -438,7 +522,7 @@ function App() {
           </header>
 
           <main id="main-content" className="app-main" role="main">
-            {currentView === 'dashboard' && <Dashboard />}
+            {currentView === 'dashboard' && <Dashboard hasAdminSession={hasAdminSession} />}
 
             {currentView === 'feeds' && (
               <Feeds
@@ -446,17 +530,22 @@ function App() {
                 loading={loading}
                 error={error}
                 hasAdminSession={hasAdminSession}
+                setupOpen={hasAdminSession && (setupRequested || (!loading && feeds.length === 0))}
+                mergedCalendarUrl={mergedCalendarUrl}
+                gamesCalendarUrl={gamesCalendarUrl}
                 onUpdate={handleUpdate}
+                onUpdateMany={handleUpdateMany}
                 onDelete={handleDelete}
+                onDeleteMany={handleDeleteMany}
                 onCreateMany={handleCreateMany}
                 setError={setError}
                 toast={toast}
               />
             )}
 
-            {currentView === 'insights' && <Insights />}
+            {currentView === 'insights' && <Insights hasAdminSession={hasAdminSession} />}
 
-            {currentView === 'changes' && <Changes />}
+            {currentView === 'changes' && <Changes hasAdminSession={hasAdminSession} />}
 
             {currentView === 'settings' && (
               <Settings

@@ -65,8 +65,13 @@ function renderFeeds(overrides: Partial<ComponentProps<typeof Feeds>> = {}) {
     loading: false,
     error: null,
     hasAdminSession: true,
+    setupOpen: false,
+    mergedCalendarUrl: 'https://example.com/calendar.ics',
+    gamesCalendarUrl: 'https://example.com/calendar-games.ics',
     onUpdate: vi.fn().mockResolvedValue(undefined),
+    onUpdateMany: vi.fn().mockResolvedValue(undefined),
     onDelete: vi.fn().mockResolvedValue(undefined),
+    onDeleteMany: vi.fn().mockResolvedValue(undefined),
     onCreateMany: vi.fn().mockResolvedValue({ created: [], failed: [] }),
     setError: vi.fn(),
     toast: {
@@ -117,6 +122,62 @@ describe('Feeds', () => {
     expect(screen.getByRole('button', { name: /turn on selected/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /turn off selected/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /disable for 15 days/i })).toBeInTheDocument();
+  });
+
+  it('opens the setup panel automatically for first-run setup', async () => {
+    mockStatus({ ...status, sourceStatuses: [] });
+    renderFeeds({ feeds: [], setupOpen: true });
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /add calendar feeds/i })).toBeInTheDocument();
+    });
+    expect(screen.getByText('Setup checklist')).toBeInTheDocument();
+  });
+
+  it('shows pending first refresh when a feed has no health result yet', () => {
+    mockStatus({ ...status, sourceStatuses: [], suspectFeeds: [] });
+    renderFeeds();
+
+    expect(screen.getAllByText('Pending first refresh')).toHaveLength(2);
+    expect(screen.queryByText(/failed \(0x\)/i)).not.toBeInTheDocument();
+  });
+
+  it('uses soft-delete for bulk disable-for-15-days actions', async () => {
+    mockStatus(status);
+    const onUpdateMany = vi.fn().mockResolvedValue(undefined);
+    const onDeleteMany = vi.fn().mockResolvedValue(undefined);
+    const { user } = renderFeeds({ onUpdateMany, onDeleteMany });
+
+    await user.click(screen.getByRole('checkbox', { name: /select all/i }));
+    await user.click(screen.getByRole('button', { name: /disable for 15 days/i }));
+    await user.click(screen.getByRole('button', { name: /^disable$/i }));
+
+    expect(onDeleteMany).toHaveBeenCalledWith(['school', 'sports']);
+    expect(onUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps setup users oriented after adding feeds', async () => {
+    mockStatus(status);
+    const onCreateMany = vi.fn().mockResolvedValue({
+      created: [feeds[0]],
+      failed: [],
+    });
+    const { user } = renderFeeds({ setupOpen: true, onCreateMany });
+
+    await user.type(
+      await screen.findByLabelText(/calendar subscription links/i),
+      'Parker GameChanger | webcal://example.gc.com/team-calendar.ics',
+    );
+    await user.click(screen.getByRole('button', { name: /add 1 calendar/i }));
+
+    expect(await screen.findByText('Calendars added')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /run first refresh/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy merged link/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /add calendar feeds/i })).not.toBeInTheDocument();
+    expect(screen.getByText('How to subscribe')).toBeInTheDocument();
+    expect(screen.getAllByText('Google Calendar').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Apple Calendar')).toBeInTheDocument();
+    expect(screen.getByText('Outlook')).toBeInTheDocument();
   });
 
   it('surfaces refresh request failures with page error state and a toast', async () => {

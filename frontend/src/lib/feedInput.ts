@@ -91,8 +91,8 @@ function cleanUrl(value: string): string {
 function cleanName(value: string): string {
   return value
     .trim()
-    .replace(/^[\s,|:;-]+/, '')
-    .replace(/[\s,|:;-]+$/, '')
+    .replace(/^[<>\s,|:;-]+/, '')
+    .replace(/[<>\s,|:;-]+$/, '')
     .trim();
 }
 
@@ -105,6 +105,9 @@ function inferFeedName(url: string, index: number): string {
     }
     if (host.includes('teamsnap')) {
       return `TeamSnap Calendar ${index}`;
+    }
+    if (host.includes('sportsengine') || host.includes('sportngin')) {
+      return `SportsEngine Calendar ${index}`;
     }
     if (host.includes('teamsideline') || host.includes('tmsdln')) {
       return `TeamSideline Calendar ${index}`;

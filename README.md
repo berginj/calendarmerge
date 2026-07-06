@@ -158,12 +158,12 @@ Navigate to: `https://<storage-account>.z13.web.core.windows.net/manage/`
 
 ### Adding Multiple Calendar Feeds
 
-In `/manage/`, sign in with your admin access code, open **Feeds**, then choose **Add Calendars**.
+In `/manage/`, sign in with your admin access code. If this is the first setup, the **Add Calendars** panel opens automatically; you can also open **Feeds** and choose **Add Calendars**.
 Paste one calendar subscription link per line. The bulk form accepts:
 
 ```text
 Parker GameChanger | webcal://example.gc.com/team-calendar.ics
-Conner TeamSnap, https://example.teamsnap.com/team_schedule.ics
+Conner SportsEngine, https://example.sportsengine.com/team_schedule.ics
 https://calendar.google.com/calendar/ical/example/private-basic/basic.ics
 ```
 
@@ -178,10 +178,19 @@ The UI converts `webcal://` links to `https://` before saving.
 
 Provider link locations:
 
-- **GameChanger:** open the team schedule and use the calendar integration/sync option to copy the webcal or iCal subscription link. Official help: <https://help.gc.com/hc/en-us/articles/115005457626-Integrating-Your-Personal-Calendar>
+- **GameChanger:** in the mobile app, open the team, tap the gear icon, choose the schedule sync/calendar integration option, then copy or send yourself the webcal/iCal subscription link. Official help: <https://help.gc.com/hc/en-us/articles/115005457626-Integrating-Your-Personal-Calendar>
+- **SportsEngine:** in the mobile app, open **Schedules** or the team **Schedule** and tap **Subscribe**. If that only opens Apple/Google Calendar, use the web flow: **Sync Schedule** -> **Other Calendar** -> **Copy**. Official help: <https://help.sportsengine.com/en/articles/8317530-how-to-subscribe-to-a-team-calendar-from-the-mobile-app> and <https://help.sportsengine.com/en/articles/6311504-how-to-sync-your-team-schedule-to-a-calendar-application>
 - **TeamSnap:** open the team schedule and use the calendar export/subscribe option to copy the iCal feed URL. Official help: <https://helpme.teamsnap.com/article/1245-subscribe-to-a-team-schedule>
 - **TeamSideline:** open the organization calendar or division game schedule, click **Subscribe**, then copy the calendar URL. Official help: <https://support.teamsideline.com/hc/en-us/articles/201151987-How-to-add-your-Organization-Site-Calendar-or-a-Division-game-schedule-to-your-Google-Calendar>
 - **Google Calendar:** open calendar settings, select **Integrate calendar**, then copy **Secret address in iCal format**. Official help: <https://support.google.com/calendar/answer/37648>
+
+Setup checklist for non-technical users:
+
+1. Sign in to `/manage/` with the admin access code.
+2. Open each team app on the phone that has access to the team schedule.
+3. Copy, text, or email each calendar subscription link to the device with `/manage/` open.
+4. Paste one link per line into **Add Calendars**.
+5. Add the feeds, run the first refresh, then copy the merged calendar link into the calendar app the family uses.
 
 **Note:** `SOURCE_FEEDS_JSON` is kept as a fallback. If table storage is empty or fails to load, feeds from the environment variable will be used.
 If you want a table-only deployment, leave `SOURCE_FEEDS_JSON` unset and populate the `SourceFeeds` table before the first refresh.

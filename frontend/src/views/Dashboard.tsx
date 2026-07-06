@@ -6,8 +6,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Calendar, Trophy, Rss, Clock, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 
-export default function Dashboard() {
-  const { data: status, isLoading, error, refetch } = useServiceStatus();
+interface DashboardProps {
+  hasAdminSession?: boolean;
+}
+
+export default function Dashboard({ hasAdminSession = false }: DashboardProps) {
+  const { data: status, isLoading, error, refetch } = useServiceStatus(hasAdminSession);
 
   if (isLoading) {
     return (

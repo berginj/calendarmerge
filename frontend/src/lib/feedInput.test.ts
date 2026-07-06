@@ -23,6 +23,7 @@ describe('feed input helpers', () => {
       'https://example.gc.com/team.ics',
       'https://calendar.google.com/calendar/ical/example/basic.ics',
       'https://calendar.teamsideline.com/team.ics',
+      'webcal://ical.sportsengine.com/team.ics',
     ].join('\n'));
 
     expect(result.errors).toEqual([]);
@@ -30,6 +31,21 @@ describe('feed input helpers', () => {
       'GameChanger Calendar 1',
       'Google Calendar 2',
       'TeamSideline Calendar 3',
+      'SportsEngine Calendar 4',
+    ]);
+    expect(result.feeds[3].url).toBe('https://ical.sportsengine.com/team.ics');
+  });
+
+  it('parses mobile-handoff subscription links with surrounding text', () => {
+    const result = parseBulkFeedInput([
+      'GameChanger copied from phone: <webcal://example.gc.com/team-calendar.ics>',
+      'SportsEngine from mobile app - https://ical.sportsengine.com/team/schedule.ics?token=abc123',
+    ].join('\n'));
+
+    expect(result.errors).toEqual([]);
+    expect(result.feeds).toEqual([
+      { name: 'GameChanger copied from phone', url: 'https://example.gc.com/team-calendar.ics' },
+      { name: 'SportsEngine from mobile app', url: 'https://ical.sportsengine.com/team/schedule.ics?token=abc123' },
     ]);
   });
 

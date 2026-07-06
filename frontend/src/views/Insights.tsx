@@ -40,8 +40,12 @@ const typeLabels: Record<InsightType, string> = {
   alert: 'Alert',
 };
 
-export default function Insights() {
-  const { data: status, isLoading } = useServiceStatus();
+interface InsightsProps {
+  hasAdminSession?: boolean;
+}
+
+export default function Insights({ hasAdminSession = false }: InsightsProps) {
+  const { data: status, isLoading } = useServiceStatus(hasAdminSession);
   const [typeFilter, setTypeFilter] = useState<'all' | InsightType>('all');
   const [severityFilter, setSeverityFilter] = useState<'all' | Severity>('all');
   const [feedFilter, setFeedFilter] = useState('all');

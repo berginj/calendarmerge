@@ -124,11 +124,17 @@ async function fetchAdminStatus(publicStatus: ServiceStatus): Promise<ServiceSta
  * Fetches public status and overlays protected admin diagnostics when an admin session exists.
  * Polls every 30 seconds to keep UI updated
  */
-export function useServiceStatus() {
+export function useServiceStatus(includeAdminDiagnostics = false) {
   return useQuery({
-    queryKey: ['serviceStatus'],
+    queryKey: ['serviceStatus', includeAdminDiagnostics ? 'admin' : 'public'],
     queryFn: async (): Promise<ServiceStatus> => {
       const publicStatus = await fetchPublicStatus();
+      if (!includeAdminDiagnostics) {
+        return {
+          ...publicStatus,
+          adminInsightsAvailable: false,
+        };
+      }
       return fetchAdminStatus(publicStatus);
     },
     refetchInterval: 30000, // Refetch every 30 seconds

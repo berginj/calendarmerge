@@ -8,6 +8,7 @@ import { parseBulkFeedInput } from '../lib/feedInput';
 interface ProviderGuide {
   name: string;
   steps: string;
+  mobileHandoff: string;
   linkLabel: string;
   helpUrl: string;
 }
@@ -20,32 +21,43 @@ interface BulkFeedFormProps {
 const PROVIDER_GUIDES: ProviderGuide[] = [
   {
     name: 'GameChanger',
-    steps: 'Open the team schedule, use the calendar integration or sync option, then copy the webcal or iCal subscription URL.',
+    steps: 'In the mobile app, open the team, tap the gear icon, choose Schedule Sync, then use the copy or send-link option.',
+    mobileHandoff: 'If the link only appears on your phone, text or email it to yourself, or copy it on the same device and paste it here.',
     linkLabel: 'GameChanger calendar sync help',
     helpUrl: 'https://help.gc.com/hc/en-us/articles/115005457626-Integrating-Your-Personal-Calendar',
   },
   {
+    name: 'SportsEngine',
+    steps: 'In the mobile app, open Schedules or a team Schedule and tap Subscribe. On the web, use Sync Schedule, choose Other Calendar, then copy the link.',
+    mobileHandoff: 'If SportsEngine opens Apple or Google Calendar instead of showing a URL, use the web Sync Schedule flow to copy the Other Calendar link.',
+    linkLabel: 'SportsEngine calendar help',
+    helpUrl: 'https://help.sportsengine.com/en/articles/6311504-how-to-sync-your-team-schedule-to-a-calendar-application',
+  },
+  {
     name: 'TeamSnap',
     steps: 'Open the team schedule, choose the calendar export or subscribe option, then copy the iCal feed URL.',
+    mobileHandoff: 'Paste the copied link directly here, or send it from your phone to the device where this setup page is open.',
     linkLabel: 'TeamSnap calendar help',
     helpUrl: 'https://helpme.teamsnap.com/article/1245-subscribe-to-a-team-schedule',
   },
   {
     name: 'TeamSideline',
     steps: 'Open the organization calendar or division game schedule, click Subscribe, then copy the calendar URL.',
+    mobileHandoff: 'TeamSideline often works from a browser, so copying from your phone browser or desktop browser should both work.',
     linkLabel: 'TeamSideline calendar help',
     helpUrl: 'https://support.teamsideline.com/hc/en-us/articles/201151987-How-to-add-your-Organization-Site-Calendar-or-a-Division-game-schedule-to-your-Google-Calendar',
   },
   {
     name: 'Google Calendar',
     steps: 'Open calendar settings, select Integrate calendar, then copy the Secret address in iCal format.',
+    mobileHandoff: 'Use the iCal secret address, not the normal share link or browser URL.',
     linkLabel: 'Google iCal address help',
     helpUrl: 'https://support.google.com/calendar/answer/37648',
   },
 ];
 
 const EXAMPLE_INPUT = `Parker GameChanger | webcal://example.gc.com/team-calendar.ics
-Conner TeamSnap, https://example.teamsnap.com/team_schedule.ics
+Conner SportsEngine, https://example.sportsengine.com/team_schedule.ics
 https://calendar.google.com/calendar/ical/example/private-basic/basic.ics`;
 
 export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) {
@@ -113,7 +125,7 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-700" />
           <p className="text-sm text-blue-900">
             Accepted formats: <strong>Name | URL</strong>, <strong>Name, URL</strong>, or just a URL.
-            Webcal links are converted to HTTPS automatically.
+            Webcal links are converted to HTTPS automatically. Links from mobile apps can be pasted here after you copy, text, or email them to yourself.
           </p>
         </div>
       </div>
@@ -139,7 +151,7 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
         {pasteError && <p className="mt-2 text-sm text-red-700">{pasteError}</p>}
       </div>
 
-      <details className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <details open className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <summary className="cursor-pointer text-sm font-semibold text-slate-900">
           Provider help and examples
         </summary>
@@ -148,6 +160,7 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
             <div key={guide.name} className="rounded-lg border border-slate-200 bg-white p-4">
               <h3 className="font-semibold text-slate-900">{guide.name}</h3>
               <p className="mt-1 text-sm text-slate-600">{guide.steps}</p>
+              <p className="mt-2 text-xs text-slate-500">{guide.mobileHandoff}</p>
               <a
                 className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline"
                 href={guide.helpUrl}
@@ -216,6 +229,17 @@ export default function BulkFeedForm({ onSubmit, onCancel }: BulkFeedFormProps) 
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {result && result.created.length > 0 && result.failed.length === 0 && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+          <h3 className="text-sm font-semibold text-green-900">
+            Added {result.created.length} calendar{result.created.length === 1 ? '' : 's'}
+          </h3>
+          <p className="mt-1 text-sm text-green-800">
+            Next, run the first refresh and copy the merged calendar link.
+          </p>
         </div>
       )}
 

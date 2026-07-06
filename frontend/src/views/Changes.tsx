@@ -6,8 +6,12 @@ import AdminGate from '../components/AdminGate';
 import { Calendar, Copy, Bell, Loader2, CheckCircle, Clock, MapPin, ArrowRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
-export default function Changes() {
-  const { data: status, isLoading } = useServiceStatus();
+interface ChangesProps {
+  hasAdminSession?: boolean;
+}
+
+export default function Changes({ hasAdminSession = false }: ChangesProps) {
+  const { data: status, isLoading } = useServiceStatus(hasAdminSession);
 
   if (isLoading || !status) {
     return (

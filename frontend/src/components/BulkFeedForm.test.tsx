@@ -12,13 +12,15 @@ describe('BulkFeedForm', () => {
     render(<BulkFeedForm onSubmit={onSubmit} onCancel={vi.fn()} />);
 
     expect(screen.getByText('GameChanger')).toBeInTheDocument();
+    expect(screen.getByText('SportsEngine')).toBeVisible();
     expect(screen.getByText('TeamSnap')).toBeInTheDocument();
     expect(screen.getByText('TeamSideline')).toBeInTheDocument();
     expect(screen.getByText('Google Calendar')).toBeInTheDocument();
+    expect(screen.getByText(/text or email it to yourself/i)).toBeInTheDocument();
 
     await user.type(
       screen.getByLabelText('Calendar subscription links'),
-      'Parker | https://example.gc.com/team.ics\nConner, webcal://example.teamsnap.com/team.ics',
+      'Parker | https://example.gc.com/team.ics\nConner, webcal://example.sportsengine.com/team.ics',
     );
 
     expect(screen.getByText('Ready to add (2)')).toBeInTheDocument();
@@ -29,7 +31,7 @@ describe('BulkFeedForm', () => {
 
     expect(onSubmit).toHaveBeenCalledWith([
       { name: 'Parker', url: 'https://example.gc.com/team.ics' },
-      { name: 'Conner', url: 'https://example.teamsnap.com/team.ics' },
+      { name: 'Conner', url: 'https://example.sportsengine.com/team.ics' },
     ]);
   });
 
