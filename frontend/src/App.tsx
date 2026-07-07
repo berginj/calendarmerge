@@ -113,6 +113,8 @@ function App() {
   const publicBaseDisplay = publicBase.toString().replace(/\/$/, '');
   const mergedCalendarUrl = new URL('calendar.ics', publicBase).toString();
   const gamesCalendarUrl = new URL('calendar-games.ics', publicBase).toString();
+  const publicCalendarUrl = new URL('index.html', publicBase).toString();
+  const gamesSubscribeUrl = new URL('games', publicBase).toString();
 
   const scrollToMainContent = () => {
     window.setTimeout(() => {
@@ -415,7 +417,7 @@ function App() {
             </div>
 
             {/* Desktop navigation */}
-            <nav className="app-nav hidden md:flex">
+            <nav className="app-nav">
               <button
                 className={clsx('nav-button', currentView === 'dashboard' && 'active')}
                 onClick={() => handleViewChange('dashboard')}
@@ -533,6 +535,8 @@ function App() {
                 setupOpen={hasAdminSession && (setupRequested || (!loading && feeds.length === 0))}
                 mergedCalendarUrl={mergedCalendarUrl}
                 gamesCalendarUrl={gamesCalendarUrl}
+                publicCalendarUrl={publicCalendarUrl}
+                gamesSubscribeUrl={gamesSubscribeUrl}
                 onUpdate={handleUpdate}
                 onUpdateMany={handleUpdateMany}
                 onDelete={handleDelete}

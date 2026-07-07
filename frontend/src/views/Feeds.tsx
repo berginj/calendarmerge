@@ -30,6 +30,8 @@ interface EnhancedFeedsProps {
   setupOpen?: boolean;
   mergedCalendarUrl: string;
   gamesCalendarUrl: string;
+  publicCalendarUrl: string;
+  gamesSubscribeUrl: string;
   onUpdate: (feedId: string, updates: { name?: string; url?: string; enabled?: boolean }) => Promise<void>;
   onUpdateMany: (updates: Array<{ feedId: string; updates: { name?: string; url?: string; enabled?: boolean } }>) => Promise<void>;
   onDelete: (feedId: string) => Promise<void>;
@@ -67,6 +69,8 @@ export default function Feeds({
   setupOpen = false,
   mergedCalendarUrl,
   gamesCalendarUrl,
+  publicCalendarUrl,
+  gamesSubscribeUrl,
   onUpdate,
   onUpdateMany,
   onDelete,
@@ -289,43 +293,59 @@ export default function Feeds({
   const failedCount = status?.sourceStatuses?.filter(f => activeFeedIds.has(f.id) && f.attemptedAt && !f.ok).length ?? 0;
   const disabledCount = feeds.filter(f => f.enabled === false).length;
   const activeCount = feeds.length - disabledCount;
+  const focusedSetup = setupOpen && feeds.length === 0 && !setupCompleted;
+
+  if (!hasAdminSession) {
+    return (
+      <div className="space-y-6">
+        <SignedOutSetupLanding
+          sourceFeedCount={status?.sourceFeedCount}
+          mergedEventCount={status?.mergedEventCount}
+          gamesEventCount={status?.gamesOnlyMergedEventCount}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <Card className="border border-primary-100 bg-gradient-to-br from-white to-primary-50/70 shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">
-                Feed Management
-              </p>
-              <h2 className="mt-1 text-2xl font-bold text-slate-950">Calendar feeds</h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
-                {hasAdminSession
-                  ? `Review ${feeds.length} configured calendar feeds. ${activeCount} active and ${disabledCount} disabled.`
-                  : 'Sign in above to load feed URLs and manage calendar sources.'}
-              </p>
-            </div>
+      {focusedSetup ? (
+        <SetupFocusHero />
+      ) : (
+        <Card className="border border-primary-100 bg-gradient-to-br from-white to-primary-50/70 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">
+                  Feed Management
+                </p>
+                <h2 className="mt-1 text-2xl font-bold text-slate-950">Calendar feeds</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                  Review {feeds.length} configured calendar feeds. {activeCount} active and {disabledCount} disabled.
+                </p>
+              </div>
 
-            <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/75 p-2 text-center shadow-inner">
-              <div className="rounded-lg px-4 py-3">
-                <p className="text-2xl font-bold text-slate-950">{feeds.length}</p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
-              </div>
-              <div className="rounded-lg px-4 py-3">
-                <p className="text-2xl font-bold text-emerald-700">{activeCount}</p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Active</p>
-              </div>
-              <div className="rounded-lg px-4 py-3">
-                <p className="text-2xl font-bold text-slate-600">{disabledCount}</p>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Disabled</p>
+              <div className="grid grid-cols-3 gap-2 rounded-xl bg-white/75 p-2 text-center shadow-inner">
+                <div className="rounded-lg px-4 py-3">
+                  <p className="text-2xl font-bold text-slate-950">{feeds.length}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
+                </div>
+                <div className="rounded-lg px-4 py-3">
+                  <p className="text-2xl font-bold text-emerald-700">{activeCount}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Active</p>
+                </div>
+                <div className="rounded-lg px-4 py-3">
+                  <p className="text-2xl font-bold text-slate-600">{disabledCount}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Disabled</p>
+                </div>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Toolbar */}
+      {!focusedSetup && (
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 w-full sm:max-w-md">
           <div className="relative">
@@ -362,6 +382,7 @@ export default function Feeds({
           </Button>
         </div>
       </div>
+      )}
 
       {/* Bulk selection and actions */}
       {filteredFeeds.length > 0 && hasAdminSession && (
@@ -396,6 +417,7 @@ export default function Feeds({
       )}
 
       {/* Filter chips */}
+      {!focusedSetup && (
       <div className="flex flex-wrap gap-2">
         <FilterChip
           active={filter === 'all'}
@@ -438,6 +460,7 @@ export default function Feeds({
           />
         )}
       </div>
+      )}
 
       {/* Error message */}
       {error && (
@@ -490,20 +513,33 @@ export default function Feeds({
                 </Button>
               </div>
             </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 border-t border-green-200 pt-4 sm:grid-cols-2">
+              <a
+                href={publicCalendarUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 bg-white/80 px-3 py-2 text-sm font-medium text-green-950 hover:bg-white"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Public Calendar
+              </a>
+              <a
+                href={gamesSubscribeUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-green-200 bg-white/80 px-3 py-2 text-sm font-medium text-green-950 hover:bg-white"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open Games Subscribe Page
+              </a>
+            </div>
             <SubscriptionInstructions />
           </CardContent>
         </Card>
       )}
 
       {/* Feed list */}
-      {!hasAdminSession ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-slate-600">An admin session is required to load feed URLs.</p>
-            <p className="text-slate-600 mt-2">Sign in above to manage feeds.</p>
-          </CardContent>
-        </Card>
-      ) : loading ? (
+      {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
             <Card key={i}>
@@ -647,13 +683,132 @@ function FilterChip({
   );
 }
 
+function SignedOutSetupLanding({
+  sourceFeedCount,
+  mergedEventCount,
+  gamesEventCount,
+}: {
+  sourceFeedCount?: number;
+  mergedEventCount?: number;
+  gamesEventCount?: number;
+}) {
+  const checklist = [
+    'Sign in with the admin access code',
+    'Get subscription links from team and calendar apps',
+    'Paste links into Add Calendars',
+    'Add feeds and run the first refresh',
+    'Copy the merged calendar link',
+    'Subscribe in Apple Calendar, Google Calendar, or Outlook',
+  ];
+
+  const providers = ['GameChanger', 'SportsEngine', 'TeamSnap', 'TeamSideline', 'Google Calendar'];
+  const hasPublishedCounts = typeof sourceFeedCount === 'number' || typeof mergedEventCount === 'number';
+
+  return (
+    <>
+      <Card className="border border-primary-100 bg-gradient-to-br from-white to-primary-50/70 shadow-sm">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.6fr)]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">Setup</p>
+              <h2 className="mt-1 text-2xl font-bold text-slate-950">Build one family calendar</h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+                Sign in to add team, school, and personal calendar subscription links. CalendarMerge keeps the
+                published family calendars updated after setup.
+              </p>
+              <p className="mt-4 rounded-lg border border-primary-100 bg-white/80 p-3 text-sm font-medium text-slate-800">
+                Sign in above to view existing feeds and continue setup. Feed URLs stay hidden until you are authenticated.
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-white/80 p-4 shadow-inner">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Current published calendar</p>
+              {hasPublishedCounts ? (
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-2xl font-bold text-slate-950">{sourceFeedCount ?? '-'}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Feeds</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-primary-700">{mergedEventCount ?? '-'}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Events</p>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-emerald-700">{gamesEventCount ?? '-'}</p>
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Games</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-slate-600">Status will appear here when the public calendar is available.</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-blue-200 bg-blue-50">
+        <CardContent className="p-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.7fr)]">
+            <div>
+              <h3 className="font-semibold text-blue-950">Setup checklist</h3>
+              <p className="mt-1 text-sm text-blue-900">
+                You can collect links on a phone, then paste them here after signing in.
+              </p>
+              <ol className="mt-4 grid grid-cols-1 gap-2 text-sm text-blue-950 sm:grid-cols-2">
+                {checklist.map((step, index) => (
+                  <li key={step} className="rounded-lg bg-white/80 px-3 py-2">
+                    <span className="mr-1 font-semibold text-blue-700">{index + 1}.</span>{' '}
+                    {step}
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="rounded-lg border border-blue-200 bg-white/80 p-4">
+              <h4 className="text-sm font-semibold text-blue-950">Calendar links commonly come from</h4>
+              <ul className="mt-3 space-y-2 text-sm text-blue-900">
+                {providers.map((provider) => (
+                  <li key={provider} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 flex-shrink-0 text-blue-700" />
+                    {provider}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm text-blue-900">
+                GameChanger and SportsEngine often expose subscription links inside their mobile experience. Text or
+                email the link to yourself, or open this setup page on the same phone.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
+
+function SetupFocusHero() {
+  return (
+    <Card className="border border-primary-100 bg-gradient-to-br from-white to-primary-50/70 shadow-sm">
+      <CardContent className="p-6">
+        <p className="text-sm font-semibold uppercase tracking-wide text-primary-700">First setup</p>
+        <h2 className="mt-1 text-2xl font-bold text-slate-950">Add your calendar links</h2>
+        <p className="mt-2 max-w-2xl text-sm text-slate-600">
+          Paste the subscription links from your team, school, and personal calendars below. After saving them,
+          run the first refresh and copy the merged family calendar link.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SetupChecklist({ completed }: { completed: boolean }) {
   const steps = [
     'Sign in',
     'Get subscription links',
     'Paste links',
     'Add feeds',
-    'Refresh',
+    'Run first refresh',
+    'Copy merged calendar link',
     'Subscribe to merged calendar',
   ];
 
@@ -667,11 +822,11 @@ function SetupChecklist({ completed }: { completed: boolean }) {
               Collect the calendar subscription links from each team app, paste them here, then subscribe to the merged family calendar.
             </p>
           </div>
-          <ol className="grid grid-cols-2 gap-2 text-xs font-medium text-blue-950 sm:grid-cols-3 lg:grid-cols-6">
+          <ol className="grid grid-cols-2 gap-2 text-xs font-medium text-blue-950 sm:grid-cols-3 lg:grid-cols-7">
             {steps.map((step, index) => (
               <li key={step} className="rounded-lg bg-white/80 px-3 py-2">
-                <span className="mr-1 text-blue-700">{index + 1}.</span>
-                {step}
+            <span className="mr-1 text-blue-700">{index + 1}.</span>{' '}
+            {step}
               </li>
             ))}
           </ol>

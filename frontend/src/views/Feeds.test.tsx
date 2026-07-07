@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -68,6 +68,8 @@ function renderFeeds(overrides: Partial<ComponentProps<typeof Feeds>> = {}) {
     setupOpen: false,
     mergedCalendarUrl: 'https://example.com/calendar.ics',
     gamesCalendarUrl: 'https://example.com/calendar-games.ics',
+    publicCalendarUrl: 'https://example.com/index.html',
+    gamesSubscribeUrl: 'https://example.com/games',
     onUpdate: vi.fn().mockResolvedValue(undefined),
     onUpdateMany: vi.fn().mockResolvedValue(undefined),
     onDelete: vi.fn().mockResolvedValue(undefined),
@@ -134,6 +136,26 @@ describe('Feeds', () => {
     expect(screen.getByText('Setup checklist')).toBeInTheDocument();
   });
 
+  it('shows a setup landing instead of disabled feed tools before sign-in', () => {
+    mockStatus(status);
+    renderFeeds({ hasAdminSession: false, feeds: [] });
+
+    expect(screen.getByRole('heading', { name: /build one family calendar/i })).toBeInTheDocument();
+    expect(screen.getByText(/sign in above to view existing feeds and continue setup/i)).toBeInTheDocument();
+    expect(screen.getByText('GameChanger')).toBeInTheDocument();
+    expect(screen.getByText('SportsEngine')).toBeInTheDocument();
+    expect(screen.getByText(/text or email the link to yourself/i)).toBeInTheDocument();
+    const publishedCard = screen.getByText('Current published calendar').closest('div');
+    expect(publishedCard).not.toBeNull();
+    expect(within(publishedCard as HTMLElement).getByText('2')).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByText('12')).toBeInTheDocument();
+    expect(within(publishedCard as HTMLElement).getByText('4')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /refresh now/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add calendars/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search feeds/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/an admin session is required to load feed urls/i)).not.toBeInTheDocument();
+  });
+
   it('shows pending first refresh when a feed has no health result yet', () => {
     mockStatus({ ...status, sourceStatuses: [], suspectFeeds: [] });
     renderFeeds();
@@ -173,6 +195,8 @@ describe('Feeds', () => {
     expect(await screen.findByText('Calendars added')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /run first refresh/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /copy merged link/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /open public calendar/i })).toHaveAttribute('href', 'https://example.com/index.html');
+    expect(screen.getByRole('link', { name: /open games subscribe page/i })).toHaveAttribute('href', 'https://example.com/games');
     expect(screen.queryByRole('heading', { name: /add calendar feeds/i })).not.toBeInTheDocument();
     expect(screen.getByText('How to subscribe')).toBeInTheDocument();
     expect(screen.getAllByText('Google Calendar').length).toBeGreaterThanOrEqual(1);

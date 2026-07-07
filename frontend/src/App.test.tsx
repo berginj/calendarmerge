@@ -145,6 +145,26 @@ describe('App setup flow', () => {
     expect(screen.getByText(/get subscription links/i)).toBeInTheDocument();
   });
 
+  it('uses a setup landing on the setup URL before sign-in', async () => {
+    window.history.pushState({}, '', '/manage/?setup=1');
+    apiMock.onSessionExpired.mockReturnValue(vi.fn());
+    apiMock.getAdminSession.mockResolvedValue({ authenticated: false, configured: true });
+    statusMock.status = {
+      ...statusMock.status,
+      sourceFeedCount: 3,
+      mergedEventCount: 123,
+      gamesOnlyMergedEventCount: 50,
+    };
+
+    renderWithClient(<App />);
+
+    expect(await screen.findByRole('heading', { name: /build one family calendar/i })).toBeInTheDocument();
+    expect(screen.getByText(/sign in above to view existing feeds and continue setup/i)).toBeInTheDocument();
+    expect(screen.getByText('GameChanger')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add calendars/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/search feeds/i)).not.toBeInTheDocument();
+  });
+
   it('reloads feeds once after a bulk enable or disable action', async () => {
     const user = userEvent.setup();
     window.history.pushState({}, '', '/manage/?setup=1');

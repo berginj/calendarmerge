@@ -55,11 +55,17 @@ body {
 }
 
 .app-nav {
-  display: flex;
+  display: none;
   gap: 0.5rem;
   margin-top: 1rem;
   justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+  .app-nav {
+    display: flex;
+  }
 }
 
 .admin-key-panel {
